@@ -191,13 +191,13 @@ This research manuscript package is 100% self-contained and pre-configured for *
 
         # 2. Check for TeXLive pdflatex / xelatex fallback
         for tex_engine in ["pdflatex", "xelatex"]:
-            engine_cmd = shutil.which(tex_engine)
+            engine_cmd = shutil.which(tex_engine) or (f"/usr/bin/{tex_engine}" if os.path.exists(f"/usr/bin/{tex_engine}") else None)
             if engine_cmd:
                 try:
                     work_dir_res = self.work_dir.resolve()
-                    # Run twice for bibliography references
+                    # Run twice for bibliography cross-references
                     subprocess.run(
-                        [engine_cmd, "-interaction=nonstopmode", "main.tex"],
+                        [engine_cmd, "-interaction=nonstopmode", "-output-directory", str(work_dir_res), "main.tex"],
                         cwd=str(work_dir_res),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -205,7 +205,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
                         timeout=45,
                     )
                     subprocess.run(
-                        [engine_cmd, "-interaction=nonstopmode", "main.tex"],
+                        [engine_cmd, "-interaction=nonstopmode", "-output-directory", str(work_dir_res), "main.tex"],
                         cwd=str(work_dir_res),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
