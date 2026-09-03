@@ -43,3 +43,30 @@ def test_deep_journal_assembler_structure(tmp_path):
     assert "Proposition" in latex_text
     assert "fig1_system_architecture" in latex_text
     assert "fig5_sensitivity_heatmap" in latex_text
+
+
+def test_latex_formatting_and_string_sanitation(tmp_path):
+    import re
+    trainer = RealPyTorchTrainer(
+        topic="Physics-Informed Surrogates for Compressible Aerodynamics",
+        num_seeds=2,
+        num_epochs=2,
+        experiments_dir=str(tmp_path / "experiments"),
+    )
+    pkg = trainer.run_full_benchmark()
+    metrics_dict = asdict(pkg)
+
+    papers = [
+        PaperMetadata(doi="10.1145/3209978.3210006", title="PDE Surrogates", authors=["Smith, A."], year=2021, venue="JCP"),
+    ]
+    dataset = DatasetFinder.discover("Physics-Informed Surrogates", "physics_surrogate")
+
+    assembler = DeepJournalAssembler(metrics_dict, papers, dataset=dataset)
+    latex_text = assembler.generate_journal_latex()
+
+    # Strict formatting assertions
+    assert not re.search(r"\(\s*\)", latex_text), "Found empty parentheses () in LaTeX"
+    assert not re.search(r"\[95\% CI:\s*,\s*\]", latex_text), "Malformed confidence interval"
+    assert not re.search(r"\\textbf\{\s*\%", latex_text), "Missing number before %"
+    assert "Ham-QNO" in latex_text
+    assert "Fidelity Index" in latex_text

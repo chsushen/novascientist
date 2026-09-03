@@ -398,6 +398,18 @@ Each 64-byte aligned tensor block maps bijectively into a single L1 cache line w
         arch = self.hw.get("architecture", "arm64")
         total_ram = self.hw.get("total_ram_gb", 16.0)
 
+        # Strict validation of numerical values and telemetry interpolation
+        assert p_acc > 0.0 and p_acc <= 100.0, f"Invalid p_acc: {p_acc}"
+        assert d_acc > 0.0 and d_acc <= 100.0, f"Invalid d_acc: {d_acc}"
+        assert p_mem > 0.0, f"Invalid p_mem: {p_mem}"
+        assert d_mem > 0.0, f"Invalid d_mem: {d_mem}"
+        assert mem_reduction >= 0.0 and mem_reduction <= 100.0, f"Invalid mem_reduction: {mem_reduction}"
+        assert speedup >= 1.0, f"Invalid speedup: {speedup}"
+        assert pooled_es is not None, "Invalid pooled_es"
+        assert ci_lo is not None and ci_hi is not None, "Invalid confidence interval"
+        assert z_stat is not None, "Invalid z_stat"
+        assert i_sq is not None, "Invalid i_sq"
+
         if self.domain == ComputationalDomain.VISION:
             domain_arch_term = "multi-view federated vision transformers"
             domain_task_term = "decentralized volumetric image segmentation and radiographic analysis"

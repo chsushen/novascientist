@@ -71,10 +71,10 @@ class ScientificFigureSuite:
 
     def generate_fig1_system_architecture(self) -> Dict[str, str]:
         """Fig 1: System Dataflow and Dynamic Quantization Tile Architecture."""
-        fig, ax = plt.subplots(figsize=(7.2, 2.8), dpi=300)
+        fig, ax = plt.subplots(figsize=(7.6, 2.9), dpi=300)
         ax.axis("off")
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 4)
+        ax.set_xlim(0, 10.4)
+        ax.set_ylim(0, 4.0)
 
         # Style palette
         c_blue = "#2563EB"
@@ -103,37 +103,37 @@ class ScientificFigureSuite:
             input_title = "Input Sensor Stream\n& Graph Adjacency"
             input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times D}$" + "\n" + r"$\mathbf{A} \in \mathbb{R}^{N \times N}$"
 
-        box1 = patches.FancyBboxPatch((0.4, 1.0), 1.8, 2.0, boxstyle="round,pad=0.1", fc="#EFF6FF", ec=c_blue, lw=1.5)
+        box1 = patches.FancyBboxPatch((0.25, 0.8), 2.0, 2.4, boxstyle="round,pad=0.1", fc="#EFF6FF", ec=c_blue, lw=1.5)
         ax.add_patch(box1)
-        ax.text(1.3, 2.3, input_title, ha="center", va="center", fontsize=8.2, weight="bold", color="#1E3A8A")
-        ax.text(1.3, 1.4, input_math, ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(1.25, 2.35, input_title, ha="center", va="center", fontsize=8.2, weight="bold", color="#1E3A8A")
+        ax.text(1.25, 1.45, input_math, ha="center", va="center", fontsize=8, color=c_slate)
 
         # Arrow 1 -> 2
-        ax.annotate("", xy=(2.6, 2.0), xytext=(2.2, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
+        ax.annotate("", xy=(2.75, 2.0), xytext=(2.35, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
 
         # Block 2: Dynamic Block-Floating Quantization
-        box2 = patches.FancyBboxPatch((2.7, 0.8), 2.2, 2.4, boxstyle="round,pad=0.1", fc="#EEF2FF", ec=c_indigo, lw=1.5)
+        box2 = patches.FancyBboxPatch((2.85, 0.8), 2.15, 2.4, boxstyle="round,pad=0.1", fc="#EEF2FF", ec=c_indigo, lw=1.5)
         ax.add_patch(box2)
-        ax.text(3.8, 2.4, f"{self.model_acronym}\nDynamic Quantizer", ha="center", va="center", fontsize=8.5, weight="bold", color="#312E81")
-        ax.text(3.8, 1.5, r"$\Delta = \frac{\max(|\mathbf{W}|)}{2^{b-1}-1}$" + "\n" + r"$\mathbf{W}_q = \lfloor \mathbf{W}/\Delta \rceil \Delta$", ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(3.92, 2.35, f"{self.model_acronym}\nDynamic Quantizer", ha="center", va="center", fontsize=8.5, weight="bold", color="#312E81")
+        ax.text(3.92, 1.45, r"$\Delta = \frac{\max(|\mathbf{W}|)}{2^{b-1}-1}$" + "\n" + r"$\mathbf{W}_q = \lfloor \mathbf{W}/\Delta \rceil \Delta$", ha="center", va="center", fontsize=8, color=c_slate)
 
         # Arrow 2 -> 3
-        ax.annotate("", xy=(5.3, 2.0), xytext=(4.9, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
+        ax.annotate("", xy=(5.45, 2.0), xytext=(5.1, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
 
         # Block 3: Stochastic L1/L2 Cache Tile Caching
-        box3 = patches.FancyBboxPatch((5.4, 0.8), 2.1, 2.4, boxstyle="round,pad=0.1", fc="#F5F3FF", ec=c_purple, lw=1.5)
+        box3 = patches.FancyBboxPatch((5.55, 0.8), 2.15, 2.4, boxstyle="round,pad=0.1", fc="#F5F3FF", ec=c_purple, lw=1.5)
         ax.add_patch(box3)
-        ax.text(6.45, 2.4, "Stochastic Tile Caching\n(64-Byte Cache Lines)", ha="center", va="center", fontsize=8.5, weight="bold", color="#4C1D95")
-        ax.text(6.45, 1.5, "Contiguous Block\nSIMD Register Mapping\nZero Cache Thrashing", ha="center", va="center", fontsize=7.5, color=c_slate)
+        ax.text(6.62, 2.35, "Stochastic Tile Caching\n(64-Byte Cache Lines)", ha="center", va="center", fontsize=8.3, weight="bold", color="#4C1D95")
+        ax.text(6.62, 1.45, "Contiguous Block\nSIMD Register Mapping\nZero Cache Thrashing", ha="center", va="center", fontsize=7.5, color=c_slate)
 
         # Arrow 3 -> 4
-        ax.annotate("", xy=(7.9, 2.0), xytext=(7.5, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
+        ax.annotate("", xy=(8.15, 2.0), xytext=(7.8, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
 
         # Block 4: Output Embeddings
-        box4 = patches.FancyBboxPatch((8.0, 1.0), 1.6, 2.0, boxstyle="round,pad=0.1", fc="#ECFDF5", ec=c_emerald, lw=1.5)
+        box4 = patches.FancyBboxPatch((8.25, 0.8), 1.9, 2.4, boxstyle="round,pad=0.1", fc="#ECFDF5", ec=c_emerald, lw=1.5)
         ax.add_patch(box4)
-        ax.text(8.8, 2.3, "Variance-Stabilized\nOutput Operator", ha="center", va="center", fontsize=8.5, weight="bold", color="#065F46")
-        ax.text(8.8, 1.4, r"$\hat{\mathbf{Y}} \in \mathbb{R}^{N \times K}$" + f"\n({self.model_acronym})", ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(9.20, 2.35, "Variance-Stabilized\nOutput Operator", ha="center", va="center", fontsize=8.3, weight="bold", color="#065F46")
+        ax.text(9.20, 1.45, r"$\hat{\mathbf{Y}} \in \mathbb{R}^{N \times K}$" + f"\n({self.model_acronym})", ha="center", va="center", fontsize=8, color=c_slate)
 
         return self._save_fig(fig, "fig1_system_architecture")
 
