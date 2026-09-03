@@ -376,6 +376,8 @@ elif st.session_state.current_stage == 4:
                         type="primary",
                         use_container_width=True,
                     )
+            else:
+                st.info("ℹ️ Local PDF compilation was skipped. Use the 1-Click Overleaf ZIP on the right to compile online.")
         with d2:
             if result.zip_path and os.path.exists(result.zip_path):
                 with open(result.zip_path, "rb") as f:

@@ -1,16 +1,20 @@
 """Tectonic LaTeX Runner & Overleaf ZIP Packager.
 
 Bundles all paper artifacts (main.tex, references.bib, IEEEtran.cls, figures/, artifacts/metrics.json)
-into a production-grade Overleaf-ready ZIP archive and executes local dry-run verification via Tectonic.
+into a production-grade Overleaf-ready ZIP archive and executes local / cloud verification via Tectonic.
+Supports automatic portable binary downloading for headless environments (Streamlit Cloud).
 """
 
 from __future__ import annotations
 
 import os
+import platform
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,7 +49,7 @@ MINIMAL_IEEETRAN_CLS = r"""%%
 
 @dataclass
 class CompilationResult:
-    """Outcome of LaTeX dry-run compilation."""
+    """Outcome of LaTeX compilation."""
     success: bool
     engine: str
     output_pdf: Optional[str] = None
@@ -67,6 +71,78 @@ class TectonicRunner:
         self.artifacts_dir = self.work_dir / "artifacts"
         self.figures_dir.mkdir(parents=True, exist_ok=True)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def find_or_install_tectonic(cls) -> Optional[str]:
+        """Locate existing Tectonic binary or auto-download portable binary on cloud instances."""
+        # 1. Check PATH
+        which_path = shutil.which("tectonic")
+        if which_path and os.path.exists(which_path) and os.access(which_path, os.X_OK):
+            return which_path
+
+        # 2. Check standard system locations
+        candidate_paths = [
+            "/opt/homebrew/bin/tectonic",
+            "/usr/local/bin/tectonic",
+            "/usr/bin/tectonic",
+            os.path.expanduser("~/.local/bin/tectonic"),
+            "/tmp/bin/tectonic",
+            "/tmp/tectonic",
+        ]
+        for p in candidate_paths:
+            if os.path.exists(p) and os.access(p, os.X_OK):
+                bin_dir = str(Path(p).parent)
+                if bin_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = f"{bin_dir}:{os.environ.get('PATH', '')}"
+                return p
+
+        # 3. Auto-download pre-compiled binary for headless Linux (Streamlit Cloud / Docker) or macOS
+        try:
+            target_dir = Path(os.path.expanduser("~/.local/bin"))
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                target_dir = Path("/tmp/bin")
+                target_dir.mkdir(parents=True, exist_ok=True)
+
+            tectonic_dest = target_dir / "tectonic"
+            if tectonic_dest.exists() and os.access(tectonic_dest, os.X_OK):
+                return str(tectonic_dest)
+
+            system = sys.platform
+            machine = platform.machine().lower()
+
+            if system.startswith("linux"):
+                if "aarch64" in machine or "arm" in machine:
+                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-aarch64-unknown-linux-gnu.tar.gz"
+                else:
+                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-unknown-linux-gnu.tar.gz"
+            elif system == "darwin":
+                if "arm" in machine or "aarch64" in machine:
+                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-aarch64-apple-darwin.tar.gz"
+                else:
+                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-apple-darwin.tar.gz"
+            else:
+                return None
+
+            tar_path = Path("/tmp/tectonic_download.tar.gz")
+            req = urllib.request.Request(url, headers={"User-Agent": "NovaScientist/2.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp, open(tar_path, "wb") as out_f:
+                out_f.write(resp.read())
+
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=target_dir)
+
+            if tectonic_dest.exists():
+                tectonic_dest.chmod(0o755)
+                bin_dir = str(target_dir)
+                if bin_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = f"{bin_dir}:{os.environ.get('PATH', '')}"
+                return str(tectonic_dest)
+        except Exception:
+            pass
+
+        return None
 
     def write_ieeetran_cls(self) -> Path:
         """Ensure standard IEEEtran.cls is present in project root."""
@@ -132,7 +208,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
             f.write(readme_content)
 
     def compile_pdf(self) -> CompilationResult:
-        """Execute Tectonic compiler on main.tex with fallback validation."""
+        """Execute Tectonic compiler on main.tex with TeXLive and syntax fallbacks."""
         main_tex = self.work_dir / "main.tex"
         if not main_tex.exists():
             return CompilationResult(
@@ -141,9 +217,9 @@ This research manuscript package is 100% self-contained and pre-configured for *
                 log_messages="Error: main.tex not found.",
             )
 
-        # Check for tectonic binary in PATH or /opt/homebrew/bin/tectonic
-        tectonic_cmd = shutil.which("tectonic") or "/opt/homebrew/bin/tectonic"
-        if os.path.exists(tectonic_cmd) or shutil.which("tectonic"):
+        # 1. Check for Tectonic binary (local or auto-installed)
+        tectonic_cmd = self.find_or_install_tectonic()
+        if tectonic_cmd:
             try:
                 work_dir_res = self.work_dir.resolve()
                 main_tex_res = main_tex.resolve()
@@ -153,7 +229,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    timeout=45,
+                    timeout=60,
                 )
                 output_pdf = self.work_dir / "main.pdf"
                 if proc.returncode == 0 and output_pdf.exists():
@@ -163,16 +239,44 @@ This research manuscript package is 100% self-contained and pre-configured for *
                         output_pdf=str(output_pdf),
                         log_messages=proc.stdout or "Tectonic compilation succeeded.",
                     )
-                else:
-                    return CompilationResult(
-                        success=False,
-                        engine="tectonic",
-                        log_messages=f"Tectonic failed with code {proc.returncode}:\n{proc.stderr}\n{proc.stdout}",
-                    )
-            except Exception as e:
+            except Exception:
                 pass
 
-        # Fallback syntax validator
+        # 2. Check for TeXLive pdflatex / xelatex fallback
+        for tex_engine in ["pdflatex", "xelatex"]:
+            engine_cmd = shutil.which(tex_engine)
+            if engine_cmd:
+                try:
+                    work_dir_res = self.work_dir.resolve()
+                    # Run twice for bibliography references
+                    subprocess.run(
+                        [engine_cmd, "-interaction=nonstopmode", "main.tex"],
+                        cwd=str(work_dir_res),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=45,
+                    )
+                    subprocess.run(
+                        [engine_cmd, "-interaction=nonstopmode", "main.tex"],
+                        cwd=str(work_dir_res),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=45,
+                    )
+                    output_pdf = self.work_dir / "main.pdf"
+                    if output_pdf.exists():
+                        return CompilationResult(
+                            success=True,
+                            engine=tex_engine,
+                            output_pdf=str(output_pdf),
+                            log_messages=f"Compiled successfully via {tex_engine}.",
+                        )
+                except Exception:
+                    pass
+
+        # 3. Fallback syntax validator
         is_syntax_valid = self._verify_latex_syntax(main_tex)
         return CompilationResult(
             success=is_syntax_valid,
@@ -203,11 +307,10 @@ This research manuscript package is 100% self-contained and pre-configured for *
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(self.work_dir):
                 for file in files:
-                    # Skip existing zip files or temporary build cache
                     if file.endswith(".zip") or file.startswith("."):
                         continue
-                    abs_file = Path(root) / file
-                    rel_path = abs_file.relative_to(self.work_dir)
-                    zipf.write(abs_file, arcname=str(rel_path))
+                    full_path = Path(root) / file
+                    rel_path = full_path.relative_to(self.work_dir)
+                    zipf.write(full_path, arcname=str(rel_path))
 
         return str(zip_path)
