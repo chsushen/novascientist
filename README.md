@@ -182,7 +182,7 @@ python reproduce_benchmarks.py --mode real --seeds 5 --figures
 
 ### 6. Run Test Suite
 ```bash
-PYTHONPATH=. pytest tests/ -v
+PYTHONPATH=. python -m pytest tests/ -v
 ```
 
 ---
