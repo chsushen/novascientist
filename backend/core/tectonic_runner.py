@@ -1,20 +1,16 @@
 """Tectonic LaTeX Runner & Overleaf ZIP Packager.
 
 Bundles all paper artifacts (main.tex, references.bib, IEEEtran.cls, figures/, artifacts/metrics.json)
-into a production-grade Overleaf-ready ZIP archive and executes local / cloud verification via Tectonic.
-Supports automatic portable binary downloading for headless environments (Streamlit Cloud).
+into a production-grade Overleaf-ready ZIP archive and executes compilation via Tectonic (apt/local).
 """
 
 from __future__ import annotations
 
 import os
-import platform
 import re
 import shutil
 import subprocess
 import sys
-import tarfile
-import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,76 +69,27 @@ class TectonicRunner:
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def find_or_install_tectonic(cls) -> Optional[str]:
-        """Locate existing Tectonic binary or auto-download portable binary on cloud instances."""
-        # 1. Check PATH
-        which_path = shutil.which("tectonic")
-        if which_path and os.path.exists(which_path) and os.access(which_path, os.X_OK):
-            return which_path
-
-        # 2. Check standard system locations
+    def find_tectonic(cls) -> Optional[str]:
+        """Locate Tectonic binary installed via apt (Debian/Ubuntu), homebrew, or PATH."""
         candidate_paths = [
+            "/usr/bin/tectonic",
+            shutil.which("tectonic"),
             "/opt/homebrew/bin/tectonic",
             "/usr/local/bin/tectonic",
-            "/usr/bin/tectonic",
             os.path.expanduser("~/.local/bin/tectonic"),
             "/tmp/bin/tectonic",
             "/tmp/tectonic",
         ]
         for p in candidate_paths:
-            if os.path.exists(p) and os.access(p, os.X_OK):
+            if p and os.path.exists(p) and os.access(p, os.X_OK):
                 bin_dir = str(Path(p).parent)
                 if bin_dir not in os.environ.get("PATH", ""):
                     os.environ["PATH"] = f"{bin_dir}:{os.environ.get('PATH', '')}"
                 return p
-
-        # 3. Auto-download pre-compiled binary for headless Linux (Streamlit Cloud / Docker) or macOS
-        try:
-            target_dir = Path(os.path.expanduser("~/.local/bin"))
-            try:
-                target_dir.mkdir(parents=True, exist_ok=True)
-            except Exception:
-                target_dir = Path("/tmp/bin")
-                target_dir.mkdir(parents=True, exist_ok=True)
-
-            tectonic_dest = target_dir / "tectonic"
-            if tectonic_dest.exists() and os.access(tectonic_dest, os.X_OK):
-                return str(tectonic_dest)
-
-            system = sys.platform
-            machine = platform.machine().lower()
-
-            if system.startswith("linux"):
-                if "aarch64" in machine or "arm" in machine:
-                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-aarch64-unknown-linux-gnu.tar.gz"
-                else:
-                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-unknown-linux-gnu.tar.gz"
-            elif system == "darwin":
-                if "arm" in machine or "aarch64" in machine:
-                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-aarch64-apple-darwin.tar.gz"
-                else:
-                    url = "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-apple-darwin.tar.gz"
-            else:
-                return None
-
-            tar_path = Path("/tmp/tectonic_download.tar.gz")
-            req = urllib.request.Request(url, headers={"User-Agent": "NovaScientist/2.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp, open(tar_path, "wb") as out_f:
-                out_f.write(resp.read())
-
-            with tarfile.open(tar_path, "r:gz") as tar:
-                tar.extractall(path=target_dir)
-
-            if tectonic_dest.exists():
-                tectonic_dest.chmod(0o755)
-                bin_dir = str(target_dir)
-                if bin_dir not in os.environ.get("PATH", ""):
-                    os.environ["PATH"] = f"{bin_dir}:{os.environ.get('PATH', '')}"
-                return str(tectonic_dest)
-        except Exception:
-            pass
-
         return None
+
+    # Alias for backward compatibility
+    find_or_install_tectonic = find_tectonic
 
     def write_ieeetran_cls(self) -> Path:
         """Ensure standard IEEEtran.cls is present in project root."""
@@ -217,14 +164,14 @@ This research manuscript package is 100% self-contained and pre-configured for *
                 log_messages="Error: main.tex not found.",
             )
 
-        # 1. Check for Tectonic binary (local or auto-installed)
-        tectonic_cmd = self.find_or_install_tectonic()
+        # 1. Check for Tectonic binary (/usr/bin/tectonic or PATH)
+        tectonic_cmd = self.find_tectonic()
         if tectonic_cmd:
             try:
                 work_dir_res = self.work_dir.resolve()
                 main_tex_res = main_tex.resolve()
                 proc = subprocess.run(
-                    [tectonic_cmd, str(main_tex_res), "--outdir", str(work_dir_res)],
+                    [tectonic_cmd, str(main_tex_res), "--outdir", str(work_dir_res), "--chatter=minimal"],
                     cwd=str(work_dir_res),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
