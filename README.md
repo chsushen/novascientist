@@ -1,19 +1,19 @@
 # NovaScientist 🔬
-### *Autonomous Research-to-Publication AI Agent & Hardware-Aware Benchmarking Framework*
+### *Autonomous Research-to-Publication Agent & Local Hardware Benchmarking Framework*
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/pytest-24%20passed%20(100%25)-brightgreen.svg)](tests/)
 [![Hardware Invariant](https://img.shields.io/badge/Hardware-CPU%20%2F%20Apple%20Silicon%20Invariant-orange.svg)]()
-[![Turnitin Audit](https://img.shields.io/badge/Turnitin%20Similarity-7%25%20(Template%20Only)-success.svg)]()
 [![Export](https://img.shields.io/badge/Export-Overleaf%20ZIP%20%2B%20PDF-blueviolet.svg)]()
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-**NovaScientist** is an open-source, autonomous AI research agent that turns **any scientific research query or problem statement** into a fully verified, benchmarked, and typeset IEEE Transactions research paper.
+**NovaScientist** is an autonomous AI agent framework designed to turn **any scientific research query or problem statement** into a complete, benchmarked, and typeset IEEE Transactions research manuscript with publication-ready figures and citations.
 
-Operating entirely on your local machine (standard x86 CPUs or Apple Silicon ARM64), NovaScientist orchestrates an end-to-end scholarly pipeline: it retrieves active peer-reviewed literature with verified DOIs, enforces AST dataflow integrity, executes multi-seed hardware micro-benchmarks, computes DerSimonian-Laird meta-analyses, and compiles an Overleaf-ready LaTeX manuscript and PDF in seconds.
+Running entirely on local commodity hardware (standard x86 CPUs or Apple Silicon ARM64), NovaScientist orchestrates an end-to-end scholarly pipeline: it retrieves active peer-reviewed literature with verified DOIs, audits AST dataflow integrity, executes multi-seed hardware micro-benchmarks, synthesizes empirical results via random-effects meta-analysis, and compiles an Overleaf-ready LaTeX package and PDF in seconds.
 
 ---
 
-## 🌟 What NovaScientist Does
+## 🏛️ System Architecture
 
 ```
                           [ Any Research Topic or Hypothesis ]
@@ -58,22 +58,22 @@ Produces Publication PDF                                        Ready for 1-Clic
 
 ## 🌐 Supported Research Domains
 
-NovaScientist dynamically classifies any topic into one of 6 computational archetypes and pairs it with canonical IEEE/ACM benchmark datasets:
+NovaScientist dynamically classifies incoming research topics into one of 6 computational domains and automatically pairs them with canonical evaluation benchmark datasets:
 
 | Domain | Example Research Topics | Canonical Benchmarks |
 | :--- | :--- | :--- |
 | **Physics Surrogates & PINNs** | Neural operators, Darcy flow, Navier-Stokes, Burgers shock | *Darcy Flow, Burgers Shock, Allen-Cahn Phase Field* |
-| **Graph Neural Networks** | Spatial-temporal routing, disaster evacuation, traffic, molecules | *METR-LA, PeMS-BAY, OGB-MolHIV, Cora Citation* |
+| **Graph Neural Networks** | Relational topologies, message-passing, spatial graphs | *METR-LA, PeMS-BAY, OGB-MolHIV, Cora Citation* |
 | **Computer Vision** | Low-compute transformers, spatial patch attention, edge vision | *ImageNet-1K, CIFAR-100-C, ADE20K Semantic* |
-| **NLP & Sequence Models** | Sub-linear attention, memory-bounded LLM caching, language models | *GLUE Benchmark, WikiText-103, C4 Multi-Domain* |
-| **Time-Series Forecasting** | Multivariate sensor dynamics, grid load, weather forecasting | *Electricity (ECL), Weather (MPI-BGC), Exchange-Rate* |
+| **NLP & Sequence Models** | Sub-linear attention, memory-bounded LLM caching, sequence models | *GLUE Benchmark, WikiText-103, C4 Multi-Domain* |
+| **Time-Series Forecasting** | Multivariate sensor dynamics, temporal lag forecasting, spectral models | *Electricity (ECL), Weather (MPI-BGC), Exchange-Rate* |
 | **Tabular & Heterogeneous** | Gradient-boosted feature embeddings, categorical risk analysis | *Higgs Boson ML, Adult Census, California Housing* |
 
 ---
 
 ## 💻 How to Run on Your PC
 
-Follow these steps to run NovaScientist locally on macOS, Linux, or Windows (WSL2):
+Follow these steps to set up and run NovaScientist locally on macOS, Linux, or Windows (WSL2):
 
 ### Step 1: Clone the Repository
 ```bash
@@ -92,27 +92,27 @@ source .venv/bin/activate
 # On Windows (PowerShell):
 # .venv\Scripts\Activate.ps1
 
-# Install core dependencies
+# Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 ### Step 3: (Optional) Configure Environment Variables
-NovaScientist is designed to run **100% locally with zero required API keys** using deterministic multi-seed micro-benchmarks and open scholarly APIs.
+NovaScientist runs **100% locally with zero required external API keys** using deterministic multi-seed micro-benchmarks and open scholarly APIs.
 
 If you wish to configure optional settings:
 ```bash
 cp .env.example .env
 ```
-You can optionally populate `.env` with:
-- `GEMINI_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` *(for custom external agent extensions)*
+Optional settings in `.env`:
+- `GEMINI_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` *(for custom external LLM agent extensions)*
 - `CROSSREF_MAILTO` *(your email for polite CrossRef API rate limits)*
 
 ---
 
 ### Step 4: Run via Command-Line Interface (CLI)
 
-Generate a complete research paper for any topic in one command:
+Generate a complete research paper for any topic with one command:
 
 ```bash
 # Example 1: Generate an anonymous double-blind conference submission
@@ -148,7 +148,7 @@ python cli.py \
 
 ### Step 5: Run via Interactive Streamlit Web GUI
 
-Launch the interactive dashboard with live stage visualization, vector chart previews, and 1-click Overleaf ZIP downloads:
+Launch the web interface for visual stage tracking, vector figure inspectors, and instant Overleaf ZIP downloads:
 
 ```bash
 streamlit run app.py
@@ -157,13 +157,13 @@ Or launch via the convenience script:
 ```bash
 ./run.sh
 ```
-Open **http://localhost:8501** in your browser to interact with the GUI.
+Open **http://localhost:8501** in your browser.
 
 ---
 
 ### Step 6: Standalone Reproducibility Benchmark Runner
 
-To independently verify empirical micro-benchmarking, memory logging, and meta-analysis mathematics on your local CPU without generating a full PDF:
+To independently execute the hardware micro-benchmarking engine, log memory/latency, and verify the DerSimonian-Laird statistical meta-analysis without generating a full paper:
 
 ```bash
 python reproduce_benchmarks.py
@@ -171,32 +171,14 @@ python reproduce_benchmarks.py
 
 ---
 
-## 📊 Benchmark Example & Case Study (METR-LA Graph Benchmark)
+## 🎯 Target Publication Venue Matching
 
-As a reference case study, evaluating NovaScientist on the **METR-LA Urban Traffic & Evacuation Sensor Network** (207 spatial sensor stations, 34,272 samples, DOI: [`10.1145/3209978.3210006`](https://doi.org/10.1145/3209978.3210006)) produces the following deterministic Table 1 metrics:
+NovaScientist includes an automated **Venue Matcher** that evaluates domain alignment, acceptance rates, and impact factors to recommend top-tier IEEE/ACM publication venues:
 
-### Quantitative Performance Comparison ($k=5$ Deterministic Seeds)
-
-| Model Architecture | Accuracy (%) | Peak RAM (MB) | Latency (ms) | Throughput (sps) | Compression | Speedup |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Dense FP32 Baseline** | $82.33 \pm 1.04$ | $418.9 \pm 11.6$ | $38.76 \pm 1.1$ | $1,652.4$ | $1.0\times$ | $1.00\times$ |
-| **Static INT8 Quantization** | $79.55 \pm 1.30$ | $120.0 \pm 3.3$ | $24.32 \pm 0.7$ | $2,632.9$ | $3.8\times$ | $1.59\times$ |
-| **Dynamic Sparsified Architecture** | $81.04 \pm 1.12$ | $167.4 \pm 4.6$ | $19.99 \pm 0.6$ | $3,204.7$ | $2.5\times$ | $1.94\times$ |
-| **★ Proposed Memory-Bounded Model** | **$88.62 \pm 0.78$** | **$75.8 \pm 2.1$** | **$9.39 \pm 0.3$** | **$6,822.9$** | **$5.9\times$** | **$4.13\times$** |
-
-### DerSimonian-Laird Random-Effects Meta-Analysis
-- **Pooled Effect Size**: **$+6.27\%$** [95% CI: $[5.30\%, 7.25\%]$]
-- **Heterogeneity Index**: $I^2 = 0.0\%$ (Zero observed between-seed variance)
-- **Cochran's Q Statistic**: $Q = 0.23$ ($p = 0.9939, df = 4$)
-- **Statistical Significance**: $Z = 12.61$ ($p < 10^{-4}$)
-
----
-
-## 🛡️ Academic Integrity & Turnitin Compliance
-
-- **7% Turnitin Similarity Score**: Exclusively matches standard IEEE Transactions LaTeX document macros and verified bibliography citations.
-- **0% AI Discretionary Content**: Adheres strictly to IEEE/ACM 2024+ author guidelines with explicit ethical AI disclosure statements.
-- **AST Dataflow Guard**: Statically audits Python experiment ASTs to prevent pre-split normalization and data leakage.
+1. **IEEE Transactions on Pattern Analysis and Machine Intelligence (IEEE TPAMI)** — IF: $23.6$, Acceptance: $11.2\%$
+2. **ACM SIGKDD Conference on Knowledge Discovery and Data Mining (ACM KDD)** — $h5$: $142$, Acceptance: $15.1\%$
+3. **IEEE Transactions on Neural Networks and Learning Systems (IEEE TNNLS)** — IF: $10.4$, Acceptance: $13.5\%$
+4. **IEEE Transactions on Computers (IEEE TC)** — IF: $3.7$, Acceptance: $18.0\%$
 
 ---
 
@@ -211,7 +193,7 @@ As a reference case study, evaluating NovaScientist on the **METR-LA Urban Traff
 
 ## 🧪 Running Tests
 
-Execute the full unit and integration test suite:
+Run the full unit and integration test suite:
 ```bash
 PYTHONPATH=. pytest tests/ -v
 ```
@@ -220,4 +202,4 @@ PYTHONPATH=. pytest tests/ -v
 
 ## ⚖️ License
 
-Distributed under the Apache 2.0 License. See `LICENSE` for more information.
+This project is open-source and licensed under the [Apache 2.0 License](LICENSE).
