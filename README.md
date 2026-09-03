@@ -1,17 +1,19 @@
 # NovaScientist v2.0 🔬
-### *Interactive Conversational Research Agent & Real PyTorch Hardware Benchmarking Suite for IEEE Publications*
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://novascientist-cqhrr8wptwmrzjksbr8pyw.streamlit.app/)
+[![GitHub stars](https://img.shields.io/github/stars/chsushen/novascientist?style=social)](https://github.com/chsushen/novascientist)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20MPS%20%7C%20CPU-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
-[![Tests](https://img.shields.io/badge/pytest-30%20passed%20(100%25)-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-31%20passed%20(100%25)-brightgreen.svg)](tests/)
 [![Format](https://img.shields.io/badge/Format-8--12%20Page%20IEEE%20Transactions-8B5CF6.svg)]()
 [![Figures](https://img.shields.io/badge/Figures-5%20Publication%20Vectors%20(PDF%2FPNG)-059669.svg)]()
-[![Export](https://img.shields.io/badge/Export-Overleaf%20ZIP%20%2B%20PDF-blueviolet.svg)]()
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**NovaScientist v2.0** is an interactive, multi-agent AI research-to-publication engine that turns **any scientific research query or problem statement** into an authentic, empirically evaluated, and rigorously typeset **8–12 page IEEE Transactions journal paper**.
+**Interactive Conversational Research Agent & Real PyTorch Hardware Benchmarking Suite for IEEE Publications**
 
-Running on your local machine with automatic hardware acceleration (**NVIDIA CUDA, Apple Silicon MPS, or Multi-Core CPU**), NovaScientist converses with the researcher to clarify intent, executes genuine PyTorch neural optimization runs across deterministic seeds ($k=5$), verifies mathematical invariants with formal proofs, generates a 5-figure vector plotting suite, and compiles an Overleaf-ready LaTeX package and publication PDF.
+NovaScientist v2.0 is an interactive, multi-agent AI research-to-publication engine that turns any scientific research query or problem statement into an authentic, empirically evaluated, and rigorously typeset 8–12 page IEEE Transactions journal paper.
+
+Running on local hardware with automatic acceleration (NVIDIA CUDA, Apple Silicon MPS, or Multi-Core CPU), NovaScientist converses with the researcher to clarify intent, executes genuine PyTorch neural optimization runs across deterministic seeds ($k=5$), verifies mathematical invariants with formal proofs, generates a 5-figure vector plotting suite, and compiles an Overleaf-ready LaTeX package and publication PDF.
 
 ---
 
