@@ -1,5 +1,6 @@
 # NovaScientist v2.0 🔬
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/chsushen/novascientist?color=blue&logo=github)](https://github.com/chsushen/novascientist/releases/latest)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://novascientist-cqhrr8wptwmrzjksbr8pyw.streamlit.app/)
 [![GitHub stars](https://img.shields.io/github/stars/chsushen/novascientist?style=social)](https://github.com/chsushen/novascientist)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
@@ -186,6 +187,18 @@ python reproduce_benchmarks.py --mode real --seeds 5 --figures
 ```bash
 PYTHONPATH=. python -m pytest tests/ -v
 ```
+
+---
+
+## 📥 Pre-Compiled Deliverables & Experimental Artifacts
+
+Download the sample outputs produced by NovaScientist v2.0 for the METR-LA Spatial-Temporal Graph benchmark:
+
+| Artifact | Description | Direct Download |
+| :--- | :--- | :--- |
+| **IEEE Journal PDF** | 7-Page Double-Column IEEE Transactions Manuscript | [📄 Download PDF](https://github.com/chsushen/novascientist/releases/download/v2.0.0/novascientist_paper.pdf) |
+| **Overleaf ZIP** | 1-Click Uploadable LaTeX Source (`main.tex`, `references.bib`, figures) | [📦 Download ZIP](https://github.com/chsushen/novascientist/releases/download/v2.0.0/novascientist_low-rank_dynamic_graph_attention_for_v2.zip) |
+| **PyTorch Weights** | Trained `.pt` Model Checkpoint (Apple Silicon MPS / CUDA) | [💾 Download Weights](https://github.com/chsushen/novascientist/releases/download/v2.0.0/proposed_mb_qgt_weights.pt) |
 
 ---
 
