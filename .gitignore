@@ -20,10 +20,8 @@ htmlcov/
 .ruff_cache/
 
 # Build & Workspace Directories
-dist/workspace/
-dist/test_workspace/
-dist/*.zip
-dist/*.pdf
+dist/
+dist/*
 artifacts/
 *.log
 streamlit.log

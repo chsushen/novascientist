@@ -1,205 +1,230 @@
-# NovaScientist 🔬
-### *Autonomous Research-to-Publication Agent & Local Hardware Benchmarking Framework*
+# NovaScientist v2.0 🔬
+### *Interactive Conversational Research Agent & Real PyTorch Hardware Benchmarking Suite for IEEE Publications*
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/pytest-24%20passed%20(100%25)-brightgreen.svg)](tests/)
-[![Hardware Invariant](https://img.shields.io/badge/Hardware-CPU%20%2F%20Apple%20Silicon%20Invariant-orange.svg)]()
+[![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20MPS%20%7C%20CPU-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
+[![Tests](https://img.shields.io/badge/pytest-30%20passed%20(100%25)-brightgreen.svg)](tests/)
+[![Format](https://img.shields.io/badge/Format-8--12%20Page%20IEEE%20Transactions-8B5CF6.svg)]()
+[![Figures](https://img.shields.io/badge/Figures-5%20Publication%20Vectors%20(PDF%2FPNG)-059669.svg)]()
 [![Export](https://img.shields.io/badge/Export-Overleaf%20ZIP%20%2B%20PDF-blueviolet.svg)]()
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-**NovaScientist** is an autonomous AI agent framework designed to turn **any scientific research query or problem statement** into a complete, benchmarked, and typeset IEEE Transactions research manuscript with publication-ready figures and citations.
+**NovaScientist v2.0** is an interactive, multi-agent AI research-to-publication engine that turns **any scientific research query or problem statement** into an authentic, empirically evaluated, and rigorously typeset **8–12 page IEEE Transactions journal paper**.
 
-Running entirely on local commodity hardware (standard x86 CPUs or Apple Silicon ARM64), NovaScientist orchestrates an end-to-end scholarly pipeline: it retrieves active peer-reviewed literature with verified DOIs, audits AST dataflow integrity, executes multi-seed hardware micro-benchmarks, synthesizes empirical results via random-effects meta-analysis, and compiles an Overleaf-ready LaTeX package and PDF in seconds.
+Running on your local machine with automatic hardware acceleration (**NVIDIA CUDA, Apple Silicon MPS, or Multi-Core CPU**), NovaScientist converses with the researcher to clarify intent, executes genuine PyTorch neural optimization runs across deterministic seeds ($k=5$), verifies mathematical invariants with formal proofs, generates a 5-figure vector plotting suite, and compiles an Overleaf-ready LaTeX package and publication PDF.
 
 ---
 
 ## 🏛️ System Architecture
 
 ```
-                          [ Any Research Topic or Hypothesis ]
-                                           │
-          ┌────────────────────────────────┴────────────────────────────────┐
-          ▼                                                                 ▼
-[ 1. Literature Discovery ]                                     [ 2. Domain Dispatcher ]
-Live CrossRef / OpenAlex APIs                                   6 Computational Domains
-100% Verified DOIs & BibTeX                                     Canonical Dataset Matcher
-          │                                                                 │
-          └────────────────────────────────┬────────────────────────────────┘
-                                           ▼
-                               [ 3. AST Guard & Audit ]
-                              Static Dataflow Verification
-                               (Zero Train-Val Leakage)
-                                           │
-                                           ▼
-                           [ 4. Local Hardware Benchmarks ]
-                            Deterministic k=5 CPU Passes
-                           DerSimonian-Laird Meta-Analysis
-                                           │
-          ┌────────────────────────────────┴────────────────────────────────┐
-          ▼                                                                 ▼
-[ 5. Vector Plotting ]                                          [ 6. IEEEtran Assembler ]
-Convergence & Pareto Dynamics                                   5–8 Page IEEE Transactions
-Vector Figures (PDF & PNG)                                      Domain Math & Real Hardware Specs
-          │                                                                 │
-          └────────────────────────────────┬────────────────────────────────┘
-                                           ▼
-                           [ 7. Reviewer Swarm Audit ]
-                            Statistical Power Assertion
-                             Scientific Rhetoric Linter
-                                           │
-          ┌────────────────────────────────┴────────────────────────────────┐
-          ▼                                                                 ▼
-[ 8. Tectonic Compiler ]                                        [ 9. Overleaf Packager ]
-XeTeX Engine Compilation                                        Self-Contained ZIP Bundle
-Produces Publication PDF                                        Ready for 1-Click Import
+                    [ Researcher Input / Question / Hypothesis ]
+                                         │
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │    1. Conversational Requirement Gathering    │
+                 │   • Topic Refinement & Hypothesis Alignment   │
+                 │   • Target Length (8–12p Journal vs 4p Conf)  │
+                 │   • Hardware Execution Mode (Real vs Fast)    │
+                 │   • Interactive Execution Plan Preview Card   │
+                 └───────────────────────┬───────────────────────┘
+                                         │  [User Approval]
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │       2. Scholarly Literature Agent           │
+                 │   • Live CrossRef & OpenAlex Retrieval        │
+                 │   • 100% Active, Verified DOIs (Zero Hal.)    │
+                 │   • Structured Related-Work Taxonomy Table    │
+                 └───────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │          3. AST Static Dataflow Gate          │
+                 │   • Code Integrity & Leakage Verification     │
+                 │   • Strict Pre-Split Scaler Auditing          │
+                 └───────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │    4. Real PyTorch Hardware Training Sandbox  │
+                 │   • Auto-Detect CUDA / Apple Silicon MPS / CPU│
+                 │   • Train 4 Candidate Neural Architectures    │
+                 │   • Save PyTorch Model Checkpoints (.pt)      │
+                 │   • Log Empirical Losses, Latency, & RSS      │
+                 │   • DerSimonian-Laird Random-Effects Analysis │
+                 └───────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │       5. Scientific Vector Plotting Suite     │
+                 │   • Fig 1: Architecture Block Diagram (Vector)│
+                 │   • Fig 2: Convergence Loss & Accuracy Curves │
+                 │   • Fig 3: Multi-Objective Pareto Frontier    │
+                 │   • Fig 4: Component Module Ablation Bars     │
+                 │   • Fig 5: 2D Hyperparameter Sensitivity Map  │
+                 └───────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │    6. Deep Multi-Agent Journal Synthesis      │
+                 │   • 10 Structured IEEE Transactions Sections  │
+                 │   • Formal Proofs (Lemma 1, Theorems 1 & 2)   │
+                 │   • Tables 1, 2, 3 & Algorithm Environment    │
+                 └───────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                 ┌───────────────────────────────────────────────┐
+                 │      7. Adversarial Reviewer Swarm Audit      │
+                 │   • Statistical Power & Heterogeneity Check   │
+                 │   • Scientific Rhetoric & Overclaim Linter    │
+                 └───────────────────────┬───────────────────────┘
+                                         │
+                    ┌────────────────────┴────────────────────┐
+                    ▼                                         ▼
+       [ 8. Tectonic XeTeX Engine ]              [ 9. Publication Packager ]
+        Compiles 8–12 Page IEEE PDF               Overleaf ZIP Archive + Checkpoints
 ```
 
 ---
 
-## 🌐 Supported Research Domains
+## 🌟 Key Capabilities in v2.0
 
-NovaScientist dynamically classifies incoming research topics into one of 6 computational domains and automatically pairs them with canonical evaluation benchmark datasets:
+1. **Interactive Conversational Requirement Gathering**:
+   - Step-by-step guided dialogue via Streamlit GUI and CLI chat mode.
+   - Refines topic titles, identifies domain affinity, recommends canonical datasets, configures seed budgets, and generates an interactive execution plan for user review.
 
-| Domain | Example Research Topics | Canonical Benchmarks |
-| :--- | :--- | :--- |
-| **Physics Surrogates & PINNs** | Neural operators, Darcy flow, Navier-Stokes, Burgers shock | *Darcy Flow, Burgers Shock, Allen-Cahn Phase Field* |
-| **Graph Neural Networks** | Relational topologies, message-passing, spatial graphs | *METR-LA, PeMS-BAY, OGB-MolHIV, Cora Citation* |
-| **Computer Vision** | Low-compute transformers, spatial patch attention, edge vision | *ImageNet-1K, CIFAR-100-C, ADE20K Semantic* |
-| **NLP & Sequence Models** | Sub-linear attention, memory-bounded LLM caching, sequence models | *GLUE Benchmark, WikiText-103, C4 Multi-Domain* |
-| **Time-Series Forecasting** | Multivariate sensor dynamics, temporal lag forecasting, spectral models | *Electricity (ECL), Weather (MPI-BGC), Exchange-Rate* |
-| **Tabular & Heterogeneous** | Gradient-boosted feature embeddings, categorical risk analysis | *Higgs Boson ML, Adult Census, California Housing* |
+2. **Real PyTorch Hardware Training Sandbox**:
+   - Auto-detects local acceleration: **NVIDIA CUDA**, **Apple Silicon Neural Engine (MPS)**, or **Multi-Core CPU**.
+   - Trains candidate architectures (`ProposedMBQGT`, `DenseFP32Baseline`, `StaticINT8Baseline`, `SparseGNNBaseline`) using authentic loss functions, AdamW optimization, and learning rate schedulers.
+   - Saves `.pt` model weights to `dist/experiments/checkpoints/` and detailed epoch histories to `dist/experiments/logs/`.
+
+3. **8–12 Page Full IEEE Transactions Journal Synthesis**:
+   - Generates an exhaustive 10-section manuscript formatted in double-column `IEEEtran.cls`.
+   - **Section 1**: Introduction & Grand Computational Challenges.
+   - **Section 2**: Related Work & Structured DOI Taxonomy Table.
+   - **Section 3**: Theoretical Formulation & Mathematical Foundations (Lemma 1 [Dynamic Block Bounds], Theorem 1 [Bounded Discretization Variance], Theorem 2 [Stochastic Gradient Convergence], Proposition 1 [Cache Line Miss Bounds] with complete proofs).
+   - **Section 4**: System Architecture & Algorithmic Pseudocode (`algorithm` / `algorithmicx`).
+   - **Section 5**: Experimental Setup & Physical Hardware Telemetry.
+   - **Section 6**: Empirical Benchmark Results & DerSimonian-Laird Random-Effects Meta-Analysis ($Q, \tau^2, I^2, Z$).
+   - **Section 7**: Component Ablation Study (Table 2) & Hyperparameter Sensitivity (Table 3).
+   - **Section 8**: In-Depth Technical Discussion (Memory Wall, Cache Locality, SIMD Vectorization, Failure Modes).
+   - **Section 9**: Ethical Statement & AI-Assistance Acknowledgment (IEEE/ACM 2024+ Standards).
+   - **Section 10**: Conclusion & Future Trajectories.
+
+4. **Rich 5-Figure Publication Vector Suite**:
+   - Generates dual publication-grade vector `.pdf` and high-DPI `.png` files:
+     * **Fig 1 (`fig1_system_architecture`)**: System Dataflow & Quantization Engine Diagram.
+     * **Fig 2 (`fig2_convergence_curves`)**: Dual-Panel Loss Decay & Validation Accuracy Saturation.
+     * **Fig 3 (`fig3_pareto_frontier`)**: Multi-Objective Pareto Frontier (Latency vs. Peak RAM vs. Accuracy).
+     * **Fig 4 (`fig4_ablation_study`)**: Component Module Contribution Ablation Bar Chart.
+     * **Fig 5 (`fig5_sensitivity_heatmap`)**: 2D Hyperparameter Sensitivity Matrix across Quantization Depths and Cache Sizes.
+
+5. **Target Publication Venue Matcher**:
+   - Indexes and ranks top-tier venues (IEEE TPAMI, IEEE TNNLS, IEEE Access, ACM TODS, NeurIPS) by impact factor, h5-index, and typical review turnaround.
 
 ---
 
-## 💻 How to Run on Your PC
+## 🌐 Supported Research Domains & Canonical Benchmarks
 
-Follow these steps to set up and run NovaScientist locally on macOS, Linux, or Windows (WSL2):
+| Computational Domain | Representative Research Scope | Canonical Evaluation Datasets |
+| :--- | :--- | :--- |
+| **Physics Surrogates & PINNs** | Neural operators, Darcy flow, Navier-Stokes, shock fronts | *Darcy Flow Benchmark, Burgers Shock Dynamics, Allen-Cahn* |
+| **Graph Neural Networks (GNNs)** | Relational topologies, dynamic attention, spatial transport | *METR-LA Sensor Network, PeMS-BAY Traffic, OGB-MolHIV, Cora* |
+| **Low-Compute Computer Vision** | Patch attention, edge CNNs, robust classification | *ImageNet-1K, CIFAR-100-C Robustness, ADE20K Semantic* |
+| **Sub-Linear NLP & LLMs** | Low-rank projection, memory-bounded KV caching, attention | *GLUE Benchmark Suite, WikiText-103, C4 Multi-Domain* |
+| **Time-Series Forecasting** | Multivariate sensor dynamics, spatio-temporal lag models | *Electricity (ECL), Weather (MPI-BGC), Traffic PeMS* |
+| **Tabular & Heterogeneous ML** | Gradient-boosted embeddings, risk stratification | *Higgs Boson ML, Adult Census, California Housing* |
 
-### Step 1: Clone the Repository
+---
+
+## 🚀 Quickstart Guide
+
+### 1. Clone & Set Up Environment
 ```bash
 git clone https://github.com/chsushen/novascientist.git
 cd novascientist
-```
 
-### Step 2: Set Up Virtual Environment & Install Dependencies
-```bash
 # Create virtual environment
 python3 -m venv .venv
-
-# Activate virtual environment
-# On macOS / Linux:
 source .venv/bin/activate
-# On Windows (PowerShell):
-# .venv\Scripts\Activate.ps1
 
 # Install dependencies
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Step 3: (Optional) Configure Environment Variables
-NovaScientist runs **100% locally with zero required external API keys** using deterministic multi-seed micro-benchmarks and open scholarly APIs.
-
-If you wish to configure optional settings:
-```bash
-cp .env.example .env
-```
-Optional settings in `.env`:
-- `GEMINI_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` *(for custom external LLM agent extensions)*
-- `CROSSREF_MAILTO` *(your email for polite CrossRef API rate limits)*
-
----
-
-### Step 4: Run via Command-Line Interface (CLI)
-
-Generate a complete research paper for any topic with one command:
-
-```bash
-# Example 1: Generate an anonymous double-blind conference submission
-python cli.py \
-  --topic "Low-Rank Dynamic Graph Attention for Smart Disaster Resilience and Evacuation Forecasting" \
-  --anonymous \
-  --output ./paper.pdf
-```
-
-```bash
-# Example 2: Generate with custom human authorship
-python cli.py \
-  --topic "Physics-Informed Dynamic Neural Surrogates under Bounded Memory" \
-  --author "Dr. Jane Doe" \
-  --affiliation "Department of Electrical Engineering and Computer Science, MIT" \
-  --email "janedoe@mit.edu" \
-  --output ~/Desktop/physics_paper.pdf
-```
-
-#### Available CLI Arguments:
-| Argument | Type | Default | Description |
-| :--- | :---: | :---: | :--- |
-| `--topic` | `str` | *Required* | Research title or topic prompt |
-| `--anonymous` | `flag` | `False` | Enforces standard IEEE double-blind author masking |
-| `--author` | `str` | `Anonymous Author(s)` | Primary author name |
-| `--affiliation` | `str` | `Affiliation Withheld...` | Institutional affiliation |
-| `--email` | `str` | `anonymous@...` | Corresponding author email |
-| `--seeds` | `int` | `5` | Number of deterministic evaluation seeds ($k \ge 5$) |
-| `--output`, `-o` | `str` | `None` | Destination path for the compiled `.pdf` |
-| `--output-dir` | `str` | `./dist` | Target directory for Overleaf `.zip` packages |
-
----
-
-### Step 5: Run via Interactive Streamlit Web GUI
-
-Launch the web interface for visual stage tracking, vector figure inspectors, and instant Overleaf ZIP downloads:
-
+### 2. Run the Interactive Web GUI (Streamlit)
 ```bash
 streamlit run app.py
 ```
-Or launch via the convenience script:
+Open [http://localhost:8501](http://localhost:8501) to interact with the conversational research assistant, review execution plans, monitor live PyTorch training progress, explore the 5-figure carousel, and download the compiled IEEE PDF and `.pt` model weights.
+
+### 3. Run via Interactive CLI Chat
 ```bash
-./run.sh
-```
-Open **http://localhost:8501** in your browser.
-
----
-
-### Step 6: Standalone Reproducibility Benchmark Runner
-
-To independently execute the hardware micro-benchmarking engine, log memory/latency, and verify the DerSimonian-Laird statistical meta-analysis without generating a full paper:
-
-```bash
-python reproduce_benchmarks.py
+python cli.py chat
+# Or:
+python cli.py --interactive
 ```
 
----
+### 4. Run via Direct CLI Command
+```bash
+python cli.py run \
+  --topic "Low-Rank Dynamic Graph Attention for Smart Disaster Resilience and Evacuation Forecasting" \
+  --pages 8_12_pages_journal \
+  --mode real \
+  --seeds 5 \
+  --output ~/Desktop/my_research_paper.pdf
+```
 
-## 🎯 Target Publication Venue Matching
+### 5. Reproduce Benchmarks Standalone
+```bash
+python reproduce_benchmarks.py --mode real --seeds 5 --figures
+```
 
-NovaScientist includes an automated **Venue Matcher** that evaluates domain alignment, acceptance rates, and impact factors to recommend top-tier IEEE/ACM publication venues:
-
-1. **IEEE Transactions on Pattern Analysis and Machine Intelligence (IEEE TPAMI)** — IF: $23.6$, Acceptance: $11.2\%$
-2. **ACM SIGKDD Conference on Knowledge Discovery and Data Mining (ACM KDD)** — $h5$: $142$, Acceptance: $15.1\%$
-3. **IEEE Transactions on Neural Networks and Learning Systems (IEEE TNNLS)** — IF: $10.4$, Acceptance: $13.5\%$
-4. **IEEE Transactions on Computers (IEEE TC)** — IF: $3.7$, Acceptance: $18.0\%$
-
----
-
-## 📦 Importing into Overleaf
-
-1. Locate the generated bundle in `dist/novascientist_<topic_slug>.zip`.
-2. Open [Overleaf](https://www.overleaf.com) and click **New Project** $\rightarrow$ **Upload Project**.
-3. Upload the `.zip` archive.
-4. Set the compiler to **pdfLaTeX** or **XeLaTeX** in Project Settings and click **Recompile**.
-
----
-
-## 🧪 Running Tests
-
-Run the full unit and integration test suite:
+### 6. Run Test Suite
 ```bash
 PYTHONPATH=. pytest tests/ -v
 ```
 
 ---
 
-## ⚖️ License
+## 📦 Output Artifacts Structure
 
-This project is open-source and licensed under the [Apache 2.0 License](LICENSE).
+Upon execution, NovaScientist generates the following structured bundle in `dist/`:
+
+```
+dist/
+├── novascientist_<topic>_v2.zip    # Overleaf-ready package (1-click upload)
+├── experiments/
+│   ├── checkpoints/
+│   │   └── proposed_mb_qgt_weights.pt  # Trained PyTorch model weights
+│   └── logs/
+│       └── training_log.json           # Raw per-epoch training & validation history
+└── workspace/
+    ├── main.pdf                         # Compiled 8–12 page IEEE Transactions PDF
+    ├── main.tex                         # Complete LaTeX source with 10 sections & proofs
+    ├── references.bib                   # BibTeX with active CrossRef DOIs & dataset entries
+    ├── IEEEtran.cls                     # Official IEEE Transactions LaTeX document class
+    ├── artifacts/
+    │   └── metrics.json                 # Multi-seed empirical metrics & meta-analysis
+    └── figures/
+        ├── fig1_system_architecture.pdf / .png
+        ├── fig2_convergence_curves.pdf / .png
+        ├── fig3_pareto_frontier.pdf / .png
+        ├── fig4_ablation_study.pdf / .png
+        └── fig5_sensitivity_heatmap.pdf / .png
+```
+
+---
+
+## ⚖️ Academic Integrity & AI-Assistance Compliance
+
+NovaScientist complies with IEEE and ACM 2024+ authorship guidelines:
+- **Zero Hallucinated Citations**: All literature DOIs are queried directly against live CrossRef and OpenAlex indexes.
+- **AST Dataflow Integrity**: Code pipelines are statically audited to guarantee zero test data leakage during pre-processing.
+- **Explicit Disclosure**: Assembled manuscripts include a formal Section 9 *Ethical Statement and AI-Assistance Acknowledgment* identifying NovaScientist as the experimental orchestration and typesetting framework while attributing scientific intent to human researchers.
+
+---
+
+## 📄 License
+
+NovaScientist is open-sourced under the [Apache License 2.0](LICENSE).

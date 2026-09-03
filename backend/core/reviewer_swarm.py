@@ -115,3 +115,15 @@ class AdversarialReviewerSwarm:
             recommendations=recommendations,
         )
         return cleaned_latex, report
+
+
+class ReviewerSwarm:
+    """Instantiable coordinator for adversarial reviewer audits."""
+    def __init__(self, latex_content: str, metrics_dict: Dict[str, Any]) -> None:
+        self.latex_content = latex_content
+        self.metrics_dict = metrics_dict
+
+    def conduct_audit(self) -> ReviewerAuditReport:
+        cleaned, report = AdversarialReviewerSwarm.review_manuscript(self.metrics_dict, self.latex_content)
+        return report
+
