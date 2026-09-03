@@ -93,6 +93,12 @@ class ScientificFigureSuite:
         elif self.domain == ComputationalDomain.NLP:
             input_title = "Input Token Sequence\nEmbeddings"
             input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times d}$" + "\n" + r"$\mathcal{V}_{\text{vocab}}$"
+        elif self.domain == ComputationalDomain.BIOINFORMATICS:
+            input_title = "Input Long-Read De Bruijn\n& Assembly Contigs"
+            input_math = r"$\mathbf{G}_{\text{assembly}} = (\mathcal{V}_{\text{contig}}, \mathcal{E}_{\text{read}})$" + "\n" + r"$\mathbf{W}_{\text{kmer}} \in \mathbb{R}^{N \times 4^k}$"
+        elif self.domain == ComputationalDomain.QUANTUM:
+            input_title = "Input Parameterized State\n& Entangled Qubits"
+            input_math = r"$|\psi(\boldsymbol{\theta})\rangle \in \mathcal{H}^{\otimes N}$" + "\n" + r"$H = \sum c_j P_j$"
         else:
             input_title = "Input Sensor Stream\n& Graph Adjacency"
             input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times D}$" + "\n" + r"$\mathbf{A} \in \mathbb{R}^{N \times N}$"

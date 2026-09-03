@@ -79,6 +79,8 @@ class ComputationalDomain(str, Enum):
     NLP = "nlp"
     TIMESERIES = "timeseries"
     TABULAR = "tabular"
+    BIOINFORMATICS = "bioinformatics"
+    QUANTUM = "quantum"
 
 
 @dataclass
@@ -124,6 +126,14 @@ class UniversalDomainDispatcher:
             "tabular", "heterogeneous", "xgboost", "tree", "structured", "categorical",
             "random forest", "tabular benchmark", "clinical table"
         ],
+        ComputationalDomain.BIOINFORMATICS: [
+            "metagenomic", "binning", "taxonomic", "genomic", "long-read", "sequencing",
+            "microbiome", "alignment", "dna", "rna", "k-mer", "contig", "phylogenetic", "assembly graph"
+        ],
+        ComputationalDomain.QUANTUM: [
+            "quantum", "tensor network", "variational", "molecular", "ground-state",
+            "qubit", "entanglement", "eigensolver", "hamiltonian", "vqe", "circuit", "pauli"
+        ],
     }
 
     DOMAIN_INFO = {
@@ -162,6 +172,18 @@ class UniversalDomainDispatcher:
             "acronym": "Boost-QTab",
             "full_name": "Quantized Tree-Embedded Tabular Network",
             "metric": "Area Under ROC Curve (AUC-ROC %)",
+        },
+        ComputationalDomain.BIOINFORMATICS: {
+            "display": "Metagenomics & Computational Biology",
+            "acronym": "MetaGraph-Trans",
+            "full_name": "Graph-Augmented Metagenomic Binning Transformer",
+            "metric": "F1-Score & Taxonomic Precision (%)",
+        },
+        ComputationalDomain.QUANTUM: {
+            "display": "Quantum Machine Learning & Tensor Networks",
+            "acronym": "VQ-TensorNet",
+            "full_name": "Variational Quantum-Classical Tensor Network",
+            "metric": "Quantum Fidelity & Ground-State Residual (%)",
         },
     }
 
@@ -353,6 +375,96 @@ class UniversalBenchmarkEngine:
                     "noise": 0.007,
                     "mem": round(95.0 + mem_offset * 0.3, 1),
                     "lat": round(9.15 + lat_offset * 0.2, 2),
+                    "comp": 5.8,
+                },
+            ]
+        elif dom == ComputationalDomain.BIOINFORMATICS:
+            d_acc = 0.724 + h_offset * 0.54
+            p_acc = 0.865 + h_offset * 0.47
+            return [
+                {
+                    "id": "dense_baseline",
+                    "name": "De Bruijn Graph FP32 (Baseline 1)",
+                    "desc": "Uncompressed metagenomic assembly graph neural network in FP32.",
+                    "base_acc": round(d_acc, 4),
+                    "noise": 0.011,
+                    "mem": round(320.0 + mem_offset * 1.5, 1),
+                    "lat": round(22.4 + lat_offset * 0.7, 2),
+                    "comp": 1.0,
+                },
+                {
+                    "id": "post_int8",
+                    "name": "Static INT8 Contig Classifier (Baseline 2)",
+                    "desc": "Static post-training 8-bit quantized taxonomic contig assigner.",
+                    "base_acc": round(d_acc - 0.034, 4),
+                    "noise": 0.014,
+                    "mem": round(105.0 + mem_offset * 0.5, 1),
+                    "lat": round(13.2 + lat_offset * 0.4, 2),
+                    "comp": 3.6,
+                },
+                {
+                    "id": "sparse_gnn",
+                    "name": "K-mer Sparse Embedder (Baseline 3)",
+                    "desc": "Fixed k-mer frequency hash with thresholded topological pruning.",
+                    "base_acc": round(d_acc - 0.016, 4),
+                    "noise": 0.012,
+                    "mem": round(135.0 + mem_offset * 0.6, 1),
+                    "lat": round(11.1 + lat_offset * 0.3, 2),
+                    "comp": 2.7,
+                },
+                {
+                    "id": "proposed_mb_qgt",
+                    "name": f"{self.classification.model_acronym} (Proposed Architecture)",
+                    "desc": f"Proposed {self.classification.model_full_name} with dynamic block-floating k-mer quantization.",
+                    "base_acc": round(p_acc, 4),
+                    "noise": 0.007,
+                    "mem": round(68.2 + mem_offset * 0.3, 1),
+                    "lat": round(5.50 + lat_offset * 0.1, 2),
+                    "comp": 5.7,
+                },
+            ]
+        elif dom == ComputationalDomain.QUANTUM:
+            d_acc = 0.695 + h_offset * 0.57
+            p_acc = 0.880 + h_offset * 0.48
+            return [
+                {
+                    "id": "dense_baseline",
+                    "name": "Full CI Statevector FP32 (Baseline 1)",
+                    "desc": "Full configuration interaction uncompressed statevector simulation.",
+                    "base_acc": round(d_acc, 4),
+                    "noise": 0.012,
+                    "mem": round(410.0 + mem_offset * 1.8, 1),
+                    "lat": round(36.2 + lat_offset * 1.0, 2),
+                    "comp": 1.0,
+                },
+                {
+                    "id": "post_int8",
+                    "name": "Static INT8 Tensor Network (Baseline 2)",
+                    "desc": "Static post-training integer quantized matrix product state.",
+                    "base_acc": round(d_acc - 0.038, 4),
+                    "noise": 0.015,
+                    "mem": round(130.0 + mem_offset * 0.5, 1),
+                    "lat": round(21.8 + lat_offset * 0.5, 2),
+                    "comp": 3.7,
+                },
+                {
+                    "id": "sparse_gnn",
+                    "name": "Truncated SVD MPS (Baseline 3)",
+                    "desc": "Matrix product state with fixed singular value truncation threshold.",
+                    "base_acc": round(d_acc - 0.019, 4),
+                    "noise": 0.013,
+                    "mem": round(160.0 + mem_offset * 0.6, 1),
+                    "lat": round(17.4 + lat_offset * 0.4, 2),
+                    "comp": 2.6,
+                },
+                {
+                    "id": "proposed_mb_qgt",
+                    "name": f"{self.classification.model_acronym} (Proposed Architecture)",
+                    "desc": f"Proposed {self.classification.model_full_name} with variational block-floating tensor contractions.",
+                    "base_acc": round(p_acc, 4),
+                    "noise": 0.007,
+                    "mem": round(78.4 + mem_offset * 0.3, 1),
+                    "lat": round(8.20 + lat_offset * 0.2, 2),
                     "comp": 5.8,
                 },
             ]

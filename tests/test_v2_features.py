@@ -38,6 +38,16 @@ def test_domain_dispatcher_classification():
     res_nlp = UniversalDomainDispatcher.classify_topic("Sub-Linear Memory LLM Attention Mechanisms for Sequence Modeling")
     assert res_nlp.domain == ComputationalDomain.NLP
 
+    # Bioinformatics
+    res_bio = UniversalDomainDispatcher.classify_topic("High-Throughput Metagenomic Binning and Contig Taxonomic Classification")
+    assert res_bio.domain == ComputationalDomain.BIOINFORMATICS
+    assert res_bio.model_acronym == "MetaGraph-Trans"
+
+    # Quantum
+    res_quantum = UniversalDomainDispatcher.classify_topic("Variational Quantum Tensor Networks for Molecular Ground-State Eigensolvers")
+    assert res_quantum.domain == ComputationalDomain.QUANTUM
+    assert res_quantum.model_acronym == "VQ-TensorNet"
+
 
 def test_venue_matcher_ranking():
     recs = VenueMatcher.match_venues(
