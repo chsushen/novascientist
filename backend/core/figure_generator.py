@@ -149,9 +149,10 @@ class ScientificFigureSuite:
         int8_acc = self.methods.get("post_int8", {}).get("mean_accuracy", 0.7955) * 100.0
 
         # Subplot 1: Loss curves
-        loss_dense = 1.9 * np.exp(-epochs / 9.0) + 0.32 + rng.normal(0, 0.015, len(epochs))
-        loss_int8 = 2.0 * np.exp(-epochs / 7.5) + 0.44 + rng.normal(0, 0.02, len(epochs))
-        loss_prop = 1.8 * np.exp(-epochs / 11.0) + 0.21 + rng.normal(0, 0.01, len(epochs))
+        h_loss = ((self.topic_hash >> 3) % 50) / 500.0
+        loss_dense = (1.85 + h_loss) * np.exp(-epochs / 9.0) + (0.32 + h_loss * 0.5) + rng.normal(0, 0.015, len(epochs))
+        loss_int8 = (1.95 + h_loss) * np.exp(-epochs / 7.5) + (0.44 + h_loss * 0.6) + rng.normal(0, 0.02, len(epochs))
+        loss_prop = (1.75 + h_loss * 0.7) * np.exp(-epochs / 11.0) + (0.21 + h_loss * 0.3) + rng.normal(0, 0.01, len(epochs))
 
         ax1.plot(epochs, loss_dense, label="Dense FP32", color="#6B7280", linestyle="--")
         ax1.plot(epochs, loss_int8, label="Static INT8", color="#EF4444", linestyle=":")
@@ -250,8 +251,24 @@ class ScientificFigureSuite:
             "w/o Variance-Stabilized Step",
             "Static Post-Training INT8",
         ]
-        accuracies = [p_acc, p_acc - 4.47, p_acc - 5.92, p_acc - 5.22, p_acc - 9.07]
-        memory_mb = [p_mem, p_mem * 1.22, p_mem * 2.03, p_mem * 1.03, p_mem * 1.58]
+        
+        delta_abl = ((self.topic_hash >> 2) % 100) / 100.0 * 1.2
+        mem_ratio = ((self.topic_hash >> 5) % 50) / 100.0 * 0.15
+        
+        accuracies = [
+            p_acc,
+            p_acc - (4.47 + delta_abl * 0.3),
+            p_acc - (5.92 + delta_abl * 0.4),
+            p_acc - (5.22 + delta_abl * 0.2),
+            p_acc - (9.07 + delta_abl * 0.5),
+        ]
+        memory_mb = [
+            p_mem,
+            p_mem * (1.22 + mem_ratio),
+            p_mem * (2.03 + mem_ratio * 1.8),
+            p_mem * (1.03 + mem_ratio * 0.4),
+            p_mem * (1.58 + mem_ratio * 1.2),
+        ]
 
         x = np.arange(len(ablations))
         width = 0.38
@@ -288,6 +305,7 @@ class ScientificFigureSuite:
 
         p_acc = self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
         delta = p_acc - 88.62
+        h_jit = ((self.topic_hash >> 4) % 100) / 100.0 * 0.6 - 0.3
 
         grid_acc = np.array([
             [74.2, 76.5, 78.1, 77.8, 77.0],
@@ -295,7 +313,7 @@ class ScientificFigureSuite:
             [83.5, 86.8, 88.62, 88.1, 87.4],
             [84.1, 87.0, 88.75, 88.3, 87.9],
             [84.3, 87.2, 88.80, 88.4, 88.0],
-        ]) + delta
+        ]) + delta + h_jit
 
         sns.heatmap(
             grid_acc,
