@@ -150,6 +150,21 @@ class NovaScientistOrchestrator:
 
         # Step 3: Hardware Training / Microbenchmarking
         notify(f"Executing deterministic multi-seed PyTorch training on {dev_name}...", 0.45)
+        
+        # Purge stale metrics and workspace artifacts from previous runs
+        for stale in [
+            self.artifacts_dir / "metrics.json",
+            self.workspace_dir / "main.pdf",
+            self.workspace_dir / "main.tex",
+            self.workspace_dir / "references.bib",
+            self.workspace_dir / "metrics.json",
+        ]:
+            if stale.exists():
+                try:
+                    stale.unlink()
+                except Exception:
+                    pass
+
         if is_real_training:
             trainer = RealPyTorchTrainer(
                 topic=topic,
