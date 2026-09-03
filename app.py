@@ -25,7 +25,11 @@ from backend.core.conversational_agent import (
 from backend.core.latex_assembler import AuthorProfile
 from backend.core.orchestrator import NovaScientistOrchestrator, OrchestratorResult
 from backend.core.real_trainer import get_torch_device
-from backend.core.universal_engine import get_physical_hardware_info
+from backend.core.universal_engine import (
+    ComputationalDomain,
+    UniversalDomainDispatcher,
+    get_physical_hardware_info,
+)
 from backend.core.venue_matcher import VenueMatcher
 
 # Streamlit Page Setup
@@ -405,7 +409,10 @@ elif st.session_state.current_stage == 4:
         dense = result.metrics.get("methods", {}).get("dense_baseline", {})
         meta = result.metrics.get("meta_analysis", {})
 
-        topic = result.topic or st.session_state.get("research_topic", "")
+        topic = (result.topic if result and hasattr(result, "topic") and result.topic else None) or st.session_state.get("research_topic", "")
+        if not topic and "agent" in st.session_state and hasattr(st.session_state.agent, "context"):
+            topic = st.session_state.agent.context.refined_topic or st.session_state.agent.context.user_topic
+        topic = topic or "Graph Neural Network Quantization"
         classification = UniversalDomainDispatcher.classify_topic(topic)
         metric1_label = classification.primary_metric_name
 
