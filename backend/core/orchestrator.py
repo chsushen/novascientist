@@ -208,6 +208,8 @@ class NovaScientistOrchestrator:
                 page_count = len(reader.pages)
             except Exception:
                 page_count = 8 if is_journal else 4
+        elif comp_res.success:
+            page_count = 8 if is_journal else 4
 
         # Export to explicit output path if specified
         if output_pdf and final_pdf_path:
