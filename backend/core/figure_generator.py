@@ -84,10 +84,23 @@ class ScientificFigureSuite:
         c_slate = "#475569"
 
         # Block 1: Domain Inputs
+        if self.domain == ComputationalDomain.VISION:
+            input_title = "Input Multi-View\nVolumetric CT Slices"
+            input_math = r"$\mathbf{X}^{(v)} \in \mathbb{R}^{H \times W \times C}$" + "\n" + r"$\mathcal{D}_{\text{views}}$"
+        elif self.domain == ComputationalDomain.PHYSICS_SURROGATE:
+            input_title = "Input Differential State\n& Boundary Conditions"
+            input_math = r"$(\mathbf{q}, \mathbf{p}) \in \mathbb{R}^{2d}$" + "\n" + r"$\mathcal{H}(\mathbf{q}, \mathbf{p})$"
+        elif self.domain == ComputationalDomain.NLP:
+            input_title = "Input Token Sequence\nEmbeddings"
+            input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times d}$" + "\n" + r"$\mathcal{V}_{\text{vocab}}$"
+        else:
+            input_title = "Input Sensor Stream\n& Graph Adjacency"
+            input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times D}$" + "\n" + r"$\mathbf{A} \in \mathbb{R}^{N \times N}$"
+
         box1 = patches.FancyBboxPatch((0.4, 1.0), 1.8, 2.0, boxstyle="round,pad=0.1", fc="#EFF6FF", ec=c_blue, lw=1.5)
         ax.add_patch(box1)
-        ax.text(1.3, 2.3, f"Input {self.classification.domain_display_name.split()[0]}\nFeatures", ha="center", va="center", fontsize=8.5, weight="bold", color="#1E3A8A")
-        ax.text(1.3, 1.4, r"$\mathbf{X} \in \mathbb{R}^{N \times D}$" + "\n" + r"$\mathcal{D}_{\text{stream}}$", ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(1.3, 2.3, input_title, ha="center", va="center", fontsize=8.2, weight="bold", color="#1E3A8A")
+        ax.text(1.3, 1.4, input_math, ha="center", va="center", fontsize=8, color=c_slate)
 
         # Arrow 1 -> 2
         ax.annotate("", xy=(2.6, 2.0), xytext=(2.2, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
