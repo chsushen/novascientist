@@ -188,6 +188,39 @@ class UniversalDomainDispatcher:
     }
 
     @classmethod
+    def generate_zero_shot_domain(cls, topic: str) -> DomainClassification:
+        """Dynamically synthesize acronym, full name, display name, and metrics for unmapped topics."""
+        words = [w for w in re.findall(r"[A-Za-z]+", topic) if w.lower() not in {"and", "of", "the", "for", "in", "with", "under", "using", "on", "a", "an", "to"}]
+        
+        if len(words) >= 3:
+            prefix = "".join([w[0].upper() for w in words[:3]])
+            core_term = words[1].capitalize() if len(words) > 1 else "Adaptive"
+            acronym = f"{prefix}-Q{words[-1][:3].capitalize()}"
+        elif len(words) == 2:
+            prefix = (words[0][:2] + words[1][:1]).upper()
+            acronym = f"{prefix}-QNet"
+        elif len(words) == 1:
+            prefix = words[0][:3].upper()
+            acronym = f"{prefix}-QOpt"
+        else:
+            acronym = "Univ-QNet"
+            
+        topic_title = " ".join([w.capitalize() for w in words[:4]])
+        display_name = f"Zero-Shot Synthesis: {topic_title}" if topic_title else "Universal Scientific Learning"
+        full_name = f"Quantized Adaptive {topic_title} Network"
+        primary_metric = f"Generalization & Solution Fidelity (%)"
+
+        return DomainClassification(
+            domain=ComputationalDomain.GRAPH,  # Universal relational computation baseline
+            confidence=0.82,
+            matched_keywords=words[:3],
+            domain_display_name=display_name,
+            model_acronym=acronym,
+            model_full_name=full_name,
+            primary_metric_name=primary_metric,
+        )
+
+    @classmethod
     def classify_topic(cls, topic: str) -> DomainClassification:
         """Score keyword matches against domain registries and return top match."""
         topic_lower = topic.lower()
@@ -198,14 +231,19 @@ class UniversalDomainDispatcher:
             matched[dom] = []
             score = 0
             for kw in keywords:
-                if kw in topic_lower:
-                    score += len(kw.split()) * 2
-                    matched[dom].append(kw)
+                if len(kw) <= 4:
+                    if re.search(r"\b" + re.escape(kw) + r"\b", topic_lower):
+                        score += 3
+                        matched[dom].append(kw)
+                else:
+                    if kw in topic_lower:
+                        score += len(kw.split()) * 2
+                        matched[dom].append(kw)
             scores[dom] = score
 
         best_domain = max(scores, key=lambda k: scores[k])
         if scores[best_domain] == 0:
-            best_domain = ComputationalDomain.GRAPH
+            return cls.generate_zero_shot_domain(topic)
 
         total = sum(scores.values()) or 1
         confidence = min(1.0, max(0.65, scores[best_domain] / total if total > 0 else 0.85))

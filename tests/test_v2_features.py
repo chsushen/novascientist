@@ -49,6 +49,18 @@ def test_domain_dispatcher_classification():
     assert res_quantum.model_acronym == "VQ-TensorNet"
 
 
+def test_universal_zero_shot_domain_synthesis():
+    res_cloaking = UniversalDomainDispatcher.classify_topic("Metamaterial Terahertz Resonator Cloaking under Anisotropic Dielectrics")
+    assert res_cloaking.model_acronym != ""
+    assert res_cloaking.confidence >= 0.70
+    assert "MTR" in res_cloaking.model_acronym or "Clo" in res_cloaking.model_acronym
+    assert "Fidelity" in res_cloaking.primary_metric_name
+
+    res_acoustic = UniversalDomainDispatcher.classify_topic("Acoustic Levitation Particle Trapping Dynamics")
+    assert res_acoustic.model_acronym != ""
+    assert res_acoustic.confidence >= 0.70
+
+
 def test_venue_matcher_ranking():
     recs = VenueMatcher.match_venues(
         "Physics-Informed Neural Surrogates under Bounded Memory",

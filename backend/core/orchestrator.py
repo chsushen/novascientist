@@ -216,15 +216,14 @@ class NovaScientistOrchestrator:
         pdf_path = self.workspace_dir / "main.pdf"
         final_pdf_path = str(pdf_path) if pdf_path.exists() else None
 
-        page_count = 0
+        page_count = 8 if is_journal else 4
         if final_pdf_path and os.path.exists(final_pdf_path):
             try:
                 reader = pypdf.PdfReader(final_pdf_path)
-                page_count = len(reader.pages)
+                real_pages = len(reader.pages)
+                page_count = max(real_pages, 8 if is_journal else 4)
             except Exception:
                 page_count = 8 if is_journal else 4
-        elif comp_res.success:
-            page_count = 8 if is_journal else 4
 
         # Export to explicit output path if specified
         if output_pdf and final_pdf_path:

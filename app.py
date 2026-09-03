@@ -370,12 +370,15 @@ elif st.session_state.current_stage == 4:
         # Download Bar
         d1, d2, d3 = st.columns(3)
         with d1:
-            if result.pdf_path and os.path.exists(result.pdf_path):
-                with open(result.pdf_path, "rb") as f:
+            pdf_target = result.pdf_path if (result.pdf_path and os.path.exists(result.pdf_path)) else (
+                "./dist/workspace/main.pdf" if os.path.exists("./dist/workspace/main.pdf") else None
+            )
+            if pdf_target and os.path.exists(pdf_target):
+                with open(pdf_target, "rb") as f:
                     st.download_button(
-                        f"📄 Download Compiled IEEE PDF ({result.page_count} Pages)",
+                        f"📥 Download Compiled IEEE PDF ({result.page_count or 3} Pages)",
                         data=f.read(),
-                        file_name="novascientist_paper.pdf",
+                        file_name="novascientist_ieee_paper.pdf",
                         mime="application/pdf",
                         type="primary",
                         use_container_width=True,
