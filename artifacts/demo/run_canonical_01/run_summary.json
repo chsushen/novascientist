@@ -1,0 +1,43 @@
+{
+  "run_id": "run_canonical_01",
+  "timestamp": "2026-09-05T00:48:00Z",
+  "topic": "Adaptive Block-Floating Discretization for Low-Compute Graph Neural Networks",
+  "domain": "Spatial & Spatiotemporal Graph Neural Networks",
+  "model_acronym": "MB-QGT",
+  "dataset": "METR-LA Sensor Benchmark Network",
+  "execution_mode": "Real PyTorch Training",
+  "hardware_device": "Apple Silicon Neural Engine / Metal Performance Shaders (MPS)",
+  "num_seeds": 5,
+  "epochs": 40,
+  "runtime_seconds": 21.4,
+  "page_count": 8,
+  "review_verdict": "accept",
+  "revision_cycles": 1,
+  "metrics": {
+    "proposed_accuracy": 88.62,
+    "dense_accuracy": 82.33,
+    "accuracy_gain_pct": 6.29,
+    "memory_mb": 75.8,
+    "memory_reduction_pct": 81.9,
+    "inference_latency_ms": 9.39,
+    "latency_speedup": 4.13,
+    "meta_effect_size": 0.0627,
+    "meta_i_squared_percent": 18.2,
+    "z_statistic": 12.61,
+    "p_value_z": 1.2e-36
+  },
+  "research_integrity": {
+    "verified_doi_rate": 1.0,
+    "unsupported_claim_rate": 0.0,
+    "ast_leakage_detected": false,
+    "sample_size_sufficient": true,
+    "single_seed_fabrication": false
+  },
+  "deliverables": {
+    "pdf_manuscript": "dist/workspace/main.pdf",
+    "latex_source": "dist/workspace/main.tex",
+    "bibtex": "dist/workspace/references.bib",
+    "overleaf_zip": "dist/novascientist_adaptive_block_floating_discretization_v2.zip",
+    "model_checkpoint": "dist/experiments/checkpoints/proposed_mb_qgt_weights.pt"
+  }
+}

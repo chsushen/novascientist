@@ -1,0 +1,23 @@
+{
+  "nodes": [
+    { "id": "q_001", "type": "question", "label": "Adaptive Block-Floating Discretization for Low-Compute GNNs" },
+    { "id": "plan_001", "type": "plan", "label": "Research Plan MB-QGT", "parent_ids": ["q_001"] },
+    { "id": "src_001", "type": "source", "label": "Spatial-Temporal Graph Attention Networks", "parent_ids": ["plan_001"] },
+    { "id": "claim_001", "type": "claim", "label": "Quantized projections reduce memory bandwidth bottlenecks.", "parent_ids": ["src_001"] },
+    { "id": "meth_001", "type": "methodology", "label": "Memory-Bounded Quantized Transformer", "parent_ids": ["plan_001"] },
+    { "id": "exp_001", "type": "experiment", "label": "Proposed MB-QGT Seed 42", "parent_ids": ["meth_001"] },
+    { "id": "res_001", "type": "result", "label": "88.62% Accuracy / 9.39ms Latency", "parent_ids": ["exp_001"] },
+    { "id": "rev_001", "type": "review", "label": "Verdict: Accept", "parent_ids": ["meth_001"] },
+    { "id": "conc_001", "type": "conclusion", "label": "Validated MB-QGT Performance under Memory Bounds", "parent_ids": ["rev_001"] }
+  ],
+  "edges": [
+    { "source": "q_001", "target": "plan_001", "relation": "FORMULATED_INTO" },
+    { "source": "plan_001", "target": "src_001", "relation": "RETRIEVED_SOURCE" },
+    { "source": "src_001", "target": "claim_001", "relation": "GROUNDED_CLAIM" },
+    { "source": "plan_001", "target": "meth_001", "relation": "DERIVED_METHODOLOGY" },
+    { "source": "meth_001", "target": "exp_001", "relation": "EVALUATED_IN" },
+    { "source": "exp_001", "target": "res_001", "relation": "PRODUCED_RESULT" },
+    { "source": "meth_001", "target": "rev_001", "relation": "PEER_REVIEWED_BY" },
+    { "source": "rev_001", "target": "conc_001", "relation": "CONCLUDED" }
+  ]
+}

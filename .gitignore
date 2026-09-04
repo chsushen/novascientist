@@ -22,7 +22,9 @@ htmlcov/
 # Build & Workspace Directories
 dist/
 dist/*
-artifacts/
+artifacts/*
+!artifacts/demo/
+!artifacts/demo/**
 *.log
 streamlit.log
 
