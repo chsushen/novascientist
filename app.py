@@ -489,3 +489,30 @@ elif st.session_state.current_stage == 4:
                     """,
                     unsafe_allow_html=True,
                 )
+
+        # Autonomous Multi-Agent State & Provenance Inspector
+        with st.expander("🤖 Autonomous Multi-Agent State, Provenance & Reviewer Audit", expanded=False):
+            if hasattr(result, "plan") and result.plan:
+                st.markdown("#### 📋 1. Research Plan Specification")
+                st.json(result.plan)
+            if hasattr(result, "methodology") and result.methodology:
+                st.markdown("#### 🧪 2. Methodology & Hypothesis Specification")
+                st.json(result.methodology)
+            if hasattr(result, "evidence") and result.evidence:
+                st.markdown("#### 📚 3. Literature Evidence & Extracted Claims")
+                st.json(result.evidence)
+            if hasattr(result, "validation_report") and result.validation_report:
+                st.markdown("#### ⚖️ 4. Empirical Evidence Validation Report")
+                st.json(result.validation_report)
+            if hasattr(result, "stat_critique") and result.stat_critique:
+                st.markdown("#### 📊 5. Statistical Critic Findings")
+                st.json(result.stat_critique)
+            if hasattr(result, "review_report") and result.review_report:
+                st.markdown("#### 🧐 6. Adversarial Scientific Peer Review")
+                st.json(result.review_report)
+            if hasattr(result, "revision_history") and result.revision_history:
+                st.markdown("#### 🔄 7. Bounded Revision Loop History")
+                st.json(result.revision_history)
+            if hasattr(result, "provenance_graph") and result.provenance_graph:
+                st.markdown("#### 🕸️ 8. Complete Entity Provenance Graph")
+                st.json(result.provenance_graph)

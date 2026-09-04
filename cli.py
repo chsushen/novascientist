@@ -239,6 +239,7 @@ def main() -> None:
         description="NovaScientist v2.0: Interactive Autonomous Research & Hardware Benchmarking Agent."
     )
     parser.add_argument("--interactive", "-i", action="store_true", help="Launch interactive conversational prompt session.")
+    parser.add_argument("--benchmark", action="store_true", help="Execute reproducible agentic evaluation benchmark suite.")
     parser.add_argument("--topic", type=str, help="Research title or problem hypothesis.")
     parser.add_argument("--anonymous", action="store_true", help="Enforce double-blind anonymous review.")
     parser.add_argument("--author", type=str, default="Anonymous Author(s)", help="Author name.")
@@ -252,8 +253,9 @@ def main() -> None:
     parser.add_argument("--output", "-o", type=str, default=None, help="Destination file path for the compiled PDF.")
     parser.add_argument("--output-dir", type=str, default="./dist", help="Directory for build artifacts.")
 
-    # Subcommand support (e.g. `cli.py run` or `cli.py chat`)
-    subparsers = parser.add_subparsers(dest="subcommand", help="Optional subcommand ('run' or 'chat')")
+    # Subcommand support (e.g. `cli.py run` or `cli.py chat` or `cli.py benchmark`)
+    subparsers = parser.add_subparsers(dest="subcommand", help="Optional subcommand ('run', 'chat', or 'benchmark')")
+    benchmark_parser = subparsers.add_parser("benchmark", help="Run reproducible agentic evaluation benchmark.")
     run_parser = subparsers.add_parser("run", help="Run automated research pipeline.")
     run_parser.add_argument("--topic", type=str, required=True, help="Research title or topic.")
     run_parser.add_argument("--anonymous", action="store_true", help="Enforce double-blind review.")
@@ -271,6 +273,15 @@ def main() -> None:
     chat_parser = subparsers.add_parser("chat", help="Launch interactive requirement-gathering chat.")
 
     args = parser.parse_args()
+
+    if args.subcommand == "benchmark" or args.benchmark:
+        from backend.core.evaluation_benchmark import AgenticEvaluationBenchmark
+        import json
+        console.print(Panel("[bold green]🔬 Executing NovaScientist Autonomous Agentic Evaluation Benchmark...[/bold green]", box=box.ROUNDED))
+        runner = AgenticEvaluationBenchmark()
+        summary = asyncio.run(runner.run_full_benchmark())
+        console.print_json(json.dumps(summary.to_dict()))
+        return
 
     if args.subcommand == "chat" or args.interactive or (not args.topic and not getattr(args, "subcommand", None)):
         interactive_chat_mode()
