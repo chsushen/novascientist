@@ -344,8 +344,7 @@ class NovaScientistOrchestrator:
         if final_pdf_path and os.path.exists(final_pdf_path):
             try:
                 reader = pypdf.PdfReader(final_pdf_path)
-                real_pages = len(reader.pages)
-                page_count = max(real_pages, 8 if is_journal else 4)
+                page_count = len(reader.pages)
             except Exception:
                 page_count = 8 if is_journal else 4
 

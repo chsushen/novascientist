@@ -41,6 +41,7 @@ class EvidenceValidationReport:
     is_publishable: bool
     claims: List[ValidatedClaim] = field(default_factory=list)
     flags: List[str] = field(default_factory=list)
+    verified_doi_rate: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -52,6 +53,7 @@ class EvidenceValidationReport:
             "is_publishable": self.is_publishable,
             "flags": self.flags,
             "claims": [c.to_dict() for c in self.claims],
+            "verified_doi_rate": self.verified_doi_rate,
         }
 
 
@@ -153,4 +155,5 @@ class EvidenceValidator:
             is_publishable=is_publishable,
             claims=validated,
             flags=flags,
+            verified_doi_rate=evidence.verified_doi_rate,
         )
