@@ -5,125 +5,70 @@
 [![GitHub stars](https://img.shields.io/github/stars/chsushen/novascientist?style=social)](https://github.com/chsushen/novascientist)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20MPS%20%7C%20CPU-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
-[![Tests](https://img.shields.io/badge/pytest-31%20passed%20(100%25)-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-129%20passed%20(100%25)-brightgreen.svg)](tests/)
 [![Format](https://img.shields.io/badge/Format-8--12%20Page%20IEEE%20Transactions-8B5CF6.svg)]()
 [![Figures](https://img.shields.io/badge/Figures-5%20Publication%20Vectors%20(PDF%2FPNG)-059669.svg)]()
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Interactive Conversational Research Agent & Real PyTorch Hardware Benchmarking Suite for IEEE Publications**
+**Autonomous Multi-Agent Research-to-Publication Engine & Empirical Hardware Benchmarking Suite for IEEE Transactions**
 
-NovaScientist v2.0 is an interactive, multi-agent AI research-to-publication engine that turns any scientific research query or problem statement into an authentic, empirically evaluated, and rigorously typeset 8–12 page IEEE Transactions journal paper.
-
-Running on local hardware with automatic acceleration (NVIDIA CUDA, Apple Silicon MPS, or Multi-Core CPU), NovaScientist converses with the researcher to clarify intent, executes genuine PyTorch neural optimization runs across deterministic seeds ($k=5$), verifies mathematical invariants with formal proofs, generates a 5-figure vector plotting suite, and compiles an Overleaf-ready LaTeX package and publication PDF.
+NovaScientist v2.0 is an autonomous, peer-review-driven agentic research platform that transforms scientific research questions into rigorously evaluated, empirically grounded, and typeset 8–12 page IEEE Transactions journal papers.
 
 ---
 
-## 🏛️ System Architecture
+## 🏛️ Autonomous Agentic Architecture
 
-```
-                    [ Researcher Input / Question / Hypothesis ]
-                                         │
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │    1. Conversational Requirement Gathering    │
-                 │   • Topic Refinement & Hypothesis Alignment   │
-                 │   • Target Length (8–12p Journal vs 4p Conf)  │
-                 │   • Hardware Execution Mode (Real vs Fast)    │
-                 │   • Interactive Execution Plan Preview Card   │
-                 └───────────────────────┬───────────────────────┘
-                                         │  [User Approval]
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │       2. Scholarly Literature Agent           │
-                 │   • Live CrossRef & OpenAlex Retrieval        │
-                 │   • 100% Active, Verified DOIs (Zero Hal.)    │
-                 │   • Structured Related-Work Taxonomy Table    │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │          3. AST Static Dataflow Gate          │
-                 │   • Code Integrity & Leakage Verification     │
-                 │   • Strict Pre-Split Scaler Auditing          │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │    4. Real PyTorch Hardware Training Sandbox  │
-                 │   • Auto-Detect CUDA / Apple Silicon MPS / CPU│
-                 │   • Train 4 Candidate Neural Architectures    │
-                 │   • Save PyTorch Model Checkpoints (.pt)      │
-                 │   • Log Empirical Losses, Latency, & RSS      │
-                 │   • DerSimonian-Laird Random-Effects Analysis │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │       5. Scientific Vector Plotting Suite     │
-                 │   • Fig 1: Architecture Block Diagram (Vector)│
-                 │   • Fig 2: Convergence Loss & Accuracy Curves │
-                 │   • Fig 3: Multi-Objective Pareto Frontier    │
-                 │   • Fig 4: Component Module Ablation Bars     │
-                 │   • Fig 5: 2D Hyperparameter Sensitivity Map  │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │    6. Deep Multi-Agent Journal Synthesis      │
-                 │   • 10 Structured IEEE Transactions Sections  │
-                 │   • Formal Proofs (Lemma 1, Theorems 1 & 2)   │
-                 │   • Tables 1, 2, 3 & Algorithm Environment    │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                                         ▼
-                 ┌───────────────────────────────────────────────┐
-                 │      7. Adversarial Reviewer Swarm Audit      │
-                 │   • Statistical Power & Heterogeneity Check   │
-                 │   • Scientific Rhetoric & Overclaim Linter    │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                    ┌────────────────────┴────────────────────┐
-                    ▼                                         ▼
-       [ 8. Tectonic XeTeX Engine ]              [ 9. Publication Packager ]
-        Compiles 8–12 Page IEEE PDF               Overleaf ZIP Archive + Checkpoints
+```mermaid
+graph TD
+    User([Researcher Query]) --> Planner[1. Research Planner Agent]
+    Planner --> LitAgent[2. Literature & Evidence Agent]
+    Planner --> MethodAgent[3. Methodology Agent]
+    Planner --> ExpAgent[4. Experiment Planning Agent]
+    
+    LitAgent --> |CrossRef / OpenAlex & Active DOIs| EvBundle[Evidence Bundle & Grounded Claims]
+    MethodAgent --> |Theoretical Formulations & Hypotheses| MethodSpec[Methodology Specification]
+    ExpAgent --> |Multi-Seed PyTorch Config| ExpSpec[Experiment Specification]
+    
+    ExpSpec --> Sandbox[5. Hardware Execution Sandbox - CUDA / MPS / CPU]
+    Sandbox --> ExpRecords[Empirical Multi-Seed Telemetry]
+    
+    EvBundle --> Validator[6. Evidence Validator]
+    ExpRecords --> Validator
+    Validator --> ValReport[Evidence Validation Report]
+    
+    ExpRecords --> StatCritic[7. Statistical Critic Agent]
+    StatCritic --> StatCritique[Power Audit & DerSimonian-Laird Meta]
+    
+    ValReport --> Reviewer[8. Scientific Reviewer Agent]
+    StatCritique --> Reviewer
+    MethodSpec --> Reviewer
+    
+    Reviewer <--> RevisionLoop[9. Bounded Revision Loop - k <= 3]
+    RevisionLoop --> Assembler[10. Deep Journal LaTeX Assembler]
+    
+    Assembler --> VectorSuite[11. Vector Figure Suite - 5 Panels]
+    VectorSuite --> Compiler[12. Tectonic XeTeX Engine]
+    
+    Compiler --> PDF([Publication PDF & Overleaf ZIP])
+    
+    RevisionLoop --> Memory[(13. Persistent Research Memory)]
+    ExpRecords --> Memory
 ```
 
 ---
 
-## 🌟 Key Capabilities in v2.0
+## 🌟 The 8-Phase Engineering & Integrity Architecture
 
-1. **Interactive Conversational Requirement Gathering**:
-   - Step-by-step guided dialogue via Streamlit GUI and CLI chat mode.
-   - Refines topic titles, identifies domain affinity, recommends canonical datasets, configures seed budgets, and generates an interactive execution plan for user review.
-
-2. **Real PyTorch Hardware Training Sandbox**:
-   - Auto-detects local acceleration: **NVIDIA CUDA**, **Apple Silicon Neural Engine (MPS)**, or **Multi-Core CPU**.
-   - Trains candidate architectures (`ProposedMBQGT`, `DenseFP32Baseline`, `StaticINT8Baseline`, `SparseGNNBaseline`) using authentic loss functions, AdamW optimization, and learning rate schedulers.
-   - Saves `.pt` model weights to `dist/experiments/checkpoints/` and detailed epoch histories to `dist/experiments/logs/`.
-
-3. **8–12 Page Full IEEE Transactions Journal Synthesis**:
-   - Generates an exhaustive 10-section manuscript formatted in double-column `IEEEtran.cls`.
-   - **Section 1**: Introduction & Grand Computational Challenges.
-   - **Section 2**: Related Work & Structured DOI Taxonomy Table.
-   - **Section 3**: Theoretical Formulation & Mathematical Foundations (Lemma 1 [Dynamic Block Bounds], Theorem 1 [Bounded Discretization Variance], Theorem 2 [Stochastic Gradient Convergence], Proposition 1 [Cache Line Miss Bounds] with complete proofs).
-   - **Section 4**: System Architecture & Algorithmic Pseudocode (`algorithm` / `algorithmicx`).
-   - **Section 5**: Experimental Setup & Physical Hardware Telemetry.
-   - **Section 6**: Empirical Benchmark Results & DerSimonian-Laird Random-Effects Meta-Analysis ($Q, \tau^2, I^2, Z$).
-   - **Section 7**: Component Ablation Study (Table 2) & Hyperparameter Sensitivity (Table 3).
-   - **Section 8**: In-Depth Technical Discussion (Memory Wall, Cache Locality, SIMD Vectorization, Failure Modes).
-   - **Section 9**: Ethical Statement & AI-Assistance Acknowledgment (IEEE/ACM 2024+ Standards).
-   - **Section 10**: Conclusion & Future Trajectories.
-
-4. **Rich 5-Figure Publication Vector Suite**:
-   - Generates dual publication-grade vector `.pdf` and high-DPI `.png` files:
-     * **Fig 1 (`fig1_system_architecture`)**: System Dataflow & Quantization Engine Diagram.
-     * **Fig 2 (`fig2_convergence_curves`)**: Dual-Panel Loss Decay & Validation Accuracy Saturation.
-     * **Fig 3 (`fig3_pareto_frontier`)**: Multi-Objective Pareto Frontier (Latency vs. Peak RAM vs. Accuracy).
-     * **Fig 4 (`fig4_ablation_study`)**: Component Module Contribution Ablation Bar Chart.
-     * **Fig 5 (`fig5_sensitivity_heatmap`)**: 2D Hyperparameter Sensitivity Matrix across Quantization Depths and Cache Sizes.
-
-5. **Target Publication Venue Matcher**:
-   - Indexes and ranks top-tier venues (IEEE TPAMI, IEEE TNNLS, IEEE Access, ACM TODS, NeurIPS) by impact factor, h5-index, and typical review turnaround.
+| Phase | Subsystem | Scientific Integrity Guarantee |
+| :--- | :--- | :--- |
+| **1. Evidence Grounding** | `LiteratureAgent` | Zero synthetic paper generation. Verbatim excerpt passages strictly attached to every claim with `source_origin` and `text_origin` tracking. |
+| **2. DOI Verification** | `DOIVerifier` | Active HTTP 2xx resolution, bibliographic metadata extraction, and fuzzy title/year matching ($\pm 1$ year tolerance). |
+| **3. Statistical Critic** | `StatisticalCriticAgent` | Paired t-test/Wilcoxon testing via `scipy.stats`, Cohen's d effect sizes, and single-seed non-fabrication guarantees. |
+| **4. Scientific Reviewer** | `ScientificReviewerAgent` | 7-pillar peer review (Novelty, Method, Evidence, Experiments, Results, Reproducibility, Limitations) with bounded self-critique ($k \le 3$). |
+| **5. Experiment Telemetry** | `RealPyTorchTrainer` | Monotonic stopwatch timing (`time.perf_counter()`), UTC ISO start/end timestamps, and fault-injection exception propagation. |
+| **6. Research Memory** | `ResearchMemory` | Atomic JSON file persistence (`os.replace`), corrupted store recovery, and domain/keyword relevance ranking. |
+| **7. Evaluation Benchmark** | `AgenticEvaluationBenchmark` | Dynamic measurement across canonical and adversarial topics with zero hardcoded 100% metric stubs. |
+| **8. Production Hardening** | `LiteratureService` / `app.py` | Configurable API timeouts (`SCHOLARLY_API_TIMEOUT`), network timeout insulation, and live Streamlit Research Integrity panel. |
 
 ---
 
@@ -147,11 +92,9 @@ Running on local hardware with automatic acceleration (NVIDIA CUDA, Apple Silico
 git clone https://github.com/chsushen/novascientist.git
 cd novascientist
 
-# Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
@@ -159,66 +102,51 @@ pip install -r requirements.txt
 ```bash
 streamlit run app.py
 ```
-Open [http://localhost:8501](http://localhost:8501) to interact with the conversational research assistant, review execution plans, monitor live PyTorch training progress, explore the 5-figure carousel, and download the compiled IEEE PDF and `.pt` model weights.
+Open [http://localhost:8501](http://localhost:8501) to interact with the conversational research assistant, inspect the live Research Integrity Dashboard, monitor PyTorch hardware training, and download compiled PDFs and model weights.
 
-### 3. Run via Interactive CLI Chat
+### 3. Run via CLI Chat Mode
 ```bash
 python cli.py chat
-# Or:
-python cli.py --interactive
 ```
 
-### 4. Run via Direct CLI Command
+### 4. Run Automated CLI Pipeline
 ```bash
 python cli.py run \
   --topic "Low-Rank Dynamic Graph Attention for Smart Disaster Resilience and Evacuation Forecasting" \
-  --pages 8_12_pages_journal \
+  --pages journal \
   --mode real \
   --seeds 5 \
   --output ~/Desktop/my_research_paper.pdf
 ```
 
-### 5. Reproduce Benchmarks Standalone
+### 5. Run Automated Agentic Evaluation Benchmark
 ```bash
-python reproduce_benchmarks.py --mode real --seeds 5 --figures
+python cli.py benchmark
 ```
 
 ### 6. Run Test Suite
 ```bash
-PYTHONPATH=. python -m pytest tests/ -v
+pytest tests/ -v
 ```
 
 ---
 
-## 📥 Pre-Compiled Deliverables & Experimental Artifacts
+## 📦 Output Deliverables
 
-Download the sample outputs produced by NovaScientist v2.0 for the METR-LA Spatial-Temporal Graph benchmark:
-
-| Artifact | Description | Direct Download |
-| :--- | :--- | :--- |
-| **IEEE Journal PDF** | 7-Page Double-Column IEEE Transactions Manuscript | [📄 Download PDF](https://github.com/chsushen/novascientist/releases/download/v2.0.0/novascientist_paper.pdf) |
-| **Overleaf ZIP** | 1-Click Uploadable LaTeX Source (`main.tex`, `references.bib`, figures) | [📦 Download ZIP](https://github.com/chsushen/novascientist/releases/download/v2.0.0/novascientist_low-rank_dynamic_graph_attention_for_v2.zip) |
-| **PyTorch Weights** | Trained `.pt` Model Checkpoint (Apple Silicon MPS / CUDA) | [💾 Download Weights](https://github.com/chsushen/novascientist/releases/download/v2.0.0/proposed_mb_qgt_weights.pt) |
-
----
-
-## 📦 Output Artifacts Structure
-
-Upon execution, NovaScientist generates the following structured bundle in `dist/`:
+Each research cycle produces a self-contained publication package in `dist/`:
 
 ```
 dist/
-├── novascientist_<topic>_v2.zip    # Overleaf-ready package (1-click upload)
+├── novascientist_<topic>_v2.zip    # Overleaf-ready ZIP package
 ├── experiments/
 │   ├── checkpoints/
-│   │   └── proposed_mb_qgt_weights.pt  # Trained PyTorch model weights
+│   │   └── proposed_mb_qgt_weights.pt  # Trained PyTorch model weights (.pt)
 │   └── logs/
-│       └── training_log.json           # Raw per-epoch training & validation history
+│       └── training_log.json           # Per-epoch loss and validation metrics
 └── workspace/
     ├── main.pdf                         # Compiled 8–12 page IEEE Transactions PDF
     ├── main.tex                         # Complete LaTeX source with 10 sections & proofs
-    ├── references.bib                   # BibTeX with active CrossRef DOIs & dataset entries
-    ├── IEEEtran.cls                     # Official IEEE Transactions LaTeX document class
+    ├── references.bib                   # BibTeX with active CrossRef DOIs
     ├── artifacts/
     │   └── metrics.json                 # Multi-seed empirical metrics & meta-analysis
     └── figures/
@@ -231,12 +159,19 @@ dist/
 
 ---
 
+## 📚 Documentation Links
+- [System Architecture & Component Dataflow](docs/architecture.md)
+- [Reproducibility & Verification Guide](docs/reproducibility.md)
+- [Comprehensive Evolutionary Walkthrough](walkthrough.md)
+
+---
+
 ## ⚖️ Academic Integrity & AI-Assistance Compliance
 
-NovaScientist complies with IEEE and ACM 2024+ authorship guidelines:
-- **Zero Hallucinated Citations**: All literature DOIs are queried directly against live CrossRef and OpenAlex indexes.
-- **AST Dataflow Integrity**: Code pipelines are statically audited to guarantee zero test data leakage during pre-processing.
-- **Explicit Disclosure**: Assembled manuscripts include a formal Section 9 *Ethical Statement and AI-Assistance Acknowledgment* identifying NovaScientist as the experimental orchestration and typesetting framework while attributing scientific intent to human researchers.
+NovaScientist conforms with IEEE and ACM 2024+ publication guidelines:
+- **Zero Hallucinated DOIs**: Literature DOIs are actively validated against CrossRef/OpenAlex APIs.
+- **AST Dataflow Integrity**: Code is statically verified to eliminate pre-processing test leakage.
+- **Explicit Attribution**: Assembled manuscripts include a formal *Ethical Statement and AI-Assistance Acknowledgment* section.
 
 ---
 
