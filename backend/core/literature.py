@@ -1,21 +1,52 @@
 """Literature Discovery and Verified BibTeX Generator.
 
 Queries CrossRef and OpenAlex APIs asynchronously via httpx, validates active DOIs,
-and formats publication-grade, zero-hallucination BibTeX entries.
+retrieves accessible scholarly abstracts, and formats publication-grade BibTeX entries.
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 import httpx
 
 
+def reconstruct_openalex_abstract(inverted_index: Optional[Dict[str, List[int]]]) -> Optional[str]:
+    """Reconstruct plain text abstract from OpenAlex word-to-position inverted index."""
+    if not inverted_index or not isinstance(inverted_index, dict):
+        return None
+    pos_word: Dict[int, str] = {}
+    for word, positions in inverted_index.items():
+        if isinstance(positions, list):
+            for pos in positions:
+                pos_word[pos] = word
+    if not pos_word:
+        return None
+    return " ".join(pos_word[pos] for pos in sorted(pos_word.keys()))
+
+
+from backend.core.doi_verifier import (
+    DOIVerificationStatus,
+    normalize_doi,
+    validate_doi_syntax,
+)
+
+VALID_SOURCE_ORIGINS = {"crossref", "openalex", "open_access_fulltext", "test_fixture"}
+VALID_TEXT_ORIGINS = {
+    "crossref_abstract",
+    "openalex_abstract_inverted_index",
+    "open_access_fulltext",
+    "test_fixture",
+    "none",
+}
+
+
 @dataclass
 class PaperMetadata:
-    """Represents verified scholarly literature metadata."""
+    """Represents verified scholarly literature metadata and accessible text."""
     doi: str
     title: str
     authors: List[str]
@@ -24,10 +55,71 @@ class PaperMetadata:
     bib_type: str = "article"
     citation_count: int = 0
     abstract: Optional[str] = None
+    full_text: Optional[str] = None
     url: Optional[str] = None
     bibkey: str = field(default="")
+    source_origin: str = "openalex"  # 'crossref', 'openalex', 'open_access_fulltext', 'test_fixture'
+    text_origin: str = "none"  # 'crossref_abstract', 'openalex_abstract_inverted_index', 'open_access_fulltext', 'test_fixture', 'none'
+    doi_normalized: Optional[str] = None
+    doi_syntax_valid: bool = False
+    doi_resolved: bool = False
+    doi_metadata_match: bool = False
+    doi_verification_status: str = "syntax_valid_only"  # 'verified', 'syntax_valid_only', 'metadata_mismatch', 'unresolvable', 'missing'
+    doi_final_url: Optional[str] = None
+    doi_http_status: Optional[int] = None
+
+    @property
+    def accessible_text(self) -> Optional[str]:
+        """Return accessible full text or abstract if available, else None."""
+        if self.full_text and self.full_text.strip():
+            return self.full_text.strip()
+        if self.abstract and self.abstract.strip():
+            return self.abstract.strip()
+        return None
 
     def __post_init__(self) -> None:
+        if self.source_origin not in VALID_SOURCE_ORIGINS:
+            raise ValueError(
+                f"Invalid source_origin '{self.source_origin}'. Must be one of {VALID_SOURCE_ORIGINS}"
+            )
+
+        # Auto-align text_origin when text is present but text_origin is default 'none'
+        if self.text_origin == "none":
+            if self.full_text and self.full_text.strip():
+                self.text_origin = "test_fixture" if self.source_origin == "test_fixture" else "open_access_fulltext"
+            elif self.abstract and self.abstract.strip():
+                if self.source_origin == "test_fixture":
+                    self.text_origin = "test_fixture"
+                elif self.source_origin == "crossref":
+                    self.text_origin = "crossref_abstract"
+                else:
+                    self.text_origin = "openalex_abstract_inverted_index"
+        elif not self.accessible_text:
+            self.text_origin = "none"
+
+        if self.text_origin not in VALID_TEXT_ORIGINS:
+            raise ValueError(
+                f"Invalid text_origin '{self.text_origin}'. Must be one of {VALID_TEXT_ORIGINS}"
+            )
+
+        # DOI normalization and standard syntax validation
+        norm = normalize_doi(self.doi)
+        if norm:
+            self.doi_normalized = norm
+            self.doi_syntax_valid = validate_doi_syntax(norm)
+            if not self.doi_syntax_valid:
+                self.doi_verification_status = "unresolvable"
+            else:
+                if self.source_origin == "test_fixture":
+                    self.doi_verification_status = "verified"
+                    self.doi_resolved = True
+                    self.doi_metadata_match = True
+                elif not self.doi_verification_status or self.doi_verification_status == "syntax_valid_only":
+                    self.doi_verification_status = "syntax_valid_only"
+        else:
+            self.doi_syntax_valid = False
+            self.doi_verification_status = "missing"
+
         if not self.bibkey:
             first_author = "scholar"
             if self.authors:
@@ -53,8 +145,8 @@ class PaperMetadata:
             "_": r"\_",
             "{": r"\{",
             "}": r"\}",
-            "~": r"\textasciitilde{}",
-            "^": r"\textasciicircum{}",
+            "~": r"	extasciitilde{}",
+            "^": r"	extasciicircum{}",
         }
         pattern = re.compile("|".join(re.escape(k) for k in chars.keys()))
         esc_title = pattern.sub(lambda m: chars[m.group(0)], self.title)
@@ -81,11 +173,38 @@ class LiteratureService:
     CROSSREF_API_URL = "https://api.crossref.org/works"
     OPENALEX_API_URL = "https://api.openalex.org/works"
 
-    def __init__(self, email: str = "novascientist@research.org", timeout: float = 8.0) -> None:
-        self.email = email
-        self.timeout = timeout
+    @staticmethod
+    def escape_latex(text: str) -> str:
+        """Escape LaTeX special characters in titles and venue names."""
+        chars = {
+            "&": r"\&",
+            "%": r"\%",
+            "$": r"\$",
+            "#": r"\#",
+            "_": r"\_",
+            "{": r"\{",
+            "}": r"\}",
+            "~": r"\textasciitilde{}",
+            "^": r"\textasciicircum{}",
+        }
+        pattern = re.compile("|".join(re.escape(k) for k in chars.keys()))
+        return pattern.sub(lambda m: chars[m.group(0)], text)
+
+    def __init__(self, email: Optional[str] = None, timeout: Optional[float] = None) -> None:
+        self.email = email or os.getenv("SCHOLARLY_CONTACT_EMAIL", "novascientist@research.org")
+        env_timeout = os.getenv("SCHOLARLY_API_TIMEOUT")
+        if timeout is not None:
+            self.timeout = timeout
+        elif env_timeout:
+            try:
+                self.timeout = float(env_timeout)
+            except ValueError:
+                self.timeout = 8.0
+        else:
+            self.timeout = 8.0
+
         self.headers = {
-            "User-Agent": f"NovaScientist/1.0 (mailto:{self.email})",
+            "User-Agent": f"NovaScientist/2.0 (mailto:{self.email})",
             "Accept": "application/json",
         }
 
@@ -126,6 +245,16 @@ class LiteratureService:
                         venue_list = item.get("container-title", [])
                         venue = venue_list[0] if venue_list else "IEEE Transactions on Neural Networks and Learning Systems"
                         
+                        raw_abstract = item.get("abstract")
+                        clean_abstract = None
+                        text_orig = "none"
+                        if raw_abstract and isinstance(raw_abstract, str):
+                            clean = re.sub(r"<[^>]+>", "", raw_abstract).strip()
+                            clean = re.sub(r"\s+", " ", clean)
+                            if len(clean) > 20:
+                                clean_abstract = clean
+                                text_orig = "crossref_abstract"
+
                         papers.append(PaperMetadata(
                             doi=doi.strip(),
                             title=title.strip(),
@@ -133,10 +262,12 @@ class LiteratureService:
                             year=int(year),
                             venue=venue.strip(),
                             citation_count=item.get("is-referenced-by-count", 0),
+                            abstract=clean_abstract,
                             url=f"https://doi.org/{doi.strip()}",
+                            source_origin="crossref",
+                            text_origin=text_orig,
                         ))
         except Exception:
-            # Fallback to OpenAlex or cached baseline on network constraint
             pass
         return papers
 
@@ -171,6 +302,14 @@ class LiteratureService:
                         source = loc.get("source", {}) or {}
                         venue = source.get("display_name") or "ACM/IEEE International Conference on Machine Learning"
                         
+                        inv_index = item.get("abstract_inverted_index")
+                        clean_abstract = reconstruct_openalex_abstract(inv_index)
+                        text_orig = (
+                            "openalex_abstract_inverted_index"
+                            if (clean_abstract and len(clean_abstract.strip()) > 20)
+                            else "none"
+                        )
+
                         papers.append(PaperMetadata(
                             doi=doi,
                             title=title.strip(),
@@ -178,61 +317,14 @@ class LiteratureService:
                             year=int(year),
                             venue=venue.strip(),
                             citation_count=item.get("cited_by_count", 0),
+                            abstract=clean_abstract,
                             url=f"https://doi.org/{doi}",
+                            source_origin="openalex",
+                            text_origin=text_orig,
                         ))
         except Exception:
             pass
         return papers
-
-    def get_fallback_curated_papers(self, topic: str) -> List[PaperMetadata]:
-        """High-impact verified canonical references for low-compute AI & graph systems."""
-        return [
-            PaperMetadata(
-                doi="10.1109/TPAMI.2021.3099999",
-                title="Adaptive Quantization and Memory-Bounded Graph Neural Networks",
-                authors=["Kipf, Thomas", "Welling, Max", "Hamilton, William L."],
-                year=2022,
-                venue="IEEE Transactions on Pattern Analysis and Machine Intelligence",
-                citation_count=412,
-                url="https://doi.org/10.1109/TPAMI.2021.3099999",
-            ),
-            PaperMetadata(
-                doi="10.1145/3534678.3539001",
-                title="Dynamic Graph Compression under Strict Memory Budgets",
-                authors=["Leskovec, Jure", "You, Jiaxuan", "Ying, Rex"],
-                year=2023,
-                venue="ACM SIGKDD Conference on Knowledge Discovery and Data Mining",
-                citation_count=185,
-                url="https://doi.org/10.1145/3534678.3539001",
-            ),
-            PaperMetadata(
-                doi="10.1109/TC.2023.3289012",
-                title="Resource-Constrained Representation Learning on Embedded Vector Processors",
-                authors=["Dally, William", "Horowitz, Mark", "Keutzer, Kurt"],
-                year=2024,
-                venue="IEEE Transactions on Computers",
-                citation_count=98,
-                url="https://doi.org/10.1109/TC.2023.3289012",
-            ),
-            PaperMetadata(
-                doi="10.1609/aaai.v37i8.26120",
-                title="Meta-Analytic Bounds for Gradient Variance under Stochastic Quantization",
-                authors=["Bottou, Leon", "Curtis, Frank E.", "Nocedal, Jorge"],
-                year=2023,
-                venue="AAAI Conference on Artificial Intelligence",
-                citation_count=230,
-                url="https://doi.org/10.1609/aaai.v37i8.26120",
-            ),
-            PaperMetadata(
-                doi="10.1109/CVPR.2024.01928",
-                title="Sub-linear Memory Embedding Transformers for Sparse Edge Topologies",
-                authors=["Vaswani, Ashish", "Dehghani, Mostafa", "He, Kaiming"],
-                year=2024,
-                venue="IEEE/CVF Conference on Computer Vision and Pattern Recognition",
-                citation_count=145,
-                url="https://doi.org/10.1109/CVPR.2024.01928",
-            ),
-        ]
 
     async def search_literature(self, topic: str, limit: int = 5) -> List[PaperMetadata]:
         """Aggregate literature from CrossRef and OpenAlex with DOI validation and deduplication."""
@@ -241,70 +333,33 @@ class LiteratureService:
         
         results = await asyncio.gather(crossref_task, openalex_task, return_exceptions=True)
         
-        seen_dois = set()
-        deduped: List[PaperMetadata] = []
-        
+        all_papers: List[PaperMetadata] = []
         for res in results:
             if isinstance(res, list):
-                for paper in res:
-                    norm_doi = paper.doi.lower().strip()
-                    if norm_doi not in seen_dois and re.match(r"^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$", paper.doi):
-                        seen_dois.add(norm_doi)
-                        deduped.append(paper)
-                        
-        if len(deduped) < 3:
-            for fallback in self.get_fallback_curated_papers(topic):
-                if fallback.doi.lower() not in seen_dois:
-                    seen_dois.add(fallback.doi.lower())
-                    deduped.append(fallback)
-                    
-        return deduped[:limit]
-
-    @staticmethod
-    def escape_latex(text: str) -> str:
-        """Escape LaTeX special characters in titles and venue names."""
-        chars = {
-            "&": r"\&",
-            "%": r"\%",
-            "$": r"\$",
-            "#": r"\#",
-            "_": r"\_",
-            "{": r"\{",
-            "}": r"\}",
-            "~": r"\textasciitilde{}",
-            "^": r"\textasciicircum{}",
-        }
-        pattern = re.compile("|".join(re.escape(k) for k in chars.keys()))
-        return pattern.sub(lambda m: chars[m.group(0)], text)
-
-    def generate_bibtex(
-        self,
-        papers: List[PaperMetadata],
-        dataset: Optional[Any] = None
-    ) -> str:
-        """Generate formatted BibTeX string for all papers and optional canonical dataset."""
-        entries: List[str] = []
-        for p in papers:
-            if hasattr(p, "to_bibtex"):
-                entries.append(p.to_bibtex())
+                all_papers.extend(res)
+        
+        by_doi: Dict[str, PaperMetadata] = {}
+        for paper in all_papers:
+            norm_doi = paper.doi.lower().strip()
+            if not norm_doi:
+                continue
+            if norm_doi not in by_doi:
+                by_doi[norm_doi] = paper
             else:
-                escaped_title = self.escape_latex(p.title)
-                escaped_venue = self.escape_latex(p.venue)
-                authors_str = " and ".join(p.authors)
-                entry = [
-                    f"@{p.bib_type}{{{p.bibkey},",
-                    f"  author    = {{{authors_str}}},",
-                    f"  title     = {{{{{escaped_title}}}}},",
-                    f"  journal   = {{{escaped_venue}}}," if p.bib_type == "article" else f"  booktitle = {{{escaped_venue}}},",
-                    f"  year      = {{{p.year}}},",
-                    f"  doi       = {{{p.doi}}},",
-                ]
-                if p.url:
-                    entry.append(f"  url       = {{{p.url}}},")
-                entry.append("}")
-                entries.append("\n".join(entry))
+                # If existing record has no text but this record has text, prefer the text-bearing record
+                if not by_doi[norm_doi].accessible_text and paper.accessible_text:
+                    by_doi[norm_doi] = paper
+        
+        # Prefer papers with accessible scholarly text, preserving relevance order
+        deduped = sorted(by_doi.values(), key=lambda p: 0 if p.accessible_text else 1)[:limit]
+        
+        # Safe Fallback: Never fabricate papers or return synthetic fallback records.
+        # If external scholarly APIs return no results or fail, return empty list.
+        return deduped
 
-        if dataset is not None and hasattr(dataset, "bibtex_entry") and dataset.bibtex_entry:
+    def generate_bibtex(self, papers: List[PaperMetadata], dataset: Optional[Any] = None) -> str:
+        """Produce clean, publication-ready BibTeX string."""
+        entries = [p.to_bibtex() for p in papers]
+        if dataset and hasattr(dataset, "bibtex_entry") and dataset.bibtex_entry:
             entries.append(dataset.bibtex_entry.strip())
-
-        return "\n\n".join(entries) + "\n"
+        return "\n\n".join(entries)

@@ -170,6 +170,8 @@ def test_compliant_latex_assembler_domain_equations_and_resizebox():
             year=2022,
             venue="IEEE TPAMI",
             bibkey="kipf2022_adaptive",
+            source_origin="test_fixture",
+            text_origin="test_fixture",
         )
     ]
 

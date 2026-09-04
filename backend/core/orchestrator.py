@@ -107,12 +107,13 @@ class OrchestratorResult:
     review_report: Optional[Dict[str, Any]] = None
     provenance_graph: Optional[Dict[str, Any]] = None
     revision_history: Optional[Dict[str, Any]] = None
+    prior_knowledge: Optional[List[Dict[str, Any]]] = None
 
 
 class NovaScientistOrchestrator:
     """Autonomous agentic research-to-publication engine for NovaScientist v2.0."""
 
-    def __init__(self, output_dir: str = "./dist") -> None:
+    def __init__(self, output_dir: str = "./dist", memory: Optional[ResearchMemory] = None) -> None:
         self.output_dir = Path(output_dir)
         self.workspace_dir = self.output_dir / "workspace"
         self.figures_dir = self.workspace_dir / "figures"
@@ -129,7 +130,7 @@ class NovaScientistOrchestrator:
         self.stat_critic = StatisticalCriticAgent()
         self.reviewer = ScientificReviewerAgent()
         self.revision_loop = BoundedRevisionLoop(reviewer=self.reviewer)
-        self.memory = ResearchMemory()
+        self.memory = memory if memory is not None else ResearchMemory()
 
     def _prepare_directories(self) -> None:
         """Create fresh build workspace directories."""
@@ -179,6 +180,11 @@ class NovaScientistOrchestrator:
         prov = ProvenanceTracker(task_id=task_id)
         q_node = prov.record_node("q_001", "question", topic)
 
+        classification = UniversalDomainDispatcher.classify_topic(topic)
+        prior_knowledge = self.memory.find_relevant_knowledge(topic, classification.domain_display_name)
+        if prior_knowledge:
+            notify(f"Research Memory: Retrieved {len(prior_knowledge)} relevant historical research task(s)...", 0.04)
+
         # Step 0: Research Planning Agent
         notify("Research Planner formulating structured objectives & constraints...", 0.05)
         plan = self.planner.create_plan(topic, num_seeds=num_seeds, target_format=length_str)
@@ -203,7 +209,6 @@ class NovaScientistOrchestrator:
                 bibkey=s.bibkey,
             ))
 
-        classification = UniversalDomainDispatcher.classify_topic(topic)
         dataset = DatasetFinder.discover(topic, classification.domain)
         venues = VenueMatcher.match_venues(topic, classification.domain, top_k=3)
         dev_type, dev_name = get_torch_device()
@@ -316,6 +321,9 @@ class NovaScientistOrchestrator:
             claims=evidence.claims,
             metrics=metrics_dict,
             review_passed=review_report.passed,
+            model_acronym=plan.model_acronym,
+            dataset_name=dataset.name,
+            provenance_graph=prov.export_graph(),
         )
 
         # Step 12: Tectonic Compilation & ZIP Packaging
@@ -377,4 +385,5 @@ class NovaScientistOrchestrator:
             review_report=review_report.to_dict(),
             provenance_graph=prov.export_graph(),
             revision_history=rev_history.to_dict(),
+            prior_knowledge=prior_knowledge,
         )

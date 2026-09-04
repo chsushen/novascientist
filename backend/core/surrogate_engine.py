@@ -7,11 +7,12 @@ across multiple seeds (k=5) and computes mathematical random-effects meta-analys
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
 import time
-import hashlib
+from datetime import datetime, timezone
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -30,6 +31,11 @@ class SeedResult:
     throughput_samples_sec: float
     compression_ratio: float
     gradient_variance: float
+    runtime_sec: float = 0.0
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    status: str = "completed"
+    error: Optional[str] = None
 
 
 @dataclass
@@ -169,6 +175,8 @@ class SurrogateBenchmarkEngine:
         comp_ratio: float,
     ) -> SeedResult:
         """Simulate rigorous, seed-deterministic CPU training dynamics."""
+        t_start = time.perf_counter()
+        iso_start = datetime.now(timezone.utc).isoformat()
         rng = np.random.default_rng(seed)
 
         # Synthetic loss trajectory (exponential decay with stochastic mini-batch perturbations)
@@ -190,6 +198,10 @@ class SurrogateBenchmarkEngine:
 
         grad_var = float(0.045 / (comp_ratio ** 0.5) + rng.uniform(0.002, 0.008))
 
+        t_end = time.perf_counter()
+        iso_end = datetime.now(timezone.utc).isoformat()
+        runtime_sec = round(t_end - t_start, 4)
+
         return SeedResult(
             seed=seed,
             train_loss_history=loss_hist,
@@ -200,6 +212,11 @@ class SurrogateBenchmarkEngine:
             throughput_samples_sec=round(float(throughput), 1),
             compression_ratio=round(float(comp_ratio), 2),
             gradient_variance=round(grad_var, 5),
+            runtime_sec=runtime_sec,
+            start_time=iso_start,
+            end_time=iso_end,
+            status="completed",
+            error=None,
         )
 
     def run_experiments(self) -> ExperimentPackage:

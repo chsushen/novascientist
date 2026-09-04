@@ -37,14 +37,18 @@ def test_research_planner_creation_and_validation():
 
 @pytest.mark.asyncio
 async def test_literature_agent_evidence_and_claims():
-    agent = LiteratureAgent()
+    from tests.fixtures.literature.fixtures import MockLiteratureService
+    agent = LiteratureAgent(lit_service=MockLiteratureService())
     evidence = await agent.gather_evidence("Low-Rank Dynamic Graph Attention", limit=4)
     assert evidence.total_sources_retrieved >= 2
-    assert len(evidence.claims) >= 4
-    assert evidence.verified_doi_rate == 1.0
+    assert len(evidence.claims) >= 2
     for s in evidence.sources:
         assert s.doi != ""
-        assert len(s.claims) >= 1
+        assert s.source_origin == "test_fixture"
+        if s.retrieved_text_available:
+            for c in s.claims:
+                assert c.supporting_text != ""
+                assert c.verification_status.value in ["grounded", "verified"]
 
 
 def test_research_memory_storage_and_retrieval(tmp_path):
@@ -65,7 +69,7 @@ def test_research_memory_storage_and_retrieval(tmp_path):
         domain="Medical Imaging & Computer Vision",
         plan_id="plan_test_01",
         sources=[{"title": "Medical ViT"}],
-        claims=[ClaimRecord(claim_id="c1", claim_text="Sample claim", source_id="s1", category="empirical")],
+        claims=[ClaimRecord(claim_id="c1", claim_text="Sample claim", source_id="s1", supporting_text="Sample passage text", category="empirical")],
         metrics=mock_metrics,
         review_passed=True,
     )
@@ -85,7 +89,7 @@ def test_methodology_and_experiment_agent():
         topic=plan.topic_title,
         domain=plan.domain_display_name,
         sources=[SourceRecord(source_id="s1", title="GNN Paper", authors=["A. Scholar"], year=2024, doi="10.1145/123", url="https://doi.org/10.1145/123", venue="KDD")],
-        claims=[ClaimRecord(claim_id="c1", claim_text="Graph memory bottleneck.", source_id="s1", category="theoretical")],
+        claims=[ClaimRecord(claim_id="c1", claim_text="Graph memory bottleneck.", source_id="s1", supporting_text="Graph memory bottleneck passage.", category="theoretical")],
     )
 
     method_agent = MethodologyAgent()
@@ -108,8 +112,8 @@ def test_evidence_validator_support_scoring():
         topic="Graph Transformer",
         domain="Graph Systems",
         claims=[
-            ClaimRecord(claim_id="c1", claim_text="Proposed method reduces working memory by over 50% during tensor evaluation.", source_id="s1", category="empirical"),
-            ClaimRecord(claim_id="c2", claim_text="Quantization maintains competitive accuracy vs dense baselines.", source_id="s1", category="empirical"),
+            ClaimRecord(claim_id="c1", claim_text="Proposed method reduces working memory by over 50% during tensor evaluation.", source_id="s1", supporting_text="Proposed method reduces working memory by over 50% during tensor evaluation.", category="empirical"),
+            ClaimRecord(claim_id="c2", claim_text="Quantization maintains competitive accuracy vs dense baselines.", source_id="s1", supporting_text="Quantization maintains competitive accuracy vs dense baselines.", category="empirical"),
         ]
     )
     

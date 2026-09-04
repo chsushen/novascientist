@@ -21,6 +21,8 @@ def test_latex_generation_and_provenance():
             year=2022,
             venue="IEEE TPAMI",
             bibkey="kipf2022_adaptive",
+            source_origin="test_fixture",
+            text_origin="test_fixture",
         )
     ]
 

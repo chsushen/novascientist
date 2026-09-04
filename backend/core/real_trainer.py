@@ -13,6 +13,7 @@ import os
 import platform
 import resource
 import time
+from datetime import datetime, timezone
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -219,9 +220,14 @@ class RealPyTorchTrainer:
 
     def train_seed(self, model_class: Any, seed: int, is_proposed: bool = False) -> SeedResult:
         """Execute genuine PyTorch optimization for a single deterministic seed with fallback."""
+        t_start = time.perf_counter()
+        iso_start = datetime.now(timezone.utc).isoformat()
+        status = "completed"
+        error_msg: Optional[str] = None
+
         np.random.seed(seed)
-        train_loss_hist = []
-        val_acc_hist = []
+        train_loss_hist: List[float] = []
+        val_acc_hist: List[float] = []
 
         h_offset = (self.topic_hash % 1000) / 10000.0
         lat_offset = ((self.topic_hash >> 4) % 100) / 100.0 * 2.0
@@ -270,101 +276,116 @@ class RealPyTorchTrainer:
             d_lat_base = 34.5 + lat_offset * 1.0
             p_lat_base = 8.35 + lat_offset * 0.2
 
-        if HAS_PYTORCH:
-            torch.manual_seed(seed)
-            num_nodes = 207
-            X_data, A_norm, Y_data = self._generate_synthetic_benchmark_dataset(seed, num_nodes=num_nodes)
-            
-            # 70% Train / 15% Val / 15% Test
-            n_train = int(len(X_data) * 0.70)
-            n_val = int(len(X_data) * 0.85)
+        try:
+            if HAS_PYTORCH:
+                torch.manual_seed(seed)
+                num_nodes = 207
+                X_data, A_norm, Y_data = self._generate_synthetic_benchmark_dataset(seed, num_nodes=num_nodes)
+                
+                # 70% Train / 15% Val / 15% Test
+                n_train = int(len(X_data) * 0.70)
+                n_val = int(len(X_data) * 0.85)
 
-            X_train, Y_train = X_data[:n_train].to(self.device), Y_data[:n_train].to(self.device)
-            X_val, Y_val = X_data[n_train:n_val].to(self.device), Y_data[n_train:n_val].to(self.device)
-            X_test, Y_test = X_data[n_val:].to(self.device), Y_data[n_val:].to(self.device)
+                X_train, Y_train = X_data[:n_train].to(self.device), Y_data[:n_train].to(self.device)
+                X_val, Y_val = X_data[n_train:n_val].to(self.device), Y_data[n_train:n_val].to(self.device)
+                X_test, Y_test = X_data[n_val:].to(self.device), Y_data[n_val:].to(self.device)
 
-            model = model_class(in_dim=32, hidden_dim=64, out_dim=16).to(self.device)
-            lr = 3e-3 if is_proposed else 1e-3
-            optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-            criterion = nn.BCEWithLogitsLoss()
+                model = model_class(in_dim=32, hidden_dim=64, out_dim=16).to(self.device)
+                lr = 3e-3 if is_proposed else 1e-3
+                optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+                criterion = nn.BCEWithLogitsLoss()
 
-            for epoch in range(1, self.num_epochs + 1):
-                model.train()
-                optimizer.zero_grad()
-                out = model(X_train)
-                loss = criterion(out, Y_train)
-                loss.backward()
-                optimizer.step()
+                for epoch in range(1, self.num_epochs + 1):
+                    model.train()
+                    optimizer.zero_grad()
+                    out = model(X_train)
+                    loss = criterion(out, Y_train)
+                    loss.backward()
+                    optimizer.step()
 
-                # Validation
+                    # Validation
+                    model.eval()
+                    with torch.no_grad():
+                        val_out = model(X_val)
+                        preds = (torch.sigmoid(val_out) > 0.5).float()
+                        val_acc = (preds == Y_val).float().mean().item()
+
+                    train_loss_hist.append(round(loss.item(), 4))
+                    val_acc_hist.append(round(val_acc, 4))
+
+                # Test Evaluation & Latency Profiling
                 model.eval()
                 with torch.no_grad():
-                    val_out = model(X_val)
-                    preds = (torch.sigmoid(val_out) > 0.5).float()
-                    val_acc = (preds == Y_val).float().mean().item()
+                    # Measure inference latency over 80 iterations
+                    t0 = time.perf_counter()
+                    for _ in range(80):
+                        _ = model(X_test)
+                    t1 = time.perf_counter()
+                    latency_ms = (t1 - t0) / 80.0 * 1000.0
 
-                train_loss_hist.append(round(loss.item(), 4))
-                val_acc_hist.append(round(val_acc, 4))
+                    test_out = model(X_test)
+                    preds = (torch.sigmoid(test_out) > 0.5).float()
+                    final_acc = (preds == (Y_test > 0.5).float()).float().mean().item()
 
-            # Test Evaluation & Latency Profiling
-            model.eval()
-            with torch.no_grad():
-                # Measure inference latency over 80 iterations
-                t0 = time.perf_counter()
-                for _ in range(80):
-                    _ = model(X_test)
-                t1 = time.perf_counter()
-                latency_ms = (t1 - t0) / 80.0 * 1000.0
+                # Save checkpoint weights for proposed model if completed successfully
+                if is_proposed and seed == self.seeds[0]:
+                    ckpt_path = self.checkpoints_dir / "proposed_mb_qgt_weights.pt"
+                    torch.save(model.state_dict(), ckpt_path)
+            else:
+                rng = np.random.default_rng(seed)
+                for epoch in range(1, self.num_epochs + 1):
+                    l_val = float(1.8 * math.exp(-epoch / (10.5 if is_proposed else 8.5)) + 0.2 + rng.normal(0, 0.01))
+                    a_val = float(0.40 + ((p_acc_base if is_proposed else d_acc_base) - 0.40) / (1.0 + math.exp(-(epoch - 12) / 4.5)) + rng.normal(0, 0.005))
+                    train_loss_hist.append(round(l_val, 4))
+                    val_acc_hist.append(round(min(max(a_val, 0.3), 0.99), 4))
 
-                test_out = model(X_test)
-                preds = (torch.sigmoid(test_out) > 0.5).float()
-                final_acc = (preds == (Y_test > 0.5).float()).float().mean().item()
+                latency_ms = p_lat_base if is_proposed else d_lat_base
+                final_acc = p_acc_base if is_proposed else d_acc_base
 
-            # Save checkpoint weights for proposed model
-            if is_proposed and seed == self.seeds[0]:
-                ckpt_path = self.checkpoints_dir / "proposed_mb_qgt_weights.pt"
-                torch.save(model.state_dict(), ckpt_path)
-        else:
-            rng = np.random.default_rng(seed)
-            for epoch in range(1, self.num_epochs + 1):
-                l_val = float(1.8 * math.exp(-epoch / (10.5 if is_proposed else 8.5)) + 0.2 + rng.normal(0, 0.01))
-                a_val = float(0.40 + ((p_acc_base if is_proposed else d_acc_base) - 0.40) / (1.0 + math.exp(-(epoch - 12) / 4.5)) + rng.normal(0, 0.005))
-                train_loss_hist.append(round(l_val, 4))
-                val_acc_hist.append(round(min(max(a_val, 0.3), 0.99), 4))
+                if is_proposed and seed == self.seeds[0]:
+                    ckpt_path = self.checkpoints_dir / "proposed_mb_qgt_weights.pt"
+                    with open(ckpt_path, "wb") as f:
+                        f.write(b"NOVASCIENTIST_CHECKPOINT_PLACEHOLDER")
 
-            latency_ms = p_lat_base if is_proposed else d_lat_base
-            final_acc = p_acc_base if is_proposed else d_acc_base
+            # Calibration & Realistic Multi-Domain Offsets
+            if is_proposed:
+                calibrated_acc = p_acc_base + np.random.default_rng(seed).normal(0, 0.007)
+                mem_mb = p_mem_base + np.random.default_rng(seed).normal(0, p_mem_base * 0.02)
+                comp_ratio = 5.9
+                lat_ms = p_lat_base + np.random.default_rng(seed).normal(0, p_lat_base * 0.03)
+            else:
+                if hasattr(model_class, "__name__") and "Dense" in model_class.__name__:
+                    calibrated_acc = d_acc_base + np.random.default_rng(seed).normal(0, 0.010)
+                    mem_mb = d_mem_base + np.random.default_rng(seed).normal(0, d_mem_base * 0.02)
+                    comp_ratio = 1.0
+                    lat_ms = d_lat_base + np.random.default_rng(seed).normal(0, d_lat_base * 0.03)
+                elif hasattr(model_class, "__name__") and "StaticINT8" in model_class.__name__:
+                    calibrated_acc = (d_acc_base - 0.032) + np.random.default_rng(seed).normal(0, 0.013)
+                    mem_mb = (d_mem_base * 0.33) + np.random.default_rng(seed).normal(0, 3.3)
+                    comp_ratio = 3.8
+                    lat_ms = (d_lat_base * 0.62) + np.random.default_rng(seed).normal(0, 0.7)
+                else:  # Sparse
+                    calibrated_acc = (d_acc_base - 0.015) + np.random.default_rng(seed).normal(0, 0.011)
+                    mem_mb = (d_mem_base * 0.42) + np.random.default_rng(seed).normal(0, 4.6)
+                    comp_ratio = 2.5
+                    lat_ms = (d_lat_base * 0.52) + np.random.default_rng(seed).normal(0, 0.6)
 
-            if is_proposed and seed == self.seeds[0]:
-                ckpt_path = self.checkpoints_dir / "proposed_mb_qgt_weights.pt"
-                with open(ckpt_path, "wb") as f:
-                    f.write(b"NOVASCIENTIST_CHECKPOINT_PLACEHOLDER")
+            throughput = (1000.0 / lat_ms) * self.batch_size
+            grad_var = float(0.045 / (comp_ratio**0.5) + np.random.default_rng(seed).uniform(0.002, 0.008))
 
-        # Calibration & Realistic Multi-Domain Offsets
-        if is_proposed:
-            calibrated_acc = p_acc_base + np.random.default_rng(seed).normal(0, 0.007)
-            mem_mb = p_mem_base + np.random.default_rng(seed).normal(0, p_mem_base * 0.02)
-            comp_ratio = 5.9
-            lat_ms = p_lat_base + np.random.default_rng(seed).normal(0, p_lat_base * 0.03)
-        else:
-            if hasattr(model_class, "__name__") and "Dense" in model_class.__name__:
-                calibrated_acc = d_acc_base + np.random.default_rng(seed).normal(0, 0.010)
-                mem_mb = d_mem_base + np.random.default_rng(seed).normal(0, d_mem_base * 0.02)
-                comp_ratio = 1.0
-                lat_ms = d_lat_base + np.random.default_rng(seed).normal(0, d_lat_base * 0.03)
-            elif hasattr(model_class, "__name__") and "StaticINT8" in model_class.__name__:
-                calibrated_acc = (d_acc_base - 0.032) + np.random.default_rng(seed).normal(0, 0.013)
-                mem_mb = (d_mem_base * 0.33) + np.random.default_rng(seed).normal(0, 3.3)
-                comp_ratio = 3.8
-                lat_ms = (d_lat_base * 0.62) + np.random.default_rng(seed).normal(0, 0.7)
-            else:  # Sparse
-                calibrated_acc = (d_acc_base - 0.015) + np.random.default_rng(seed).normal(0, 0.011)
-                mem_mb = (d_mem_base * 0.42) + np.random.default_rng(seed).normal(0, 4.6)
-                comp_ratio = 2.5
-                lat_ms = (d_lat_base * 0.52) + np.random.default_rng(seed).normal(0, 0.6)
+        except Exception as exc:
+            status = "failed"
+            error_msg = f"{type(exc).__name__}: {str(exc)}"
+            calibrated_acc = 0.0
+            mem_mb = 0.0
+            lat_ms = 0.0
+            throughput = 0.0
+            comp_ratio = 1.0
+            grad_var = 0.0
 
-        throughput = (1000.0 / lat_ms) * self.batch_size
-        grad_var = float(0.045 / (comp_ratio**0.5) + np.random.default_rng(seed).uniform(0.002, 0.008))
+        t_end = time.perf_counter()
+        iso_end = datetime.now(timezone.utc).isoformat()
+        runtime_sec = round(t_end - t_start, 4)
 
         return SeedResult(
             seed=seed,
@@ -376,6 +397,11 @@ class RealPyTorchTrainer:
             throughput_samples_sec=round(float(throughput), 1),
             compression_ratio=round(float(comp_ratio), 2),
             gradient_variance=round(grad_var, 5),
+            runtime_sec=runtime_sec,
+            start_time=iso_start,
+            end_time=iso_end,
+            status=status,
+            error=error_msg,
         )
 
     def run_full_benchmark(self) -> ExperimentPackage:
