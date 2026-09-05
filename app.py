@@ -170,6 +170,15 @@ with st.sidebar:
     st.caption(f"**Host CPU:** {hw['cpu_model']} ({hw['cpu_cores']} Cores)")
     st.caption(f"**System RAM:** {hw['total_ram_gb']} GB")
 
+    st.markdown("---")
+    with st.expander("🛠️ Technical Diagnostics", expanded=True):
+        st.markdown(f"**NovaScientist Version:** `v2.2`")
+        st.markdown(f"**Git SHA:** `{git_rev}`")
+        st.markdown(f"**Research Engine:** `UniversalBenchmarkEngine` (Evidence-First)")
+        st.markdown(f"**Contract Engine:** `Active (ScientificResearchContract)`")
+        st.markdown(f"**Planner:** `ResearchPlannerAgent & TopicProfileExtractor`")
+        st.markdown(f"**Deployment Revision:** `Release {git_rev[:7]}`")
+
 
 # Top Header
 st.markdown("<div class='main-header'>🔬 NovaScientist v2.2</div>", unsafe_allow_html=True)

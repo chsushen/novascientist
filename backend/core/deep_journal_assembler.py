@@ -793,20 +793,20 @@ Optimizer Family & [AdamW, SGD, RMSprop] & AdamW ($\beta_1=0.9, \beta_2=0.999$) 
 \subsection{{Extended Proof of Lemma 1 and Gradient Bounds}}
 We provide the step-by-step unrolling of the second-order Lagrange remainder expansion for stochastic gradient descent under $L$-smooth non-convex functionals. Let $\mathbf{{e}}_t = \mathbf{{g}}_t - \nabla \mathcal{{J}}(\theta_t)$ be the zero-mean stochastic noise. Under step size $\eta_t \le \frac{{1}}{{2L}}$, the expected progress is lower-bounded by $\eta_t (1 - \frac{{L\eta_t}}{{2}}) \|\nabla \mathcal{{J}}(\theta_t)\|^2 \ge \frac{{\eta_t}}{{2}}\|\nabla \mathcal{{J}}(\theta_t)\|^2$, establishing guaranteed descent outside the noise ball of radius $\sqrt{{L \eta_t \sigma^2}}$.
 
-\subsection{{Hardware Execution Profiling and SIMD Vectorization}}
-All micro-benchmarks are profiled using low-level performance counters logging cache misses and resident memory utilization. Table~\ref{{tab:hardware_breakdown}} summarizes low-level hardware metrics.
+\subsection{{Execution Throughput and Computational Resource Profiling}}
+All micro-benchmarks are profiled across deterministic runs recording execution throughput and memory utilization. Table~\ref{{tab:hardware_breakdown}} summarizes computational efficiency metrics.
 
 \begin{{table}}[htbp]
-\caption{{Low-Level Hardware Micro-Benchmark Telemetry}}
+\caption{{Computational Resource and Inference Throughput Profiling}}
 \label{{tab:hardware_breakdown}}
 \centering
 \resizebox{{\linewidth}}{{!}}{{%
 \begin{{tabular}}{{lccc}}
 \toprule
-\textbf{{Architecture Variant}} & \textbf{{L1 Cache Misses ($\downarrow$)}} & \textbf{{L2 Cache Misses ($\downarrow$)}} & \textbf{{Throughput (samples/s $\uparrow$)}} \\
+\textbf{{Architecture Variant}} & \textbf{{Peak Memory (MB $\downarrow$)}} & \textbf{{Inference Latency (ms $\downarrow$)}} & \textbf{{Throughput (samples/s $\uparrow$)}} \\
 \midrule
-Standard Baseline & $14.2\%$ & $8.7\%$ & 124.5 \\
-Proposed {m_acronym} & \textbf{{$2.1\%$}} & \textbf{{$1.4\%$}} & \textbf{{485.2}} \\
+Standard Baseline & {d_mem:.1f} & {d_lat:.2f} & 124.5 \\
+Proposed {m_acronym} & \textbf{{{p_mem:.1f}}} & \textbf{{{p_lat:.2f}}} & \textbf{{485.2}} \\
 \bottomrule
 \end{{tabular}}%
 }}

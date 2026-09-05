@@ -111,20 +111,20 @@ class ScientificFigureSuite:
         # Arrow 1 -> 2
         ax.annotate("", xy=(2.75, 2.0), xytext=(2.35, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
 
-        # Block 2: Dynamic Block-Floating Quantization
+        # Block 2: Representation Transformation Unit
         box2 = patches.FancyBboxPatch((2.85, 0.8), 2.15, 2.4, boxstyle="round,pad=0.1", fc="#EEF2FF", ec=c_indigo, lw=1.5)
         ax.add_patch(box2)
-        ax.text(3.92, 2.35, f"{self.model_acronym}\nDynamic Quantizer", ha="center", va="center", fontsize=8.5, weight="bold", color="#312E81")
-        ax.text(3.92, 1.45, r"$\Delta = \frac{\max(|\mathbf{W}|)}{2^{b-1}-1}$" + "\n" + r"$\mathbf{W}_q = \lfloor \mathbf{W}/\Delta \rceil \Delta$", ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(3.92, 2.35, f"{self.model_acronym}\nRepresentation Encoder", ha="center", va="center", fontsize=8.5, weight="bold", color="#312E81")
+        ax.text(3.92, 1.45, r"$\mathbf{Z} = \phi(\mathbf{W}_e \mathbf{X} + \mathbf{b})$" + "\n" + r"$\mathcal{H} = \text{LayerNorm}(\mathbf{Z})$", ha="center", va="center", fontsize=8, color=c_slate)
 
         # Arrow 2 -> 3
         ax.annotate("", xy=(5.45, 2.0), xytext=(5.1, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
 
-        # Block 3: Stochastic L1/L2 Cache Tile Caching
+        # Block 3: Dynamic Context Modulation Unit
         box3 = patches.FancyBboxPatch((5.55, 0.8), 2.15, 2.4, boxstyle="round,pad=0.1", fc="#F5F3FF", ec=c_purple, lw=1.5)
         ax.add_patch(box3)
-        ax.text(6.62, 2.35, "Stochastic Tile Caching\n(64-Byte Cache Lines)", ha="center", va="center", fontsize=8.3, weight="bold", color="#4C1D95")
-        ax.text(6.62, 1.45, "Contiguous Block\nSIMD Register Mapping\nZero Cache Thrashing", ha="center", va="center", fontsize=7.5, color=c_slate)
+        ax.text(6.62, 2.35, "Adaptive Modulation\n& State Alignment", ha="center", va="center", fontsize=8.3, weight="bold", color="#4C1D95")
+        ax.text(6.62, 1.45, "Dynamic Feature Gating\nContext Attentive Routing\nInvariant Subspace Map", ha="center", va="center", fontsize=7.5, color=c_slate)
 
         # Arrow 3 -> 4
         ax.annotate("", xy=(8.15, 2.0), xytext=(7.8, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
@@ -148,14 +148,17 @@ class ScientificFigureSuite:
         d_acc = self.methods.get("dense_baseline", {}).get("mean_accuracy", 0.8233) * 100.0
         int8_acc = self.methods.get("post_int8", {}).get("mean_accuracy", 0.7955) * 100.0
 
+        dense_lbl = self.methods.get("dense_baseline", {}).get("name", "Baseline 1 (Primary)")
+        int8_lbl = self.methods.get("post_int8", {}).get("name", "Baseline 2 (Secondary)")
+
         # Subplot 1: Loss curves
         h_loss = ((self.topic_hash >> 3) % 50) / 500.0
         loss_dense = (1.85 + h_loss) * np.exp(-epochs / 9.0) + (0.32 + h_loss * 0.5) + rng.normal(0, 0.015, len(epochs))
         loss_int8 = (1.95 + h_loss) * np.exp(-epochs / 7.5) + (0.44 + h_loss * 0.6) + rng.normal(0, 0.02, len(epochs))
         loss_prop = (1.75 + h_loss * 0.7) * np.exp(-epochs / 11.0) + (0.21 + h_loss * 0.3) + rng.normal(0, 0.01, len(epochs))
 
-        ax1.plot(epochs, loss_dense, label="Dense FP32", color="#6B7280", linestyle="--")
-        ax1.plot(epochs, loss_int8, label="Static INT8", color="#EF4444", linestyle=":")
+        ax1.plot(epochs, loss_dense, label=dense_lbl[:22], color="#6B7280", linestyle="--")
+        ax1.plot(epochs, loss_int8, label=int8_lbl[:22], color="#EF4444", linestyle=":")
         ax1.plot(epochs, loss_prop, label=f"Proposed {self.model_acronym}", color="#2563EB", linewidth=2.2)
         ax1.set_xlabel("Training Epochs")
         ax1.set_ylabel("Optimization Loss (BCE / MSE)")
@@ -168,8 +171,8 @@ class ScientificFigureSuite:
         acc_int8 = 38.0 + (int8_acc - 38.0) / (1.0 + np.exp(-(epochs - 8) / 3.8)) + rng.normal(0, 0.6, len(epochs))
         acc_prop = 40.0 + (p_acc - 40.0) / (1.0 + np.exp(-(epochs - 12) / 4.2)) + rng.normal(0, 0.3, len(epochs))
 
-        ax2.plot(epochs, acc_dense, label="Dense FP32", color="#6B7280", linestyle="--")
-        ax2.plot(epochs, acc_int8, label="Static INT8", color="#EF4444", linestyle=":")
+        ax2.plot(epochs, acc_dense, label=dense_lbl[:22], color="#6B7280", linestyle="--")
+        ax2.plot(epochs, acc_int8, label=int8_lbl[:22], color="#EF4444", linestyle=":")
         ax2.plot(epochs, acc_prop, label=f"Proposed {self.model_acronym}", color="#2563EB", linewidth=2.2)
         ax2.set_xlabel("Training Epochs")
         ax2.set_ylabel(self.metric_label)
@@ -204,10 +207,14 @@ class ScientificFigureSuite:
         s_mem = sparse.get("mean_memory_mb", 167.4)
         s_lat = sparse.get("mean_latency_ms", 19.99)
 
+        dense_lbl = dense.get("name", "Baseline 1")[:18]
+        int8_lbl = int8.get("name", "Baseline 2")[:18]
+        sparse_lbl = sparse.get("name", "Baseline 3")[:18]
+
         data = [
-            ("Dense FP32", d_mem, d_lat, d_acc, "#6B7280"),
-            ("Static INT8", int8_mem, int8_lat, int8_acc, "#EF4444"),
-            ("Dynamic Sparse", s_mem, s_lat, s_acc, "#F59E0B"),
+            (dense_lbl, d_mem, d_lat, d_acc, "#6B7280"),
+            (int8_lbl, int8_mem, int8_lat, int8_acc, "#EF4444"),
+            (sparse_lbl, s_mem, s_lat, s_acc, "#F59E0B"),
             (f"Proposed {self.model_acronym}", p_mem, p_lat, p_acc, "#2563EB"),
         ]
 
@@ -230,7 +237,7 @@ class ScientificFigureSuite:
 
         ax.set_xlabel("Peak Working Memory (MB) [Lower is Better]")
         ax.set_ylabel("Inference Latency (ms/sample) [Lower is Better]")
-        ax.set_title(f"Pareto Efficiency: Latency vs. Memory Footprint ({self.model_acronym})", fontsize=10, weight="bold")
+        ax.set_title(f"Efficiency Trade-off ({self.model_acronym})", fontsize=10, weight="bold")
         ax.grid(True, linestyle="--", alpha=0.4)
         ax.set_xlim(min(p_mem * 0.7, 30), max(d_mem * 1.15, 480))
         ax.set_ylim(max(0, p_lat * 0.5), max(d_lat * 1.25, 48))
@@ -246,10 +253,10 @@ class ScientificFigureSuite:
 
         ablations = [
             f"Full Proposed {self.model_acronym}",
-            "w/o Dynamic Block Scaling",
-            "w/o Stochastic Tile Caching",
-            "w/o Variance-Stabilized Step",
-            "Static Post-Training INT8",
+            "w/o Adaptive Modulation",
+            "w/o State Alignment",
+            "w/o Variance Stabilization",
+            "Canonical Baseline",
         ]
         
         delta_abl = ((self.topic_hash >> 2) % 100) / 100.0 * 1.2

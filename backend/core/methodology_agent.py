@@ -197,48 +197,52 @@ class MethodologyAgent:
 
         profile = topic_profile or TopicProfileExtractor.extract(plan.topic_title, domain=plan.domain.value if hasattr(plan.domain, "value") else str(plan.domain))
 
+        is_quant_topic = any(k in plan.topic_title.lower() for k in ["quantiz", "discretiz", "sub-linear memory", "bit-width", "precision", "compression"])
+
         # Domain-specific established facts
-        if topic_profile is None:
+        if is_quant_topic:
             established_facts = [
                 "Standard IEEE 754 floating-point representations allocate 32 bits (4 bytes) per single-precision tensor weight and activation.",
                 "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
                 "Multi-seed random-split evaluations reduce sample variance and mitigate single-partition overfitting.",
             ]
+        elif topic_profile is None:
+            established_facts = [
+                "Empirical representation learning is governed by variance-bias trade-offs across finite-sample benchmark partitions.",
+                "Multi-seed random-split cross-validation isolates stochastic optimization noise and mitigates single-partition bias.",
+                "Standard loss landscapes exhibit curvature non-convexity under complex non-linear parameterizations.",
+            ]
         else:
             domain_str = profile.domain.lower()
             if "language" in domain_str or "nlp" in domain_str:
                 established_facts = [
-                    "Autoregressive causal language models parameterize token probabilities via masked self-attention over sequence history.",
-                    "Standard IEEE 754 floating-point representations allocate 32 bits per parameter, leading to large memory footprints during multi-layer evaluation.",
-                    "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
+                    "Autoregressive and retrieval-augmented sequence models parameterize conditional token likelihoods over context histories.",
+                    "Context relevance and factual attribution degrade under noisy or out-of-domain knowledge retrieval.",
                     "Multi-seed random-split cross-validation mitigates dataset partition bias and quantifies generalization variance.",
                 ]
             elif "vision" in domain_str or "image" in domain_str:
                 established_facts = [
                     "Spatial convolution and hierarchical patch embeddings exploit 2D translation equivariance and local spatial correlation.",
-                    "Standard IEEE 754 floating-point representations allocate 32 bits per tensor parameter across convolutional and attention kernels.",
-                    "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
+                    "Domain shift and imaging artifact variations degrade boundary segmentation and calibration fidelity.",
                     "Multi-seed random-split cross-validation mitigates dataset partition bias and quantifies generalization variance.",
                 ]
             elif "time_series" in domain_str or "forecasting" in domain_str:
                 established_facts = [
                     "Multivariate time series exhibit temporal autocorrelation, non-stationarity, and cross-channel interdependencies.",
-                    "Standard IEEE 754 representations allocate 4 bytes per floating-point observation across temporal windows.",
-                    "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
+                    "Probabilistic horizon forecasts require calibrated uncertainty intervals across non-stationary regimes.",
                     "Multi-seed split cross-validation over rolling horizons quantifies forecast uncertainty and drift resistance.",
                 ]
             elif "federated" in domain_str:
                 established_facts = [
                     "Federated optimization operates over decentralized, non-IID client datasets with bandwidth and communication constraints.",
                     "Local client model updates diverge under heterogeneous data distributions, causing client drift.",
-                    "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
                     "Multi-seed federated simulations isolate optimization variance across heterogeneous partition seeds.",
                 ]
             else:
                 established_facts = [
-                    "Standard IEEE 754 floating-point representations allocate 32 bits (4 bytes) per single-precision tensor weight and activation.",
-                    "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
-                    "Multi-seed random-split evaluations reduce sample variance and mitigate single-partition overfitting.",
+                    f"Computational learning for {profile.subdomain} is governed by sample efficiency and representation fidelity.",
+                    "Multi-seed deterministic evaluations reduce sample variance and mitigate single-partition overfitting.",
+                    "Optimization dynamics are bounded by empirical loss smoothness and gradient variance.",
                 ]
 
         # Retrieved evidence claims
@@ -252,16 +256,16 @@ class MethodologyAgent:
         if profile.candidate_method_families:
             innovations_core = f"Domain-Adaptive {plan.model_acronym} Formulation: Integrate {profile.candidate_method_families[0]} with adaptive parameter scaling."
         else:
-            innovations_core = f"Dynamic Block-Floating Discretization: Partition intermediate tensors into 64-element blocks with adaptive scale factors."
+            innovations_core = f"Adaptive Representation Architecture: Integrate specialized neural operators tailored to {profile.subdomain}."
 
         proposed_innovations = [
             innovations_core,
-            f"Stochastic Cache-Line Alignment & Sparsity: Map execution tensors directly to byte-aligned memory structures for acceleration.",
+            f"Context-Aware Modular State Alignment: Dynamically align feature representations across operational modes in {profile.task_type.value}.",
             f"Variance-Stabilized Multi-Seed Gradient Scaling: Regularized backward propagation ensuring convergence stability across {profile.task_type.value}.",
         ]
 
         # Engineering rationales & assumptions
-        if topic_profile is None:
+        if is_quant_topic:
             engineering_rationales = [
                 "Heuristic choice of 64-element tile size balances vector register saturation with scaling factor overhead.",
                 "Straight-Through Estimator (STE) serves as an empirical surrogate gradient for non-differentiable quantization operators.",
@@ -269,11 +273,21 @@ class MethodologyAgent:
             assumptions = [
                 "Underlying training data satisfies weak stationarity across evaluation folds.",
                 "Straight-through gradient approximation introduces zero-mean bounded noise under uniform scaling intervals.",
-                "Memory bandwidth and L1/L2 cache capacity remain constant across benchmark iterations.",
+                "Hardware memory bandwidth and compute capacity remain constant across benchmark iterations.",
+            ]
+        elif topic_profile is None:
+            engineering_rationales = [
+                "Modular architectural decoupling balances parameter efficiency with representation capacity.",
+                "Gradient stabilization acts as an empirical surrogate operator for non-smooth optimization landscapes.",
+            ]
+            assumptions = [
+                "Underlying training data satisfies weak stationarity across evaluation folds.",
+                "Stochastic gradient approximations introduce zero-mean bounded perturbation under uniform regularizers.",
+                "Computational infrastructure resources remain uniform across benchmark runs.",
             ]
         else:
             engineering_rationales = [
-                f"Algorithmic design balances computational register saturation with representational fidelity for {profile.task_type.value}.",
+                f"Algorithmic design balances computational efficiency with representational fidelity for {profile.task_type.value}.",
                 f"Gradient stabilization acts as an empirical surrogate operator for non-smooth optimization landscapes.",
             ]
             assumptions = [
@@ -285,15 +299,15 @@ class MethodologyAgent:
         # Dynamic hypotheses
         metric_name = profile.candidate_metrics[0] if profile.candidate_metrics else "Accuracy / Task Metric"
         hypotheses = [
-            f"H1: {plan.model_acronym} reduces peak memory footprint by >=70% compared to Dense FP32 baselines.",
-            f"H2: {plan.model_acronym} improves or matches {metric_name} within 1.5% of full-precision baselines.",
-            f"H3: Hardware-aware execution provides >=2.0x inference latency speedup across standard benchmark hardware.",
+            f"H1: {plan.model_acronym} improves {metric_name} by at least 5.0% over canonical baselines on {plan.topic_title}.",
+            f"H2: Variance-stabilized training bounds cross-seed standard deviation of {metric_name} to within 1.0%.",
+            f"H3: The proposed architecture achieves significant positive effect size under DerSimonian-Laird meta-analysis (Z >= 5.0, p < 0.001).",
         ]
 
         evaluation_criteria = [
             f"Primary Metric: {metric_name} (%)",
-            "Peak Resident Memory Footprint (MB)",
-            "Inference Latency per Sample (ms)",
+            "Computational Efficiency & Execution Throughput",
+            "Cross-Seed Empirical Dispersion (std <= 1.0%)",
             "DerSimonian-Laird Random-Effects Meta-Analysis Summary Effect Size (Z >= 5.0, p < 0.001)",
         ]
 
@@ -303,9 +317,9 @@ class MethodologyAgent:
             baseline_methods = profile.candidate_baselines[:3]
         else:
             baseline_methods = [
-                "Dense FP32 Baseline (Uncompressed Full Precision)",
-                "Static INT8 Quantization (Post-Training Rounding)",
-                "Dynamic Sparsified Baseline (Magnitude-Pruned GNN)",
+                "Canonical Full-Precision Baseline",
+                "Regularized Competitive Baseline",
+                "Lightweight Efficient Baseline",
             ]
 
         return MethodologySpec(
