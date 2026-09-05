@@ -20,9 +20,9 @@ import streamlit as st
 def get_git_revision() -> str:
     try:
         rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode("utf-8").strip()
-        return rev or "2a3d800"
+        return rev or "fd9ebf6"
     except Exception:
-        return "2a3d800"
+        return "fd9ebf6"
 
 from backend.core.conversational_agent import (
     ConversationalAgent,
