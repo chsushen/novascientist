@@ -271,15 +271,44 @@ class TopicProfileExtractor:
             figs = ["Empirical Accuracy & Generalization Comparison", "Loss Convergence Curves Across Iterations", "Latency vs Performance Trade-off", "Hyperparameter Sensitivity Analysis"]
             requires_theorem = "bound" in t_lower or "theory" in t_lower or "convergence" in t_lower
 
-        words = [w for w in re.findall(r"[A-Za-z]+", topic) if w.lower() not in {"and", "of", "the", "for", "in", "with", "under", "using", "on", "a", "an", "to", "via"}]
-        if len(words) >= 3:
-            acronym = "".join([w[0].upper() for w in words[:3]]) + "-Net"
-        elif len(words) == 2:
-            acronym = words[0][:3].upper() + "-" + words[1][:3].capitalize()
-        else:
-            acronym = "Nova-" + (words[0][:4].capitalize() if words else "Model")
+        # Clean, domain-appropriate method acronym and full name generation
+        question_stop_words = {
+            "and", "of", "the", "for", "in", "with", "under", "using", "on", "a", "an", "to", "via",
+            "can", "how", "what", "why", "which", "does", "do", "is", "are", "could", "would", "should",
+            "improve", "enhance", "optimize", "remain", "accurate", "achieve", "investigating", "evaluating",
+        }
+        words = [w for w in re.findall(r"[A-Za-z]+", topic) if w.lower() not in question_stop_words]
 
-        full_name = f"Adaptive {' '.join(w.capitalize() for w in words[:4])} Framework"
+        # Domain-aware deterministic naming
+        if any(k in t_lower for k in ["rag", "retrieval", "factual", "factuality", "hallucination", "question answering"]):
+            acronym = "Ada-RAG"
+            full_name = "Adaptive Faithful Retrieval-Augmented Generation Model"
+        elif any(k in t_lower for k in ["peft", "parameter-efficient", "adapter", "lora"]):
+            acronym = "Ada-PEFT"
+            full_name = "Adaptive Parameter-Efficient Language Adapter"
+        elif any(k in t_lower for k in ["forecast", "time series", "timeseries", "temporal"]):
+            acronym = "TempShift-Net"
+            full_name = "Adaptive Temporal Shift Forecaster"
+        elif any(k in t_lower for k in ["vibration", "machinery", "bearing", "fault"]):
+            acronym = "VibroDiag-Net"
+            full_name = "Multi-Scale Vibration Anomaly Classifier"
+        elif any(k in t_lower for k in ["graph", "gnn", "topology", "imbalance"]):
+            acronym = "TopoGNN"
+            full_name = "Topological Imbalanced Graph Neural Network"
+        elif any(k in t_lower for k in ["federat", "client drift", "fl"]):
+            acronym = "FedAdapt-Net"
+            full_name = "Adaptive Decentralized Consensus Architecture"
+        elif any(k in t_lower for k in ["pinn", "physics", "wavelet", "surrogate"]):
+            acronym = "Wavelet-PINN"
+            full_name = "Physics-Informed Wavelet Surrogate Network"
+        else:
+            if len(words) >= 3:
+                acronym = "".join([w[0].upper() for w in words[:3]]) + "-Net"
+            elif len(words) == 2:
+                acronym = words[0][:3].upper() + "-" + words[1][:3].capitalize()
+            else:
+                acronym = "Nova-" + (words[0][:4].capitalize() if words else "Model")
+            full_name = f"Adaptive {' '.join(w.capitalize() for w in words[:3])} Architecture" if words else "Adaptive Representation Framework"
 
         problem_characteristics = [
             f"Primary Task: {task.value.replace('_', ' ').title()}",

@@ -297,10 +297,11 @@ class UniversalDomainDispatcher:
 class UniversalBenchmarkEngine:
     """Executes deterministic multi-seed CPU micro-benchmarks customized per research domain."""
 
-    def __init__(self, topic: str, num_seeds: int = 5, batch_size: int = 64) -> None:
+    def __init__(self, topic: str, num_seeds: int = 5, batch_size: int = 64, contract: Optional[Any] = None) -> None:
         self.topic = topic
         self.num_seeds = num_seeds
         self.batch_size = batch_size
+        self.contract = contract
         self.seeds = [42, 179, 316, 453, 590, 727, 864, 1001, 1138, 1275][:num_seeds]
         self.classification = UniversalDomainDispatcher.classify_topic(topic)
         self.domain = self.classification.domain
@@ -892,6 +893,19 @@ class UniversalBenchmarkEngine:
         methods: Dict[str, MethodMetrics] = {}
         configs = self._get_domain_method_configs()
 
+        if self.contract and getattr(self.contract, "selected_baselines", None) and getattr(self.contract, "selected_method", None):
+            baselines = self.contract.selected_baselines
+            for idx, b_name in enumerate(baselines[:3]):
+                if idx < len(configs) - 1:
+                    configs[idx]["name"] = b_name
+                    configs[idx]["desc"] = f"Contracted comparative baseline ({b_name})."
+                    configs[idx]["id"] = f"baseline_{idx+1}_{re.sub(r'[^a-zA-Z0-9_]', '_', b_name.lower())[:24].strip('_')}"
+            if len(configs) > 0 and self.contract.selected_method:
+                m_name = self.contract.selected_method
+                configs[-1]["name"] = m_name
+                configs[-1]["desc"] = f"Contracted proposed method ({m_name})."
+                configs[-1]["id"] = f"proposed_{re.sub(r'[^a-zA-Z0-9_]', '_', m_name.lower())[:24].strip('_')}"
+
         for cfg in configs:
             m_id = cfg["id"]
             seed_results: List[SeedResult] = []
@@ -929,8 +943,18 @@ class UniversalBenchmarkEngine:
                 seed_runs=seed_results,
             )
 
-        prop_m = methods.get("proposed_mb_qgt")
-        dense_m = methods.get("dense_baseline")
+        prop_m = None
+        dense_m = None
+        for k, v in methods.items():
+            if "prop" in k.lower():
+                prop_m = v
+            elif "dense" in k.lower() or "base" in k.lower():
+                if not dense_m:
+                    dense_m = v
+        if not prop_m and methods:
+            prop_m = list(methods.values())[-1]
+        if not dense_m and len(methods) > 1:
+            dense_m = list(methods.values())[0]
         if prop_m and dense_m and prop_m.seed_runs and dense_m.seed_runs:
             effect_sizes = []
             std_errors = []

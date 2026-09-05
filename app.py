@@ -258,7 +258,7 @@ if st.session_state.current_stage == 1:
 # ========================================================
 elif st.session_state.current_stage == 2:
     st.subheader("Stage 2: Human-in-the-Loop Theory & Execution Plan Approval Gate")
-    st.info("🛡️ **Compliance & Rigor Gate:** Review the topic-adaptive mathematical formulations, evaluation protocol, and execution schedule below before launching hardware training.")
+    st.info("🛡️ **Compliance & Rigor Gate:** Review the topic-adaptive mathematical formulation, evaluation protocol, and execution plan before launching the autonomous research pipeline.")
 
     plan: Optional[ExecutionPlan] = st.session_state.execution_plan
     if plan is None:
@@ -607,9 +607,6 @@ elif st.session_state.current_stage == 4:
                 Path("./dist/workspace/figures"),
                 Path("./dist/workspace"),
                 Path("./dist/reproduced_figures"),
-                Path("./dist/test_journal_workspace/figures"),
-                Path("./artifacts/demo/run_canonical_01/figures"),
-                Path("./artifacts/demo/run_canonical_01"),
             ]
             for fig_key, def_fname, tab_title, caption in fig_candidates:
                 for sdir in search_dirs:

@@ -11,6 +11,7 @@ Architecture:
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -41,8 +42,8 @@ class MathematicalTreatmentDecision(str, Enum):
     EMPIRICAL_ONLY = "empirical_only"
 
 
-class StatisticalAnalysisType(str, Enum):
-    """Scientifically justified statistical analysis method."""
+class StatisticalRequirement(str, Enum):
+    """Rigorous classification of required statistical validation procedures."""
     PAIRED_T_TEST = "paired_t_test"
     WILCOXON_SIGNED_RANK = "wilcoxon_signed_rank"
     BOOTSTRAP_CONFIDENCE_INTERVAL = "bootstrap_confidence_interval"
@@ -55,7 +56,70 @@ class StatisticalAnalysisType(str, Enum):
     NONE = "none"
 
 
-StatisticalRequirement = StatisticalAnalysisType
+StatisticalAnalysisType = StatisticalRequirement
+
+
+class HypothesisStatus(str, Enum):
+    """Formal evaluation status of an empirical scientific hypothesis."""
+    SUPPORTED = "SUPPORTED"
+    REFUTED = "REFUTED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+    NOT_EVALUATED = "NOT_EVALUATED"
+
+
+@dataclass
+class HypothesisEvaluation:
+    """Rigorous structured evaluation of a hypothesis strictly mapped to measured telemetry."""
+    hypothesis_id: str
+    statement: str
+    metric_name: str
+    metric_direction: str  # "maximize" | "minimize" | "bounded_variance" | "meta_analysis_significance" | "hypothesis_test_significance"
+    threshold: float
+    comparison_target: str
+    experiment_ids: List[str]
+    statistical_test: str
+    raw_observations: List[float]
+    observed_value: float
+    effect_size: Optional[float] = None
+    confidence_interval: Optional[Tuple[float, float]] = None
+    p_value: Optional[float] = None
+    decision: HypothesisStatus = HypothesisStatus.NOT_EVALUATED
+    rationale: str = ""
+    provenance_ids: List[str] = field(default_factory=list)
+
+    @property
+    def status(self) -> HypothesisStatus:
+        return self.decision
+
+    @property
+    def threshold_value(self) -> float:
+        return self.threshold
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hypothesis_id": self.hypothesis_id,
+            "statement": self.statement,
+            "metric_name": self.metric_name,
+            "metric_direction": self.metric_direction,
+            "threshold": self.threshold,
+            "threshold_value": self.threshold,
+            "comparison_target": self.comparison_target,
+            "experiment_ids": self.experiment_ids,
+            "statistical_test": self.statistical_test,
+            "raw_observations": self.raw_observations,
+            "observed_value": self.observed_value,
+            "effect_size": self.effect_size,
+            "confidence_interval": list(self.confidence_interval) if self.confidence_interval else None,
+            "p_value": self.p_value,
+            "decision": self.decision.value if isinstance(self.decision, HypothesisStatus) else str(self.decision),
+            "status": self.decision.value if isinstance(self.decision, HypothesisStatus) else str(self.decision),
+            "rationale": self.rationale,
+            "provenance_ids": self.provenance_ids,
+        }
+
+
+# Alias for backward compatibility
+HypothesisEvaluationResult = HypothesisEvaluation
 
 
 @dataclass
@@ -222,6 +286,8 @@ class ScientificResearchContract:
     decision_rationale: ScientificDecisionLog
     statistical_plan: Optional[StatisticalPlan] = None
     literature_decisions: List[LiteratureDecisionRecord] = field(default_factory=list)
+    methodology_spec: Optional[Any] = None
+    hypothesis_evaluations: List[HypothesisEvaluation] = field(default_factory=list)
     is_frozen: bool = False
 
     def freeze(self) -> None:
@@ -229,12 +295,152 @@ class ScientificResearchContract:
         self.is_frozen = True
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if getattr(self, "is_frozen", False) and name != "is_frozen":
+        if getattr(self, "is_frozen", False) and name not in ("is_frozen", "hypothesis_evaluations", "methodology_spec"):
             raise ScientificContractViolationError(
                 f"SCIENTIFIC CONTRACT VIOLATION: Attempted to mutate frozen scientific contract field '{name}' "
                 f"after Stage 2 approval. The contract is frozen and must remain the single authoritative source of truth."
             )
         super().__setattr__(name, value)
+
+    @property
+    def selected_experiment_methods(self) -> List[str]:
+        """Return canonical slugified method IDs selected by this contract."""
+        res = []
+        for b in self.selected_baselines:
+            slug = re.sub(r"[^a-zA-Z0-9_]", "_", b.lower().strip())[:32].strip("_")
+            res.append(slug)
+        if self.selected_method:
+            slug = re.sub(r"[^a-zA-Z0-9_]", "_", self.selected_method.lower().strip())[:32].strip("_")
+            res.append(slug)
+        return res
+
+    def validate_downstream_state(
+        self,
+        experiment_records: Optional[List[Any]] = None,
+        hypothesis_evaluations: Optional[List[HypothesisEvaluation]] = None,
+        metrics_dict: Optional[Dict[str, Any]] = None,
+        figures: Optional[List[Any]] = None,
+        latex_content: Optional[str] = None,
+        pdf_path: Optional[str] = None,
+        provenance_dag: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Rigorous fail-closed validation of all downstream research entities against this frozen contract."""
+        violations: List[str] = []
+        legacy_terms_found: List[str] = []
+
+        # 1. Contract Freezing Validation
+        if not getattr(self, "is_frozen", False):
+            violations.append("Contract was not frozen before downstream execution.")
+
+        # 2. Hypothesis Evaluations Integrity
+        evals = hypothesis_evaluations or getattr(self, "hypothesis_evaluations", [])
+        if evals:
+            for h_eval in evals:
+                stmt = h_eval.statement.lower()
+                m_name = h_eval.metric_name.lower()
+                
+                # Check for metric recycling
+                if any(v in stmt for v in ["variance", "standard deviation", "cross-seed", "std", "dispersion"]):
+                    if not any(v in m_name for v in ["variance", "standard deviation", "std", "dispersion"]):
+                        violations.append(
+                            f"Hypothesis '{h_eval.hypothesis_id}' specifies variance bound but was evaluated using metric '{h_eval.metric_name}'."
+                        )
+                
+                if any(m in stmt for m in ["meta-analysis", "meta analytic", "dersimonian", "pooled effect", "z-stat", "z >="]):
+                    if not any(m in m_name for m in ["meta-analysis", "meta_analysis", "meta_analytic", "z-statistic", "z_statistic", "pooled effect", "effect size", "effect_size"]):
+                        violations.append(
+                            f"Hypothesis '{h_eval.hypothesis_id}' specifies meta-analysis but was evaluated using metric '{h_eval.metric_name}'."
+                        )
+
+                # Check supported condition
+                if h_eval.decision == HypothesisStatus.SUPPORTED:
+                    if h_eval.metric_direction == "bounded_variance":
+                        if h_eval.observed_value > h_eval.threshold:
+                            violations.append(
+                                f"Hypothesis '{h_eval.hypothesis_id}' marked SUPPORTED but observed variance ({h_eval.observed_value}) exceeds threshold ({h_eval.threshold})."
+                            )
+                    elif h_eval.metric_direction == "maximize":
+                        if h_eval.observed_value < h_eval.threshold:
+                            violations.append(
+                                f"Hypothesis '{h_eval.hypothesis_id}' marked SUPPORTED but observed value ({h_eval.observed_value}) is below threshold ({h_eval.threshold})."
+                            )
+                    elif h_eval.metric_direction == "minimize":
+                        if h_eval.observed_value > h_eval.threshold:
+                            violations.append(
+                                f"Hypothesis '{h_eval.hypothesis_id}' marked SUPPORTED but observed value ({h_eval.observed_value}) exceeds threshold ({h_eval.threshold})."
+                            )
+
+        # 3. Experiment Methods Integrity
+        if experiment_records:
+            contracted_methods = set(self.selected_baselines + [self.selected_method] + self.selected_experiment_methods)
+            for er in experiment_records:
+                m_name = getattr(er, "method_name", getattr(er, "method", ""))
+                m_id = getattr(er, "method_id", "")
+                
+                # Check if method belongs to contract
+                matches = (
+                    m_name in contracted_methods
+                    or m_id in contracted_methods
+                    or any(c.lower() in m_name.lower() or m_name.lower() in c.lower() for c in contracted_methods)
+                )
+                if not matches:
+                    violations.append(f"Uncontracted experiment method '{m_name}' ({m_id}) executed in active run.")
+
+                # Check for legacy forbidden method contamination
+                contract_has_quant = any("quantiz" in k.lower() or "int8" in k.lower() for k in [self.research_question, self.selected_method] + self.selected_baselines)
+                if not contract_has_quant and ("int8" in m_name.lower() or "post_int8" in m_id.lower()):
+                    violations.append(f"Legacy quantization method '{m_name}' contaminated non-quantization contract.")
+
+                contract_has_gnn = any("gnn" in k.lower() or "graph" in k.lower() for k in [self.research_question, self.selected_method] + self.selected_baselines)
+                if not contract_has_gnn and ("sparse_gnn" in m_id.lower() or "gnn" in m_name.lower() and "rag" in self.research_question.lower()):
+                    violations.append(f"Legacy sparse GNN method '{m_name}' contaminated non-graph contract.")
+
+        # 4. Figures Integrity
+        if figures is not None:
+            if not self.figure_requirements and len(figures) > 0:
+                violations.append(f"Generated {len(figures)} figures when contract specifies zero figures.")
+
+        # 5. Provenance DAG Integrity
+        if provenance_dag is not None:
+            if hasattr(provenance_dag, "validate_graph_integrity"):
+                dag_val = provenance_dag.validate_graph_integrity(self)
+                if not dag_val.get("is_valid", True):
+                    violations.extend(dag_val.get("violations", []))
+
+        # 6. Physical PDF Page Count
+        pdf_pages = 0
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(pdf_path)
+                pdf_pages = len(reader.pages)
+                is_journal = ("8_12" in str(getattr(self, "research_question", "")) or "appendix" in (latex_content or "").lower())
+                if is_journal:
+                    if pdf_pages < 8 or pdf_pages > 12:
+                        violations.append(f"Physical PDF page count {pdf_pages} violates Extended Journal target (8–12 pages).")
+                else:
+                    if pdf_pages < 6 or pdf_pages > 8:
+                        violations.append(f"Physical PDF page count {pdf_pages} violates Standard Conference target (6–8 pages).")
+            except Exception as e:
+                violations.append(f"Failed to verify physical PDF page count: {str(e)}")
+
+        is_valid = len(violations) == 0
+        return {
+            "is_valid": is_valid,
+            "status": "PASS" if is_valid else "BLOCKED",
+            "contract_id": self.contract_id,
+            "research_question": self.research_question,
+            "violations": violations,
+            "legacy_contamination_count": len(legacy_terms_found),
+            "physical_pdf_pages": pdf_pages,
+            "hypothesis_integrity": "PASS" if not any("Hypothesis" in v for v in violations) else "FAIL",
+            "experiment_integrity": "PASS" if not any("experiment" in v or "method" in v for v in violations) else "FAIL",
+            "statistical_integrity": "PASS" if not any("statistical" in v or "meta-analysis" in v for v in violations) else "FAIL",
+            "figure_integrity": "PASS" if not any("figure" in v for v in violations) else "FAIL",
+            "provenance_integrity": "PASS" if not any("provenance" in v or "DAG" in v for v in violations) else "FAIL",
+            "manuscript_integrity": "PASS" if not any("manuscript" in v or "theorem" in v for v in violations) else "FAIL",
+            "pdf_integrity": "PASS" if not any("PDF" in v for v in violations) else "FAIL",
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)

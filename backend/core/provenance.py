@@ -94,6 +94,29 @@ class ProvenanceTracker:
             "edges": self.edges,
         }
 
+    def validate_graph_integrity(self, contract: Optional[Any] = None) -> Dict[str, Any]:
+        """Audit the provenance DAG integrity against contract specifications."""
+        audit = validate_complete_provenance(self)
+        violations = []
+        if not audit.get("passed", False):
+            if not audit.get("every_experiment_has_result", True):
+                violations.append("Provenance DAG contains experiment runs without downstream result nodes.")
+            if not audit.get("statistical_critic_present", True):
+                violations.append("Provenance DAG missing statistical critic evaluation node.")
+            if not audit.get("review_present", True):
+                violations.append("Provenance DAG missing scientific peer review node.")
+            if not audit.get("revision_present", True):
+                violations.append("Provenance DAG missing manuscript revision cycle node.")
+            if audit.get("orphan_nodes"):
+                violations.append(f"Provenance DAG contains {len(audit['orphan_nodes'])} orphan nodes.")
+            if audit.get("missing_edges"):
+                violations.append(f"Provenance DAG contains {len(audit['missing_edges'])} broken edge references.")
+        return {
+            "is_valid": len(violations) == 0,
+            "violations": violations,
+            "audit": audit,
+        }
+
 
 def validate_complete_provenance(
     graph_or_tracker: Dict[str, Any] | ProvenanceTracker,

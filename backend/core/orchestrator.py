@@ -138,6 +138,7 @@ class OrchestratorResult:
     page_budget_eval: Optional[Dict[str, Any]] = None
     research_contract: Optional[Dict[str, Any]] = None
     scientific_decision_log: Optional[Dict[str, Any]] = None
+    contract_validation_report: Optional[Dict[str, Any]] = None
 
 
 class NovaScientistOrchestrator:
@@ -292,6 +293,8 @@ class NovaScientistOrchestrator:
             literature_report=lit_report,
             baseline_suite=baseline_suite,
         )
+        if contract:
+            contract.methodology_spec = methodology
         method_node = prov.record_node(methodology.methodology_id, "methodology", methodology.model_full_name, parent_ids=[contract_node.node_id])
 
         # Step 2B: Mathematical Formulation Agent
@@ -357,7 +360,7 @@ class NovaScientistOrchestrator:
             )
             pkg = trainer.run_full_benchmark()
         else:
-            engine = UniversalBenchmarkEngine(topic=topic, num_seeds=num_seeds)
+            engine = UniversalBenchmarkEngine(topic=topic, num_seeds=num_seeds, contract=contract)
             pkg = engine.run_experiments()
 
         metrics_dict = asdict(pkg)
@@ -433,7 +436,9 @@ class NovaScientistOrchestrator:
             parent_ids=all_claim_ids,
             relation="audits_evidence",
         )
-        methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(methodology, metrics_dict)
+        methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(methodology, metrics_dict, contract=contract)
+        if contract:
+            contract.hypothesis_evaluations = methodology.hypothesis_evaluations
 
         # Step 7: Statistical Critic Agent & Lineage
         notify("Statistical Critic evaluating variance bounds and statistical plan...", 0.68)
@@ -690,6 +695,23 @@ class NovaScientistOrchestrator:
                 f"Dangling edges: {prov_audit['missing_edges']}"
             )
 
+        # Step 13B: Comprehensive Research Contract Downstream Integrity Validation
+        contract_validation_report = None
+        if contract is not None:
+            contract_validation_report = contract.validate_downstream_state(
+                experiment_records=exp_records,
+                hypothesis_evaluations=methodology.hypothesis_evaluations,
+                metrics_dict=metrics_dict,
+                figures=figs,
+                latex_content=latex_content,
+                pdf_path=final_pdf_path,
+                provenance_dag=prov,
+            )
+            with open(self.workspace_dir / "contract_validation_report.json", "w", encoding="utf-8") as f:
+                json.dump(contract_validation_report, f, indent=2)
+            with open(self.artifacts_dir / "contract_validation_report.json", "w", encoding="utf-8") as f:
+                json.dump(contract_validation_report, f, indent=2)
+
         # Step 14: Record into Persistent Research Memory
         self.memory.store_task(
             task_id=task_id,
@@ -751,4 +773,5 @@ class NovaScientistOrchestrator:
             page_budget_eval=page_eval.to_dict(),
             research_contract=contract.to_dict(),
             scientific_decision_log=contract.decision_rationale.to_dict(),
+            contract_validation_report=contract_validation_report,
         )
