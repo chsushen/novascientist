@@ -17,27 +17,31 @@ import re
 import urllib.parse
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
+
 import httpx
 
 
 class DOIVerificationStatus(str, Enum):
     """Structured DOI verification states."""
-    VERIFIED = "verified"                                  # Valid syntax, final 2xx HTTP resolution, required metadata obtained, title & year matched
-    SYNTAX_VALID_ONLY = "syntax_valid_only"                # Valid standard syntax, but not yet actively resolved
-    RESOLVED_METADATA_UNAVAILABLE = "resolved_metadata_unavailable" # HTTP 2xx resolved, but required title/year metadata was unavailable from endpoint
-    METADATA_MISMATCH = "metadata_mismatch"                # HTTP 2xx resolved, but publisher title or year contradicts source metadata
-    UNRESOLVABLE = "unresolvable"                          # HTTP 404, 410, 429, 5xx, DNS failure, timeout, connection error, or invalid syntax
-    MISSING = "missing"                                    # No DOI provided or empty string
+
+    VERIFIED = "verified"  # Valid syntax, final 2xx HTTP resolution, required metadata obtained, title & year matched
+    SYNTAX_VALID_ONLY = (
+        "syntax_valid_only"  # Valid standard syntax, but not yet actively resolved
+    )
+    RESOLVED_METADATA_UNAVAILABLE = "resolved_metadata_unavailable"  # HTTP 2xx resolved, but required title/year metadata was unavailable from endpoint
+    METADATA_MISMATCH = "metadata_mismatch"  # HTTP 2xx resolved, but publisher title or year contradicts source metadata
+    UNRESOLVABLE = "unresolvable"  # HTTP 404, 410, 429, 5xx, DNS failure, timeout, connection error, or invalid syntax
+    MISSING = "missing"  # No DOI provided or empty string
 
 
 # Standard DOI prefix regex: 10. followed by 4-9 digits, a slash, and suffix
 DOI_SYNTAX_PATTERN = re.compile(r"^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$", re.IGNORECASE)
 
 
-def normalize_doi(doi: Optional[str]) -> Optional[str]:
+def normalize_doi(doi: str | None) -> str | None:
     """Deterministically clean and normalize DOI strings.
-    
+
     Handles:
     - https://doi.org/10.xxxx/abc
     - http://doi.org/10.xxxx/abc
@@ -48,7 +52,7 @@ def normalize_doi(doi: Optional[str]) -> Optional[str]:
     """
     if not doi or not isinstance(doi, str):
         return None
-    
+
     clean = doi.strip()
     if not clean:
         return None
@@ -64,7 +68,7 @@ def normalize_doi(doi: Optional[str]) -> Optional[str]:
     ]
     for prefix in url_prefixes:
         if clean.lower().startswith(prefix):
-            clean = clean[len(prefix):].strip()
+            clean = clean[len(prefix) :].strip()
             break
 
     # Strip doi: prefix
@@ -80,7 +84,7 @@ def normalize_doi(doi: Optional[str]) -> Optional[str]:
     return clean
 
 
-def validate_doi_syntax(doi: Optional[str]) -> bool:
+def validate_doi_syntax(doi: str | None) -> bool:
     """Validate whether normalized DOI matches canonical ISO 26324 / CrossRef syntax."""
     if not doi or not isinstance(doi, str):
         return False
@@ -90,7 +94,7 @@ def validate_doi_syntax(doi: Optional[str]) -> bool:
     return bool(DOI_SYNTAX_PATTERN.match(norm))
 
 
-def normalize_title_for_comparison(title: Optional[str]) -> str:
+def normalize_title_for_comparison(title: str | None) -> str:
     """Normalize title string for robust cross-checking against publisher metadata."""
     if not title or not isinstance(title, str):
         return ""
@@ -100,33 +104,37 @@ def normalize_title_for_comparison(title: Optional[str]) -> str:
     return re.sub(r"\s+", " ", clean).strip()
 
 
-def is_title_match(expected_title: Optional[str], resolved_title: Optional[str], threshold: float = 0.50) -> bool:
+def is_title_match(
+    expected_title: str | None, resolved_title: str | None, threshold: float = 0.50
+) -> bool:
     """Evaluate whether resolved publisher title matches expected source title via deterministic lexical matching."""
     t1 = normalize_title_for_comparison(expected_title)
     t2 = normalize_title_for_comparison(resolved_title)
-    
+
     if not t1 or not t2:
         return False
-    
+
     if t1 == t2 or t1 in t2 or t2 in t1:
         return True
-    
-    tokens1: Set[str] = set(w for w in t1.split() if len(w) > 2)
-    tokens2: Set[str] = set(w for w in t2.split() if len(w) > 2)
-    
+
+    tokens1: set[str] = set(w for w in t1.split() if len(w) > 2)
+    tokens2: set[str] = set(w for w in t2.split() if len(w) > 2)
+
     if not tokens1 or not tokens2:
         return False
-        
+
     intersection = tokens1 & tokens2
     union = tokens1 | tokens2
     jaccard = len(intersection) / len(union) if union else 0.0
-    
+
     return jaccard >= threshold
 
 
-def is_year_match(expected_year: Optional[int], resolved_year: Optional[int], tolerance: int = 1) -> bool:
+def is_year_match(
+    expected_year: int | None, resolved_year: int | None, tolerance: int = 1
+) -> bool:
     """Evaluate whether resolved year matches expected year.
-    
+
     Documented tolerance rule:
     - If expected_year is None: True (no year constraint specified).
     - If expected_year is provided but resolved_year is None: False.
@@ -143,9 +151,11 @@ def is_year_match(expected_year: Optional[int], resolved_year: Optional[int], to
         return False
 
 
-def extract_metadata_from_response(resp: httpx.Response) -> Tuple[Optional[str], Optional[int]]:
+def extract_metadata_from_response(
+    resp: httpx.Response,
+) -> tuple[str | None, int | None]:
     """Extract resolved title and publication year from HTTP response.
-    
+
     Precedence for year extraction:
     1. published-print (date-parts)
     2. published-online (date-parts)
@@ -169,11 +179,21 @@ def extract_metadata_from_response(resp: httpx.Response) -> Tuple[Optional[str],
                     resolved_title = str(title_val).strip()
 
                 # Year extraction in precedence order
-                for date_key in ("published-print", "published-online", "issued", "created"):
+                for date_key in (
+                    "published-print",
+                    "published-online",
+                    "issued",
+                    "created",
+                ):
                     date_obj = meta.get(date_key)
                     if isinstance(date_obj, dict) and "date-parts" in date_obj:
                         dp = date_obj["date-parts"]
-                        if isinstance(dp, list) and dp and isinstance(dp[0], list) and dp[0]:
+                        if (
+                            isinstance(dp, list)
+                            and dp
+                            and isinstance(dp[0], list)
+                            and dp[0]
+                        ):
                             try:
                                 resolved_year = int(dp[0][0])
                                 break
@@ -197,19 +217,20 @@ def extract_metadata_from_response(resp: httpx.Response) -> Tuple[Optional[str],
 @dataclass
 class DOIVerificationResult:
     """Outcome of active DOI verification."""
+
     doi: str
-    doi_normalized: Optional[str]
+    doi_normalized: str | None
     doi_syntax_valid: bool
     doi_resolved: bool
     doi_metadata_match: bool
     doi_verification_status: DOIVerificationStatus
-    http_status: Optional[int] = None
-    final_url: Optional[str] = None
-    resolved_title: Optional[str] = None
-    resolved_year: Optional[int] = None
-    error_type: Optional[str] = None
+    http_status: int | None = None
+    final_url: str | None = None
+    resolved_title: str | None = None
+    resolved_year: int | None = None
+    error_type: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["doi_verification_status"] = self.doi_verification_status.value
         return d
@@ -218,20 +239,22 @@ class DOIVerificationResult:
 class DOIVerifier:
     """Asynchronous, cached, security-hardened DOI resolver and metadata cross-checker."""
 
-    def __init__(self, timeout: float = 5.0, email: str = "novascientist@research.org") -> None:
+    def __init__(
+        self, timeout: float = 5.0, email: str = "novascientist@research.org"
+    ) -> None:
         self.timeout = timeout
         self.email = email
         self.headers = {
             "User-Agent": f"NovaScientist-DOIVerifier/2.0 (mailto:{self.email})",
             "Accept": "application/vnd.citationstyles.csl+json, application/json;q=0.9, text/html;q=0.5",
         }
-        self._cache: Dict[str, DOIVerificationResult] = {}
+        self._cache: dict[str, DOIVerificationResult] = {}
 
     async def verify_doi(
         self,
-        doi: Optional[str],
-        expected_title: Optional[str] = None,
-        expected_year: Optional[int] = None,
+        doi: str | None,
+        expected_title: str | None = None,
+        expected_year: int | None = None,
     ) -> DOIVerificationResult:
         """Verify a single DOI with syntax validation, HTTP resolution, and metadata cross-check."""
         if not doi or not str(doi).strip():
@@ -270,7 +293,7 @@ class DOIVerifier:
             )
 
         # Cache key must include DOI, expected title, and expected year
-        cache_key = f"{norm}::{expected_title or ""}::{expected_year if expected_year is not None else ""}"
+        cache_key = f"{norm}::{expected_title or ''}::{expected_year if expected_year is not None else ''}"
         if cache_key in self._cache:
             return self._cache[cache_key]
 
@@ -279,7 +302,9 @@ class DOIVerifier:
         resolver_url = f"https://doi.org/{encoded_doi}"
 
         try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=self.timeout, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=self.timeout, follow_redirects=True
+            ) as client:
                 resp = await client.get(resolver_url)
                 status_code = resp.status_code
                 final_url = str(resp.url)
@@ -300,7 +325,7 @@ class DOIVerifier:
                         else:
                             title_ok = False
                     else:
-                        title_ok = True if resolved_title else False
+                        title_ok = bool(resolved_title)
 
                     year_ok = False
                     year_mismatch = False
@@ -318,7 +343,9 @@ class DOIVerifier:
                     if title_mismatch or year_mismatch:
                         doi_metadata_match = False
                         ver_status = DOIVerificationStatus.METADATA_MISMATCH
-                    elif (expected_title and not resolved_title) or (expected_year is not None and resolved_year is None):
+                    elif (expected_title and not resolved_title) or (
+                        expected_year is not None and resolved_year is None
+                    ):
                         # Case C: Resolved via HTTP 200, but required metadata was unavailable
                         doi_metadata_match = False
                         ver_status = DOIVerificationStatus.RESOLVED_METADATA_UNAVAILABLE
@@ -352,7 +379,9 @@ class DOIVerifier:
                         doi_verification_status=DOIVerificationStatus.UNRESOLVABLE,
                         http_status=status_code,
                         final_url=final_url,
-                        error_type=f"http_{status_code}_not_found" if status_code == 404 else "http_410_gone",
+                        error_type=f"http_{status_code}_not_found"
+                        if status_code == 404
+                        else "http_410_gone",
                     )
                 elif status_code == 429:
                     result = DOIVerificationResult(
@@ -419,19 +448,19 @@ class DOIVerifier:
                 doi_resolved=False,
                 doi_metadata_match=False,
                 doi_verification_status=DOIVerificationStatus.UNRESOLVABLE,
-                error_type=f"unexpected_error: {str(exc)}",
+                error_type=f"unexpected_error: {exc!s}",
             )
 
         self._cache[cache_key] = result
         return result
 
 
-def calculate_verified_doi_rate(sources: List[Any]) -> Optional[float]:
+def calculate_verified_doi_rate(sources: list[Any]) -> float | None:
     """Calculate verified DOI rate from actual source records.
-    
+
     Formula:
     verified_doi_rate = verified_doi_count / total_doi_bearing_sources
-    
+
     Returns:
     - None if total_doi_bearing_sources == 0 (explicitly unavailable, NEVER 1.0)
     - float between 0.0 and 1.0 otherwise.
@@ -440,16 +469,19 @@ def calculate_verified_doi_rate(sources: List[Any]) -> Optional[float]:
         return None
 
     doi_bearing_sources = [
-        s for s in sources
+        s
+        for s in sources
         if getattr(s, "doi", None) and str(getattr(s, "doi", "")).strip()
     ]
-    
+
     if not doi_bearing_sources:
         return None
 
     verified_count = sum(
-        1 for s in doi_bearing_sources
-        if getattr(s, "doi_verification_status", "") in (
+        1
+        for s in doi_bearing_sources
+        if getattr(s, "doi_verification_status", "")
+        in (
             "verified",
             DOIVerificationStatus.VERIFIED,
             DOIVerificationStatus.VERIFIED.value,

@@ -13,10 +13,15 @@ import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 
 from backend.config import config
-from backend.core.orchestrator import AuthorProfile, ExecutionMode, NovaScientistOrchestrator, TargetPaperLength
+from backend.core.orchestrator import (
+    AuthorProfile,
+    ExecutionMode,
+    NovaScientistOrchestrator,
+    TargetPaperLength,
+)
 from backend.storage.artifact_store import ArtifactStore, ArtifactType
 from backend.storage.workspace_manager import RunStatus, WorkspaceManager
 
@@ -25,6 +30,7 @@ logger = logging.getLogger("novascientist.jobs")
 
 class JobState(str, Enum):
     """Execution state machine for research jobs."""
+
     QUEUED = "QUEUED"
     RUNNING = "RUNNING"
     CHECKPOINTING = "CHECKPOINTING"
@@ -36,6 +42,7 @@ class JobState(str, Enum):
 @dataclass
 class StructuredFailure:
     """Production-grade actionable failure report."""
+
     run_id: str
     stage: str
     reason: str
@@ -44,13 +51,14 @@ class StructuredFailure:
     raw_error: str
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class JobInfo:
     """Live state descriptor for an asynchronous research job."""
+
     job_id: str
     run_id: str
     project_id: str
@@ -60,16 +68,18 @@ class JobInfo:
     current_stage: str = "Queued in runner"
     stage_message: str = "Awaiting execution slot"
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    error: Optional[StructuredFailure] = None
+    started_at: float | None = None
+    completed_at: float | None = None
+    error: StructuredFailure | None = None
     retries_attempted: int = 0
     max_retries: int = 2
     is_cancelled: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["state"] = self.state.value if isinstance(self.state, JobState) else str(self.state)
+        d["state"] = (
+            self.state.value if isinstance(self.state, JobState) else str(self.state)
+        )
         if self.error:
             d["error"] = self.error.to_dict()
         return d
@@ -80,27 +90,27 @@ class JobManager:
 
     def __init__(
         self,
-        workspace_manager: Optional[WorkspaceManager] = None,
-        artifact_store: Optional[ArtifactStore] = None,
-        max_concurrent_jobs: Optional[int] = None,
+        workspace_manager: WorkspaceManager | None = None,
+        artifact_store: ArtifactStore | None = None,
+        max_concurrent_jobs: int | None = None,
     ) -> None:
         self.workspace_mgr = workspace_manager or WorkspaceManager()
         self.artifact_store = artifact_store or ArtifactStore()
         self.max_concurrent_jobs = max_concurrent_jobs or config.max_concurrent_jobs
-        self._jobs: Dict[str, JobInfo] = {}
-        self._tasks: Dict[str, asyncio.Task[Any]] = {}
+        self._jobs: dict[str, JobInfo] = {}
+        self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._semaphore = asyncio.Semaphore(self.max_concurrent_jobs)
 
     def submit_job(
         self,
         project_id: str,
         topic: str,
-        author: Optional[AuthorProfile] = None,
+        author: AuthorProfile | None = None,
         target_length: str = "8_12_pages_journal",
         execution_mode: str = "fast_microbenchmark",
         num_seeds: int = 5,
         num_epochs: int = 5,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
     ) -> JobInfo:
         """Submit a new research run to the background queue."""
         if run_id:
@@ -138,7 +148,7 @@ class JobManager:
             raise KeyError(f"Job ID '{job_id}' not found.")
         return self._jobs[job_id]
 
-    def get_job_by_run_id(self, run_id: str) -> Optional[JobInfo]:
+    def get_job_by_run_id(self, run_id: str) -> JobInfo | None:
         """Look up job by research run ID."""
         for j in self._jobs.values():
             if j.run_id == run_id:
@@ -149,7 +159,7 @@ class JobManager:
         """Cancel a running or queued job safely."""
         if job_id not in self._jobs:
             return False
-        
+
         job = self._jobs[job_id]
         job.is_cancelled = True
         job.state = JobState.CANCELLED
@@ -166,7 +176,7 @@ class JobManager:
         )
         return True
 
-    def list_jobs(self) -> List[JobInfo]:
+    def list_jobs(self) -> list[JobInfo]:
         """Return all managed jobs."""
         return list(self._jobs.values())
 
@@ -188,7 +198,12 @@ class JobManager:
             job_info.started_at = time.time()
             self.workspace_mgr.update_run(job_info.run_id, status=RunStatus.RUNNING)
 
-            run_dist = self.workspace_mgr.base_dir / job_info.project_id / job_info.run_id / "dist"
+            run_dist = (
+                self.workspace_mgr.base_dir
+                / job_info.project_id
+                / job_info.run_id
+                / "dist"
+            )
             run_dist.mkdir(parents=True, exist_ok=True)
 
             orchestrator = NovaScientistOrchestrator(output_dir=str(run_dist))
@@ -205,14 +220,21 @@ class JobManager:
                 self.workspace_mgr.save_checkpoint(
                     job_info.run_id,
                     stage="initializing",
-                    state_data={"topic": job_info.topic, "started_at": job_info.started_at},
+                    state_data={
+                        "topic": job_info.topic,
+                        "started_at": job_info.started_at,
+                    },
                 )
 
                 result = await orchestrator.execute(
                     topic=job_info.topic,
                     author=author,
-                    target_length=TargetPaperLength(target_length) if target_length in [e.value for e in TargetPaperLength] else target_length,
-                    execution_mode=ExecutionMode(execution_mode) if execution_mode in [e.value for e in ExecutionMode] else execution_mode,
+                    target_length=TargetPaperLength(target_length)
+                    if target_length in [e.value for e in TargetPaperLength]
+                    else target_length,
+                    execution_mode=ExecutionMode(execution_mode)
+                    if execution_mode in [e.value for e in ExecutionMode]
+                    else execution_mode,
                     num_seeds=num_seeds,
                     num_epochs=num_epochs,
                     progress_callback=progress_hook,
@@ -222,8 +244,8 @@ class JobManager:
                     return
 
                 # Ingest generated outputs into immutable ArtifactStore
-                artifact_ids: List[str] = []
-                
+                artifact_ids: list[str] = []
+
                 # 1. LaTeX manuscript
                 if result.latex_content:
                     art_tex = self.artifact_store.store_text(
@@ -298,14 +320,18 @@ class JobManager:
                 self.workspace_mgr.update_run(
                     job_info.run_id,
                     status=RunStatus.COMPLETED,
-                    contract_id=result.research_contract.get("contract_id") if result.research_contract else None,
+                    contract_id=result.research_contract.get("contract_id")
+                    if result.research_contract
+                    else None,
                     contract_data=result.research_contract,
                     evidence_data=result.evidence,
                     experiment_data={"num_seeds": num_seeds, "num_epochs": num_epochs},
                     results_data=result.metrics,
                     statistics_data=result.stat_critique,
                     figures_data=result.figures,
-                    claims_data=result.evidence.get("claims", []) if result.evidence else [],
+                    claims_data=result.evidence.get("claims", [])
+                    if result.evidence
+                    else [],
                     provenance_data=result.provenance_graph,
                     manuscript_latex=result.latex_content,
                     pdf_artifact_id=pdf_art_id,
@@ -316,14 +342,18 @@ class JobManager:
 
                 job_info.state = JobState.COMPLETED
                 job_info.progress_percent = 100.0
-                job_info.stage_message = "Research pipeline successfully finished and verified."
+                job_info.stage_message = (
+                    "Research pipeline successfully finished and verified."
+                )
                 job_info.completed_at = time.time()
 
             except asyncio.CancelledError:
                 job_info.state = JobState.CANCELLED
                 job_info.stage_message = "Research run was cancelled."
                 job_info.completed_at = time.time()
-                self.workspace_mgr.update_run(job_info.run_id, status=RunStatus.CANCELLED)
+                self.workspace_mgr.update_run(
+                    job_info.run_id, status=RunStatus.CANCELLED
+                )
 
             except Exception as exc:
                 logger.exception(f"Job {job_info.job_id} failed: {exc}")
@@ -331,13 +361,17 @@ class JobManager:
                     run_id=job_info.run_id,
                     stage=job_info.current_stage,
                     reason=str(exc),
-                    recoverability="RETRYABLE" if "timeout" in str(exc).lower() or "network" in str(exc).lower() else "FATAL_CONFIG",
+                    recoverability="RETRYABLE"
+                    if "timeout" in str(exc).lower() or "network" in str(exc).lower()
+                    else "FATAL_CONFIG",
                     suggested_action="Check dataset/topic constraints or re-run with fast_microbenchmark mode.",
                     raw_error=str(exc),
                 )
                 job_info.state = JobState.FAILED
                 job_info.error = failure
-                job_info.stage_message = f"Run failed at stage '{job_info.current_stage}': {exc}"
+                job_info.stage_message = (
+                    f"Run failed at stage '{job_info.current_stage}': {exc}"
+                )
                 job_info.completed_at = time.time()
 
                 self.workspace_mgr.update_run(

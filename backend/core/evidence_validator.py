@@ -9,41 +9,43 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from backend.core.evidence_agent import ClaimRecord, EvidenceBundle
+from backend.core.evidence_agent import EvidenceBundle
 from backend.core.experiment_agent import ExperimentRecord
 
 
 @dataclass
 class ValidatedClaim:
     """Fine-grained claim annotated with empirical support score and validation status."""
+
     claim_id: str
     claim_text: str
-    source_ids: List[str]
-    experiment_ids: List[str]
+    source_ids: list[str]
+    experiment_ids: list[str]
     support_score: float  # 0.0 to 1.0
     status: str  # 'supported', 'weak', 'unsupported'
     rationale: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class EvidenceValidationReport:
     """Comprehensive outcome of the evidence validation audit."""
+
     total_claims: int
     supported_count: int
     weak_count: int
     unsupported_count: int
     unsupported_rate: float
     is_publishable: bool
-    claims: List[ValidatedClaim] = field(default_factory=list)
-    flags: List[str] = field(default_factory=list)
-    verified_doi_rate: Optional[float] = None
+    claims: list[ValidatedClaim] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
+    verified_doi_rate: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_claims": self.total_claims,
             "supported_count": self.supported_count,
@@ -66,12 +68,12 @@ class EvidenceValidator:
     def validate_evidence(
         self,
         evidence: EvidenceBundle,
-        experiments: List[ExperimentRecord],
-        metrics_dict: Dict[str, Any],
+        experiments: list[ExperimentRecord],
+        metrics_dict: dict[str, Any],
     ) -> EvidenceValidationReport:
         """Audit claims against literature and empirical experiment records."""
-        validated: List[ValidatedClaim] = []
-        flags: List[str] = []
+        validated: list[ValidatedClaim] = []
+        flags: list[str] = []
 
         methods = metrics_dict.get("methods", {})
         prop = methods.get("proposed_mb_qgt", {})
@@ -91,45 +93,76 @@ class EvidenceValidator:
 
         # Unrelated domain/hardware keywords that must NOT be claimed as substantiated by local tensor experiments
         UNRELATED_SCOPE_KEYWORDS = {
-            "memristor", "memristive", "neuromorphic", "resistive memory", "resistive",
-            "analog", "spintronic", "photonic", "optical computing", "crossbar",
-            "crossbar array", "phase-change", "pcm", "rram", "bio-inspired", "spiking", "asic"
+            "memristor",
+            "memristive",
+            "neuromorphic",
+            "resistive memory",
+            "resistive",
+            "analog",
+            "spintronic",
+            "photonic",
+            "optical computing",
+            "crossbar",
+            "crossbar array",
+            "phase-change",
+            "pcm",
+            "rram",
+            "bio-inspired",
+            "spiking",
+            "asic",
         }
 
         # Explicit keywords signifying the active proposed architecture or local benchmark evaluation
         PROPOSED_CONSTRUCT_KEYWORDS = {
-            "proposed", "mb-qgt", "mb_qgt", "our method", "our model", "our architecture",
-            "multi-branch quantized graph transformer", "evaluated model"
+            "proposed",
+            "mb-qgt",
+            "mb_qgt",
+            "our method",
+            "our model",
+            "our architecture",
+            "multi-branch quantized graph transformer",
+            "evaluated model",
         }
 
         # Matched experiment IDs for proposed and baseline methods
-        prop_exp_ids = [e.experiment_id for e in experiments if "proposed" in e.method_id or "mb_qgt" in e.method_id]
+        prop_exp_ids = [
+            e.experiment_id
+            for e in experiments
+            if "proposed" in e.method_id or "mb_qgt" in e.method_id
+        ]
         dense_exp_ids = [e.experiment_id for e in experiments if "dense" in e.method_id]
-        num_k = max(1, len(experiments) // 4 if len(experiments) >= 4 else len(experiments))
+        num_k = max(
+            1, len(experiments) // 4 if len(experiments) >= 4 else len(experiments)
+        )
 
         for claim in evidence.claims:
             claim_text = claim.claim_text
             source_ids = [claim.source_id]
             matched_exp_ids = []
-            
+
             # Default literature baseline
             support_score = 0.85
             rationale = "Literature-grounded claim; no directly matching local experiment was identified."
 
             # Check if claim refers to external/unrelated hardware or domain outside local benchmark scope
             is_unrelated_hardware = any(
-                re.search(rf"\b{re.escape(kw)}\b", claim_text, re.IGNORECASE) for kw in UNRELATED_SCOPE_KEYWORDS
+                re.search(rf"\b{re.escape(kw)}\b", claim_text, re.IGNORECASE)
+                for kw in UNRELATED_SCOPE_KEYWORDS
             )
 
             # A claim only receives local experiment IDs if it explicitly concerns the active proposed construct
             is_proposed_construct = any(
-                re.search(rf"\b{re.escape(kw)}\b", claim_text, re.IGNORECASE) for kw in PROPOSED_CONSTRUCT_KEYWORDS
+                re.search(rf"\b{re.escape(kw)}\b", claim_text, re.IGNORECASE)
+                for kw in PROPOSED_CONSTRUCT_KEYWORDS
             )
 
             is_empirical_scope = not is_unrelated_hardware and is_proposed_construct
 
             if is_empirical_scope:
-                if any(kw in claim_text.lower() for kw in ["memory", "footprint", "ram", "compression"]):
+                if any(
+                    kw in claim_text.lower()
+                    for kw in ["memory", "footprint", "ram", "compression"]
+                ):
                     matched_exp_ids.extend(prop_exp_ids[:2] + dense_exp_ids[:2])
                     if mem_reduction >= 50.0:
                         support_score = 0.95
@@ -138,7 +171,10 @@ class EvidenceValidator:
                         support_score = 0.65
                         rationale = f"Weak support: observed memory reduction ({mem_reduction:.1f}%) is below expected 50% threshold."
 
-                elif any(kw in claim_text.lower() for kw in ["accuracy", "precision", "generalization", "quantiz"]):
+                elif any(
+                    kw in claim_text.lower()
+                    for kw in ["accuracy", "precision", "generalization", "quantiz"]
+                ):
                     matched_exp_ids.extend(prop_exp_ids[:2])
                     if acc_delta >= 0.0 or abs(acc_delta) < 5.0:
                         support_score = 0.92
@@ -151,27 +187,33 @@ class EvidenceValidator:
                 status = "supported"
             elif support_score >= 0.50:
                 status = "weak"
-                flags.append(f"Weakly supported claim: {claim.claim_id} ('{claim_text[:60]}...')")
+                flags.append(
+                    f"Weakly supported claim: {claim.claim_id} ('{claim_text[:60]}...')"
+                )
             else:
                 status = "unsupported"
-                flags.append(f"UNSUPPORTED CLAIM DETECTED: {claim.claim_id} ('{claim_text[:60]}...')")
+                flags.append(
+                    f"UNSUPPORTED CLAIM DETECTED: {claim.claim_id} ('{claim_text[:60]}...')"
+                )
 
-            validated.append(ValidatedClaim(
-                claim_id=claim.claim_id,
-                claim_text=claim_text,
-                source_ids=source_ids,
-                experiment_ids=matched_exp_ids,
-                support_score=round(support_score, 2),
-                status=status,
-                rationale=rationale,
-            ))
+            validated.append(
+                ValidatedClaim(
+                    claim_id=claim.claim_id,
+                    claim_text=claim_text,
+                    source_ids=source_ids,
+                    experiment_ids=matched_exp_ids,
+                    support_score=round(support_score, 2),
+                    status=status,
+                    rationale=rationale,
+                )
+            )
 
         supported_count = sum(1 for c in validated if c.status == "supported")
         weak_count = sum(1 for c in validated if c.status == "weak")
         unsupported_count = sum(1 for c in validated if c.status == "unsupported")
         total_c = len(validated) or 1
         unsupported_rate = round(unsupported_count / total_c, 3)
-        is_publishable = (unsupported_count == 0 and unsupported_rate == 0.0)
+        is_publishable = unsupported_count == 0 and unsupported_rate == 0.0
 
         return EvidenceValidationReport(
             total_claims=len(validated),

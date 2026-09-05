@@ -12,19 +12,21 @@ import json
 import math
 import os
 import time
-from datetime import datetime, timezone
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
+
 import numpy as np
-import scipy.stats as stats
+from scipy import stats
 
 
 @dataclass
 class SeedResult:
     """Individual seed experiment result."""
+
     seed: int
-    train_loss_history: List[float]
-    val_accuracy_history: List[float]
+    train_loss_history: list[float]
+    val_accuracy_history: list[float]
     final_accuracy: float
     peak_memory_mb: float
     inference_latency_ms: float
@@ -32,15 +34,16 @@ class SeedResult:
     compression_ratio: float
     gradient_variance: float
     runtime_sec: float = 0.0
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
+    start_time: str | None = None
+    end_time: str | None = None
     status: str = "completed"
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
 class MethodMetrics:
     """Aggregated benchmark metrics for a single model/method."""
+
     name: str
     description: str
     num_seeds: int
@@ -53,12 +56,13 @@ class MethodMetrics:
     mean_throughput: float
     std_throughput: float
     mean_compression_ratio: float
-    seed_runs: List[SeedResult]
+    seed_runs: list[SeedResult]
 
 
 @dataclass
 class MetaAnalysisResult:
     """Formal DerSimonian-Laird random-effects meta-analysis parameters."""
+
     cochran_q: float
     degrees_of_freedom: int
     p_value_q: float
@@ -70,36 +74,41 @@ class MetaAnalysisResult:
     ci_95_upper: float
     z_statistic: float
     p_value_z: float
-    study_weights: List[float]
-    effect_sizes: List[float]
-    effect_variances: List[float]
+    study_weights: list[float]
+    effect_sizes: list[float]
+    effect_variances: list[float]
 
 
 @dataclass
 class ExperimentPackage:
     """Complete experimental results package written to metrics.json."""
+
     topic: str
     timestamp: str
-    seeds: List[int]
+    seeds: list[int]
     device: str
-    methods: Dict[str, MethodMetrics]
-    meta_analysis: Optional[MetaAnalysisResult] = None
-    hardware_info: Dict[str, Any] = field(default_factory=dict)
+    methods: dict[str, MethodMetrics]
+    meta_analysis: MetaAnalysisResult | None = None
+    hardware_info: dict[str, Any] = field(default_factory=dict)
 
 
 class DerSimonianLairdEstimator:
     """Implements standard DerSimonian-Laird random-effects meta-analysis model."""
 
     @staticmethod
-    def compute(effect_sizes: List[float], standard_errors: List[float]) -> MetaAnalysisResult:
+    def compute(
+        effect_sizes: list[float], standard_errors: list[float]
+    ) -> MetaAnalysisResult:
         """Compute DerSimonian-Laird random-effects meta-analysis."""
         k = len(effect_sizes)
         if k < 2:
-            raise ValueError("Meta-analysis requires at least 2 independent studies/seeds.")
+            raise ValueError(
+                "Meta-analysis requires at least 2 independent studies/seeds."
+            )
 
         y = np.array(effect_sizes, dtype=np.float64)
         se = np.array(standard_errors, dtype=np.float64)
-        v = se ** 2  # within-study variances
+        v = se**2  # within-study variances
 
         # 1. Fixed-effect weights
         w_fixed = 1.0 / v
@@ -112,7 +121,7 @@ class DerSimonianLairdEstimator:
         p_val_q = float(1.0 - stats.chi2.cdf(q, df)) if df > 0 else 1.0
 
         # 3. DerSimonian-Laird between-study variance (tau^2)
-        sum_w_fixed_sq = np.sum(w_fixed ** 2)
+        sum_w_fixed_sq = np.sum(w_fixed**2)
         c = sum_w_fixed - (sum_w_fixed_sq / sum_w_fixed)
         if c > 0 and q > df:
             tau_sq = float((q - df) / c)
@@ -160,7 +169,9 @@ class DerSimonianLairdEstimator:
 class SurrogateBenchmarkEngine:
     """Executes CPU-invariant benchmarks and generates reproducible metrics."""
 
-    def __init__(self, topic: str = "Low-Compute Graph Quantization", num_seeds: int = 5) -> None:
+    def __init__(
+        self, topic: str = "Low-Compute Graph Quantization", num_seeds: int = 5
+    ) -> None:
         self.topic = topic
         self.seeds = [42 + i * 137 for i in range(num_seeds)]
         self.num_epochs = 40
@@ -176,30 +187,37 @@ class SurrogateBenchmarkEngine:
     ) -> SeedResult:
         """Simulate rigorous, seed-deterministic CPU training dynamics."""
         t_start = time.perf_counter()
-        iso_start = datetime.now(timezone.utc).isoformat()
+        iso_start = datetime.now(UTC).isoformat()
         rng = np.random.default_rng(seed)
 
         # Synthetic loss trajectory (exponential decay with stochastic mini-batch perturbations)
         epochs = np.arange(1, self.num_epochs + 1)
         decay = np.exp(-epochs / 9.0)
         noise = rng.normal(0, 0.015, size=self.num_epochs)
-        loss_hist = [round(float(l), 4) for l in np.clip(1.8 * decay + 0.18 + noise, 0.05, 3.5)]
+        loss_hist = [
+            round(float(l), 4) for l in np.clip(1.8 * decay + 0.18 + noise, 0.05, 3.5)
+        ]
 
         # Synthetic accuracy trajectory (sigmoidal saturation)
         sig = 1.0 / (1.0 + np.exp(-(epochs - 12) / 4.5))
         acc_noise = rng.normal(0, acc_noise_scale, size=self.num_epochs)
-        acc_hist = [round(float(a), 4) for a in np.clip(0.40 + (base_acc - 0.40) * sig + acc_noise, 0.35, 0.99)]
+        acc_hist = [
+            round(float(a), 4)
+            for a in np.clip(0.40 + (base_acc - 0.40) * sig + acc_noise, 0.35, 0.99)
+        ]
         final_acc = acc_hist[-1]
 
         # Computational footprint measurements
         mem_jitter = rng.normal(0, base_mem * 0.03)
         lat_jitter = rng.normal(0, base_lat * 0.04)
-        throughput = (1000.0 / (base_lat + lat_jitter)) * 64.0  # samples per sec (batch size 64)
+        throughput = (
+            1000.0 / (base_lat + lat_jitter)
+        ) * 64.0  # samples per sec (batch size 64)
 
-        grad_var = float(0.045 / (comp_ratio ** 0.5) + rng.uniform(0.002, 0.008))
+        grad_var = float(0.045 / (comp_ratio**0.5) + rng.uniform(0.002, 0.008))
 
         t_end = time.perf_counter()
-        iso_end = datetime.now(timezone.utc).isoformat()
+        iso_end = datetime.now(UTC).isoformat()
         runtime_sec = round(t_end - t_start, 4)
 
         return SeedResult(
@@ -221,7 +239,10 @@ class SurrogateBenchmarkEngine:
 
     def run_experiments(self) -> ExperimentPackage:
         """Run all candidate architectures across multi-seed evaluations."""
-        topic_hash = int(hashlib.sha256(self.topic.lower().strip().encode("utf-8")).hexdigest()[:8], 16)
+        topic_hash = int(
+            hashlib.sha256(self.topic.lower().strip().encode("utf-8")).hexdigest()[:8],
+            16,
+        )
         h_offset = (topic_hash % 1000) / 10000.0
         lat_offset = ((topic_hash >> 4) % 100) / 100.0 * 2.0
         mem_offset = ((topic_hash >> 8) % 100) / 100.0 * 8.0
@@ -277,10 +298,10 @@ class SurrogateBenchmarkEngine:
             },
         ]
 
-        methods_dict: Dict[str, MethodMetrics] = {}
+        methods_dict: dict[str, MethodMetrics] = {}
 
         for cfg in configs:
-            seed_results: List[SeedResult] = []
+            seed_results: list[SeedResult] = []
             for s in self.seeds:
                 res = self._simulate_training_dynamics(
                     seed=s,
@@ -318,7 +339,7 @@ class SurrogateBenchmarkEngine:
         # Compute Meta-Analysis: Effect size = Accuracy Delta (Proposed - Best Baseline) across seeds
         proposed_runs = methods_dict["proposed_mb_qgt"].seed_runs
         dense_runs = methods_dict["dense_baseline"].seed_runs
-        
+
         effect_sizes = []
         std_errors = []
         for p_run, d_run in zip(proposed_runs, dense_runs):

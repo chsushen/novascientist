@@ -7,17 +7,17 @@ to satisfy strict publication page boundaries.
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class PageBudgetStatus(str, Enum):
     """Evaluation status of physical page count against budget bounds."""
+
     IN_RANGE = "IN_RANGE"
     UNDER_BUDGET = "UNDER_BUDGET"
     OVER_BUDGET = "OVER_BUDGET"
@@ -27,18 +27,23 @@ class PageBudgetStatus(str, Enum):
 @dataclass
 class PageBudgetEvaluation:
     """Detailed evaluation of physical page budget compliance."""
+
     measured_pages: int
     target_min: int
     target_max: int
     status: PageBudgetStatus
     delta_from_target: int
     word_count: int
-    suggested_adjustments: List[str] = field(default_factory=list)
+    suggested_adjustments: list[str] = field(default_factory=list)
     expansion_factor: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["status"] = self.status.value if isinstance(self.status, PageBudgetStatus) else str(self.status)
+        d["status"] = (
+            self.status.value
+            if isinstance(self.status, PageBudgetStatus)
+            else str(self.status)
+        )
         return d
 
 
@@ -48,7 +53,7 @@ class PhysicalPageController:
     def __init__(self) -> None:
         pass
 
-    def measure_pdf_pages(self, pdf_path: str | Path) -> Optional[int]:
+    def measure_pdf_pages(self, pdf_path: str | Path) -> int | None:
         """Attempt to measure the exact physical page count of a compiled PDF."""
         p = Path(pdf_path)
         if not p.exists() or p.stat().st_size == 0:
@@ -57,6 +62,7 @@ class PhysicalPageController:
         # 1. Try pypdf / pymupdf if available
         try:
             import pypdf
+
             reader = pypdf.PdfReader(str(p))
             return len(reader.pages)
         except Exception:
@@ -64,6 +70,7 @@ class PhysicalPageController:
 
         try:
             import fitz  # PyMuPDF
+
             doc = fitz.open(str(p))
             pages = len(doc)
             doc.close()
@@ -73,7 +80,9 @@ class PhysicalPageController:
 
         # 2. Try pdfinfo command line utility
         try:
-            res = subprocess.run(["pdfinfo", str(p)], capture_output=True, text=True, timeout=5)
+            res = subprocess.run(
+                ["pdfinfo", str(p)], capture_output=True, text=True, timeout=5
+            )
             if res.returncode == 0:
                 match = re.search(r"Pages:\s+(\d+)", res.stdout)
                 if match:
@@ -124,8 +133,8 @@ class PhysicalPageController:
         self,
         target_min: int,
         target_max: int,
-        pdf_path: Optional[str | Path] = None,
-        tex_content: Optional[str] = None,
+        pdf_path: str | Path | None = None,
+        tex_content: str | None = None,
         num_figures: int = 5,
     ) -> PageBudgetEvaluation:
         """Evaluate page budget and suggest concrete adjustments."""
@@ -140,7 +149,9 @@ class PhysicalPageController:
 
         if measured is None:
             if tex_content:
-                measured = self.estimate_pages_from_content(tex_content, num_figures=num_figures)
+                measured = self.estimate_pages_from_content(
+                    tex_content, num_figures=num_figures
+                )
                 is_estimate = True
             else:
                 measured = target_min
@@ -148,27 +159,45 @@ class PhysicalPageController:
         else:
             is_estimate = False
 
-        adjustments: List[str] = []
+        adjustments: list[str] = []
         expansion_factor = 1.0
 
         if measured < target_min:
             status = PageBudgetStatus.UNDER_BUDGET
             delta = target_min - measured
             expansion_factor = round(target_min / max(1, measured), 2)
-            adjustments.append(f"Expand literature discussion and detailed proof derivations (deficit: {delta} pages).")
-            adjustments.append("Add extensive hyperparameter sensitivity sub-sections and ablation tables.")
-            adjustments.append("Include deeper epistemic limitations and broader impact analysis.")
+            adjustments.append(
+                f"Expand literature discussion and detailed proof derivations (deficit: {delta} pages)."
+            )
+            adjustments.append(
+                "Add extensive hyperparameter sensitivity sub-sections and ablation tables."
+            )
+            adjustments.append(
+                "Include deeper epistemic limitations and broader impact analysis."
+            )
         elif measured > target_max:
             status = PageBudgetStatus.OVER_BUDGET
             delta = measured - target_max
             expansion_factor = round(target_max / measured, 2)
-            adjustments.append(f"Compress methodology details into algorithmic floats (overflow: {delta} pages).")
-            adjustments.append("Move secondary proof lemmas and extended baseline tables to Appendix.")
-            adjustments.append("Use compact multi-panel figures and tighten paragraph spacing.")
+            adjustments.append(
+                f"Compress methodology details into algorithmic floats (overflow: {delta} pages)."
+            )
+            adjustments.append(
+                "Move secondary proof lemmas and extended baseline tables to Appendix."
+            )
+            adjustments.append(
+                "Use compact multi-panel figures and tighten paragraph spacing."
+            )
         else:
-            status = PageBudgetStatus.IN_RANGE if not is_estimate else PageBudgetStatus.ESTIMATED
+            status = (
+                PageBudgetStatus.IN_RANGE
+                if not is_estimate
+                else PageBudgetStatus.ESTIMATED
+            )
             delta = 0
-            adjustments.append("Physical page length satisfies publication venue constraints.")
+            adjustments.append(
+                "Physical page length satisfies publication venue constraints."
+            )
 
         return PageBudgetEvaluation(
             measured_pages=measured,

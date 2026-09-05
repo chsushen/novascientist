@@ -11,13 +11,14 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from backend.core.topic_profile import ResearchParadigm, TaskType, TopicResearchProfile
 
 
 class MathematicalDecision(str, Enum):
     """Decision category for mathematical depth and formal theory."""
+
     THEOREM_REQUIRED = "theorem_required"
     PROPOSITION_LEMMA = "proposition_lemma"
     ANALYTICAL_DERIVATION = "analytical_derivation"
@@ -31,18 +32,19 @@ TheoremDecisionType = MathematicalDecision
 @dataclass
 class FormalTheorem:
     """Rigorous formal mathematical theorem with assumptions and proof."""
+
     theorem_id: str
     title: str
     decision_type: MathematicalDecision
-    formal_objects: List[str] = field(default_factory=list)
-    assumptions: List[str] = field(default_factory=list)
+    formal_objects: list[str] = field(default_factory=list)
+    assumptions: list[str] = field(default_factory=list)
     statement: str = ""
     latex_statement: str = ""
-    proof_steps: List[str] = field(default_factory=list)
+    proof_steps: list[str] = field(default_factory=list)
     latex_proof: str = ""
     is_verified: bool = False
-    verification_notes: List[str] = field(default_factory=list)
-    corollary: Optional[str] = None
+    verification_notes: list[str] = field(default_factory=list)
+    corollary: str | None = None
     theorem_type: str = "theorem"
 
     @property
@@ -50,16 +52,19 @@ class FormalTheorem:
         return self.decision_type
 
     @property
-    def proof_sketch(self) -> List[str]:
+    def proof_sketch(self) -> list[str]:
         return self.proof_steps
 
     def to_latex(self) -> str:
         """Format the theorem, assumptions, and proof into compiled LaTeX code."""
-        if self.decision_type == MathematicalDecision.EMPIRICAL_STUDY or not self.is_verified:
+        if (
+            self.decision_type == MathematicalDecision.EMPIRICAL_STUDY
+            or not self.is_verified
+        ):
             if not self.is_verified and self.statement:
                 return f"% Unverified analytical observation: {self.title}\n\\noindent\\textbf{{Observation:}} {self.statement}"
             return "% Mathematical section: Empirical study formulation without formal theorem."
-        
+
         blocks = []
         if self.assumptions:
             blocks.append(r"\noindent\textbf{Theoretical Assumptions:}")
@@ -90,9 +95,13 @@ class FormalTheorem:
 
         return "\n".join(blocks)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["decision_type"] = self.decision_type.value if isinstance(self.decision_type, MathematicalDecision) else str(self.decision_type)
+        d["decision_type"] = (
+            self.decision_type.value
+            if isinstance(self.decision_type, MathematicalDecision)
+            else str(self.decision_type)
+        )
         d["decision"] = d["decision_type"]
         d["latex_block"] = self.to_latex()
         return d
@@ -102,10 +111,10 @@ class MathematicalVerificationEngine:
     """Independent verification gate auditing formal mathematical claims."""
 
     @classmethod
-    def verify(cls, theorem: FormalTheorem) -> Tuple[bool, List[str]]:
+    def verify(cls, theorem: FormalTheorem) -> tuple[bool, list[str]]:
         """Audit mathematical claim for LaTeX balance, assumption references, and consistency."""
-        notes: List[str] = []
-        
+        notes: list[str] = []
+
         if theorem.decision_type == MathematicalDecision.EMPIRICAL_STUDY:
             notes.append("Empirical study: Formal theorem not required or claimed.")
             return True, notes
@@ -115,12 +124,17 @@ class MathematicalVerificationEngine:
         begins = re.findall(r"\\begin\{([A-Za-z0-9_*]+)\}", tex_text)
         ends = re.findall(r"\\end\{([A-Za-z0-9_*]+)\}", tex_text)
         if len(begins) != len(ends):
-            notes.append(f"LaTeX environment mismatch: {len(begins)} \\begin vs {len(ends)} \\end tags.")
+            notes.append(
+                f"LaTeX environment mismatch: {len(begins)} \\begin vs {len(ends)} \\end tags."
+            )
             theorem.is_verified = False
             return False, notes
 
         # 2. Assumption Check: Formal theorems must declare at least one explicit assumption
-        if theorem.decision_type in (MathematicalDecision.THEOREM_REQUIRED, MathematicalDecision.PROPOSITION_LEMMA):
+        if theorem.decision_type in (
+            MathematicalDecision.THEOREM_REQUIRED,
+            MathematicalDecision.PROPOSITION_LEMMA,
+        ):
             if not theorem.assumptions:
                 notes.append("Formal theorem lacks explicit mathematical assumptions.")
                 theorem.is_verified = False
@@ -140,7 +154,18 @@ class MathematicalVerificationEngine:
         # 4. Assumption Dependency Check
         # Ensure proof mentions or references assumptions
         proof_text = (theorem.latex_proof + " " + " ".join(theorem.proof_steps)).lower()
-        if theorem.assumptions and not any(k in proof_text for k in ["assumption", "lemma", "step", "bound", "applying", "definition", "expansion"]):
+        if theorem.assumptions and not any(
+            k in proof_text
+            for k in [
+                "assumption",
+                "lemma",
+                "step",
+                "bound",
+                "applying",
+                "definition",
+                "expansion",
+            ]
+        ):
             notes.append("Proof does not demonstrate dependency on stated assumptions.")
             theorem.is_verified = False
             return False, notes
@@ -152,7 +177,9 @@ class MathematicalVerificationEngine:
             theorem.is_verified = False
             return False, notes
 
-        notes.append("Verified: LaTeX balanced, assumption dependencies valid, and proof steps complete.")
+        notes.append(
+            "Verified: LaTeX balanced, assumption dependencies valid, and proof steps complete."
+        )
         theorem.is_verified = True
         theorem.verification_notes = notes
         return True, notes
@@ -167,14 +194,18 @@ class MathematicalFormulationAgent:
     def formulate(
         self,
         topic_profile: TopicResearchProfile,
-        methodology: Optional[Any] = None,
+        methodology: Any | None = None,
         has_theoretical_claims: bool = True,
-        contract: Optional[Any] = None,
+        contract: Any | None = None,
     ) -> FormalTheorem:
         """Formulate and independently verify a formal mathematical theorem."""
-        m_name = getattr(methodology, "model_acronym", None) or getattr(topic_profile, "model_acronym_suggestion", "Proposed Architecture")
-        raw_thm = self.formulate_mathematics(topic_profile, method_name=m_name, contract=contract)
-        
+        m_name = getattr(methodology, "model_acronym", None) or getattr(
+            topic_profile, "model_acronym_suggestion", "Proposed Architecture"
+        )
+        raw_thm = self.formulate_mathematics(
+            topic_profile, method_name=m_name, contract=contract
+        )
+
         # Run independent verification gate
         is_valid, notes = self.verifier.verify(raw_thm)
         raw_thm.is_verified = is_valid
@@ -191,8 +222,8 @@ class MathematicalFormulationAgent:
     def formulate_mathematics(
         cls,
         profile: TopicResearchProfile,
-        method_name: Optional[str] = None,
-        contract: Optional[Any] = None,
+        method_name: str | None = None,
+        contract: Any | None = None,
     ) -> FormalTheorem:
         """Derive appropriate mathematical formulation based on topic requirements."""
         m_name = method_name or profile.model_acronym_suggestion or "Proposed Framework"
@@ -202,27 +233,40 @@ class MathematicalFormulationAgent:
         # Evidence-driven decision on whether a formal theorem is required
         math_decision_val = None
         if contract and hasattr(contract, "mathematical_requirement"):
-            math_decision_val = getattr(contract.mathematical_requirement, "value", str(contract.mathematical_requirement))
+            math_decision_val = getattr(
+                contract.mathematical_requirement,
+                "value",
+                str(contract.mathematical_requirement),
+            )
 
         if math_decision_val in ("no_formal_theorem", "empirical_only"):
             return FormalTheorem(
                 theorem_id=f"thm_{abs(hash(m_name)) % 100000:05d}",
                 title=f"Empirical Task Formulation for {m_name}",
                 decision_type=MathematicalDecision.EMPIRICAL_STUDY,
-                formal_objects=[f"Task loss objective $\\mathcal{{L}}_{{\\text{{task}}}}$", f"Parameter space $\\theta \\in \\Theta$"],
+                formal_objects=[
+                    "Task loss objective $\\mathcal{L}_{\\text{task}}$",
+                    "Parameter space $\\theta \\in \\Theta$",
+                ],
                 assumptions=[],
                 statement=f"The empirical investigation of {m_name} focuses on comparative performance benchmarking without formal asymptotic theorem claims.",
                 latex_statement="",
                 proof_steps=[],
                 latex_proof="",
                 is_verified=True,
-                verification_notes=["Empirical formulation: No formal theorem claimed."],
+                verification_notes=[
+                    "Empirical formulation: No formal theorem claimed."
+                ],
                 theorem_type="empirical_formulation",
             )
         elif math_decision_val in ("optimization_objective", "derivation_only"):
             decision = MathematicalDecision.ANALYTICAL_DERIVATION
             thm_type = "analytical_derivation"
-        elif paradigm == ResearchParadigm.THEORETICAL_ALGORITHMIC or profile.requires_formal_theorem or math_decision_val in ("formal_theorem", "formal_proposition"):
+        elif (
+            paradigm == ResearchParadigm.THEORETICAL_ALGORITHMIC
+            or profile.requires_formal_theorem
+            or math_decision_val in ("formal_theorem", "formal_proposition")
+        ):
             decision = MathematicalDecision.THEOREM_REQUIRED
             thm_type = "theorem"
         elif paradigm == ResearchParadigm.SYSTEMS_OPTIMIZATION:
@@ -236,7 +280,10 @@ class MathematicalFormulationAgent:
             thm_type = "remark"
 
         # Synthesize domain-grounded mathematical formulation
-        if task == TaskType.FEDERATED_COORDINATION or "federat" in profile.domain.lower():
+        if (
+            task == TaskType.FEDERATED_COORDINATION
+            or "federat" in profile.domain.lower()
+        ):
             title = f"Convergence and Consensus Bound for {m_name}"
             formal_objects = [
                 r"Global optimization objective $F(w) = \frac{1}{K}\sum_{k=1}^K f_k(w)$ across $K$ heterogeneous client partitions.",
@@ -254,15 +301,19 @@ class MathematicalFormulationAgent:
                 f"$\\frac{{1}}{{T}} \\sum_{{t=0}}^{{T-1}} \\mathbb{{E}}[\\|\\nabla F(w_t)\\|^2] \\le "
                 f"\\frac{{2(F(w_0) - F^*) }}{{\\eta \\tau T}} + \\frac{{\\eta L \\sigma^2}}{{K}} + 4 \\eta^2 L^2 \\tau^2 G^2$."
             )
-            latex_statement = r"""\begin{theorem}[\textbf{Decentralized Convergence and Drift Bound}]
+            latex_statement = (
+                r"""\begin{theorem}[\textbf{Decentralized Convergence and Drift Bound}]
 \label{thm:convergence_bound}
-Let Assumptions 1--3 hold. For effective client learning rate $\eta \le \frac{1}{4L\tau}$, the sequence of global model iterates $\{w_t\}_{t=0}^{T-1}$ produced by """ + m_name + r""" satisfies:
+Let Assumptions 1--3 hold. For effective client learning rate $\eta \le \frac{1}{4L\tau}$, the sequence of global model iterates $\{w_t\}_{t=0}^{T-1}$ produced by """
+                + m_name
+                + r""" satisfies:
 \begin{equation}
 \frac{1}{T}\sum_{t=0}^{T-1} \mathbb{E}\left[\|\nabla F(w_t)\|^2\right] \le \frac{2(F(w_0) - F^*)}{\eta \tau T} + \frac{\eta L \sigma^2}{K} + 4\eta^2 L^2 \tau^2 G^2
 \label{eq:theorem_federated_bound}
 \end{equation}
 where $\tau$ denotes local computation step budget, $\sigma^2$ is bounded stochastic gradient variance, and $G^2$ bounds client heterogeneity drift.
 \end{theorem}"""
+            )
             proof_steps = [
                 r"Step 1 (Descent Lemma): By $L$-smoothness of the global function $F(w)$, expanding the Taylor series yields $F(w_{t+1}) \le F(w_t) + \langle \nabla F(w_t), w_{t+1} - w_t \rangle + \frac{L}{2} \|w_{t+1} - w_t\|^2$.",
                 r"Step 2 (Local Update Separation): Taking expectation conditional on filtration $\mathcal{F}_t$, expand the client average gradient $\bar{g}_t = \frac{1}{K}\sum_{k=1}^K g_k(w_t^k)$.",
@@ -277,7 +328,9 @@ Applying the $L$-smoothness of $F(\cdot)$ across communication step $t \to t+1$:
 Bounding inter-client drift $\|\bar{w}_t - w_t^k\|^2 \le 4\eta^2 \tau^2 G^2$ and telescoping from $t=0$ to $T-1$ concludes the proof.
 \end{proof}"""
 
-        elif task == TaskType.TIMESERIES_FORECASTING or "time" in profile.domain.lower():
+        elif (
+            task == TaskType.TIMESERIES_FORECASTING or "time" in profile.domain.lower()
+        ):
             title = f"Asymptotic Autoregressive Error Propagation Bound for {m_name}"
             formal_objects = [
                 r"Continuous-time or discrete multivariate stochastic process $\{X_t\}_{t \in \mathbb{Z}} \subset \mathbb{R}^D$.",
@@ -292,15 +345,19 @@ Bounding inter-client drift $\|\bar{w}_t - w_t^k\|^2 \le 4\eta^2 \tau^2 G^2$ and
                 f"Under Assumptions 1-2, the cumulative multi-step forecasting error of {m_name} across forecast horizon $H$ "
                 f"satisfies $\\mathbb{{E}}[\\|X_{{t+H}} - \\hat{{X}}_{{t+H}}\\|^2] \\le \\frac{{\\sigma_e^2}}{{1 - \\kappa^2}} (1 - \\kappa^{{2H}}) + \\mathcal{{O}}(L^{{-1/2}})$."
             )
-            latex_statement = r"""\begin{theorem}[\textbf{Temporal Error Propagation and Horizon Bound}]
+            latex_statement = (
+                r"""\begin{theorem}[\textbf{Temporal Error Propagation and Horizon Bound}]
 \label{thm:temporal_error_bound}
-Let the temporal transition dynamic satisfy contraction coefficient $\kappa \in (0, 1)$ under Assumptions 1--2. Then for any rollout horizon $H \ge 1$, the cumulative prediction variance of """ + m_name + r""" satisfies:
+Let the temporal transition dynamic satisfy contraction coefficient $\kappa \in (0, 1)$ under Assumptions 1--2. Then for any rollout horizon $H \ge 1$, the cumulative prediction variance of """
+                + m_name
+                + r""" satisfies:
 \begin{equation}
 \mathbb{E}\left[\|X_{t+H} - \hat{X}_{t+H}\|_2^2\right] \le \frac{\sigma_\epsilon^2}{1 - \kappa^2}\left(1 - \kappa^{2H}\right) + \frac{C_{\text{rep}}}{\sqrt{L}}
 \label{eq:theorem_temporal_bound}
 \end{equation}
 where $\sigma_\epsilon^2$ is irreducible innovation noise and $L$ is input lookback sequence length.
 \end{theorem}"""
+            )
             proof_steps = [
                 r"Step 1 (Error State Formulation): Define residual vector $e_{t+h} = X_{t+h} - \hat{X}_{t+h}$.",
                 r"Step 2 (Contraction Expansion): By Mean Value Theorem, $e_{t+h} = \mathcal{J}_\theta(\xi) e_{t+h-1} + \epsilon_{t+h}$.",
@@ -314,8 +371,14 @@ Expressing the forecast recurrence as $e_{t+h} = \mathbf{J}_h e_{t+h-1} + \bolds
 which establishes the stated asymptotic horizon bound.
 \end{proof}"""
 
-        elif "nlp" in profile.domain.lower() or "language" in profile.domain.lower() or task in (TaskType.LANGUAGE_MODELING, TaskType.GENERATION):
-            title = f"Sub-Linear Attention Approximation and Rank Preservation for {m_name}"
+        elif (
+            "nlp" in profile.domain.lower()
+            or "language" in profile.domain.lower()
+            or task in (TaskType.LANGUAGE_MODELING, TaskType.GENERATION)
+        ):
+            title = (
+                f"Sub-Linear Attention Approximation and Rank Preservation for {m_name}"
+            )
             formal_objects = [
                 r"Input token sequence matrix $\mathbf{X} \in \mathbb{R}^{N \times d}$.",
                 r"Low-rank projection adaptation $\mathbf{W} = \mathbf{W}_0 + \frac{\alpha}{r}\mathbf{B}\mathbf{A}$ where $\mathbf{B} \in \mathbb{R}^{d \times r}, \mathbf{A} \in \mathbb{R}^{r \times k}$ with $r \ll \min(d, k)$.",
@@ -329,14 +392,18 @@ which establishes the stated asymptotic horizon bound.
                 f"Under Assumptions 1-2, the parameter-efficient adaptation of {m_name} achieves an approximation error "
                 f"$\\|\\text{{Attn}}_{{\\text{{full}}}}(\\mathbf{{X}}) - \\text{{Attn}}_{{\\text{{peft}}}}(\\mathbf{{X}})\\|_F \\le \\frac{{R^2}}{{\\sqrt{{d_k}}}} \\epsilon_{{\\text{{tail}}}} + \\mathcal{{O}}(r^{{-1}})$."
             )
-            latex_statement = r"""\begin{theorem}[\textbf{Low-Rank Representation Approximation Bound}]
+            latex_statement = (
+                r"""\begin{theorem}[\textbf{Low-Rank Representation Approximation Bound}]
 \label{thm:peft_rank_bound}
-Let token sequence representations satisfy $\|x_i\|_2 \le R$ under Assumptions 1--2. Then the Frobenius divergence between full fine-tuning and the rank-$r$ adaptation of """ + m_name + r""" is bounded by:
+Let token sequence representations satisfy $\|x_i\|_2 \le R$ under Assumptions 1--2. Then the Frobenius divergence between full fine-tuning and the rank-$r$ adaptation of """
+                + m_name
+                + r""" is bounded by:
 \begin{equation}
 \|\text{Attn}_{\text{full}}(\mathbf{X}) - \text{Attn}_{\text{peft}}(\mathbf{X})\|_F \le \frac{2 R^2}{\sqrt{d_k}} \sum_{j=r+1}^{\min(d, k)} \sigma_j(\Delta \mathbf{W}) + \mathcal{O}\left(\frac{\alpha^2}{r}\right)
 \label{eq:theorem_lora_bound}
 \end{equation}
 \end{theorem}"""
+            )
             proof_steps = [
                 r"Step 1 (Perturbation Matrix): Express $\Delta \mathbf{W} = \mathbf{B}\mathbf{A} + \mathbf{E}_{\text{trunc}}$ where $\|\mathbf{E}_{\text{trunc}}\|_F \le \sum_{j>r} \sigma_j$.",
                 r"Step 2 (Softmax Lipschitz Bound): Utilize the Lipschitz continuity of the softmax operator on bounded domain $\|z\|_\infty \le R^2/\sqrt{d_k}$.",
@@ -351,7 +418,9 @@ completing the verification.
 \end{proof}"""
 
         else:
-            title = f"Dynamic Discretization and Invariant Conservation Bound for {m_name}"
+            title = (
+                f"Dynamic Discretization and Invariant Conservation Bound for {m_name}"
+            )
             formal_objects = [
                 r"State space manifold $\mathcal{M}$ and continuous operator $\mathcal{T}: \mathcal{H} \to \mathcal{H}$.",
                 r"Discretized dynamic mapping $\mathcal{T}_h$ with adaptive partition scale $\Delta_k$.",
@@ -361,15 +430,19 @@ completing the verification.
                 r"Assumption 2 (Bounded Quantization Noise): Discretization operator introduces zero-mean bounded perturbation with variance $\mathbb{E}[\|\xi\|^2] \le \frac{\Delta^2}{12}$.",
             ]
             statement = f"Under Assumptions 1-2, {m_name} satisfies total operator error bound $\\|\\mathcal{{T}} - \\mathcal{{T}}_h\\| \\le C_1 h^p + C_2 \\Delta$."
-            latex_statement = r"""\begin{theorem}[\textbf{Discretization and Invariant Error Bound}]
+            latex_statement = (
+                r"""\begin{theorem}[\textbf{Discretization and Invariant Error Bound}]
 \label{thm:operator_bound}
-Under Assumptions 1--2, the continuous-to-discrete approximation operator of """ + m_name + r""" satisfies:
+Under Assumptions 1--2, the continuous-to-discrete approximation operator of """
+                + m_name
+                + r""" satisfies:
 \begin{equation}
 \|\mathcal{T}(u) - \mathcal{T}_h(u)\|_{\mathcal{H}} \le C_1 h^p \|u\|_{H^s} + C_2 \Delta
 \label{eq:theorem_operator_bound}
 \end{equation}
 for discretization parameter $h$, block scaling factor $\Delta$, and constant $C_1, C_2 > 0$.
 \end{theorem}"""
+            )
             proof_steps = [
                 r"Step 1: Decompose error into spatial discretization and quantization components via triangle inequality.",
                 r"Step 2: Apply Cea's lemma to bound spatial truncation error by $C_1 h^p$.",

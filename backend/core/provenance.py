@@ -6,23 +6,23 @@ Research Question -> Source -> Claim -> Methodology -> Experiment -> Result -> C
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass
 class ProvenanceNode:
     """Single discrete entity in the scientific provenance lineage graph."""
+
     node_id: str
     node_type: str  # 'question', 'source', 'claim', 'methodology', 'experiment', 'result', 'conclusion'
     label: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    parent_ids: List[str] = field(default_factory=list)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    metadata: dict[str, Any] = field(default_factory=dict)
+    parent_ids: list[str] = field(default_factory=list)
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -31,17 +31,17 @@ class ProvenanceTracker:
 
     def __init__(self, task_id: str = "task_001") -> None:
         self.task_id = task_id
-        self.nodes: Dict[str, ProvenanceNode] = {}
-        self.edges: List[Dict[str, str]] = []
+        self.nodes: dict[str, ProvenanceNode] = {}
+        self.edges: list[dict[str, str]] = []
 
     def record_node(
         self,
         node_id: str,
         node_type: str,
         label: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        parent_ids: Optional[List[str]] = None,
-        relation: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        parent_ids: list[str] | None = None,
+        relation: str | None = None,
     ) -> ProvenanceNode:
         """Record a new scientific entity in the lineage graph with explicit deduplication."""
         p_ids = parent_ids or []
@@ -54,7 +54,7 @@ class ProvenanceTracker:
         )
         self.nodes[node_id] = node
         for p in p_ids:
-            edge: Dict[str, str] = {
+            edge: dict[str, str] = {
                 "source": p,
                 "target": node_id,
                 "relation": relation or f"{node_type}_lineage",
@@ -63,12 +63,12 @@ class ProvenanceTracker:
                 self.edges.append(edge)
         return node
 
-    def trace_lineage(self, node_id: str) -> List[ProvenanceNode]:
+    def trace_lineage(self, node_id: str) -> list[ProvenanceNode]:
         """Backtrack the complete lineage path from conclusion back to initial question."""
         if node_id not in self.nodes:
             return []
-        
-        path: List[ProvenanceNode] = []
+
+        path: list[ProvenanceNode] = []
         visited = set()
         queue = [node_id]
 
@@ -84,7 +84,7 @@ class ProvenanceTracker:
 
         return path
 
-    def export_graph(self) -> Dict[str, Any]:
+    def export_graph(self) -> dict[str, Any]:
         """Export complete lineage graph in machine-readable JSON format."""
         return {
             "task_id": self.task_id,
@@ -94,23 +94,33 @@ class ProvenanceTracker:
             "edges": self.edges,
         }
 
-    def validate_graph_integrity(self, contract: Optional[Any] = None) -> Dict[str, Any]:
+    def validate_graph_integrity(self, contract: Any | None = None) -> dict[str, Any]:
         """Audit the provenance DAG integrity against contract specifications."""
         audit = validate_complete_provenance(self)
         violations = []
         if not audit.get("passed", False):
             if not audit.get("every_experiment_has_result", True):
-                violations.append("Provenance DAG contains experiment runs without downstream result nodes.")
+                violations.append(
+                    "Provenance DAG contains experiment runs without downstream result nodes."
+                )
             if not audit.get("statistical_critic_present", True):
-                violations.append("Provenance DAG missing statistical critic evaluation node.")
+                violations.append(
+                    "Provenance DAG missing statistical critic evaluation node."
+                )
             if not audit.get("review_present", True):
                 violations.append("Provenance DAG missing scientific peer review node.")
             if not audit.get("revision_present", True):
-                violations.append("Provenance DAG missing manuscript revision cycle node.")
+                violations.append(
+                    "Provenance DAG missing manuscript revision cycle node."
+                )
             if audit.get("orphan_nodes"):
-                violations.append(f"Provenance DAG contains {len(audit['orphan_nodes'])} orphan nodes.")
+                violations.append(
+                    f"Provenance DAG contains {len(audit['orphan_nodes'])} orphan nodes."
+                )
             if audit.get("missing_edges"):
-                violations.append(f"Provenance DAG contains {len(audit['missing_edges'])} broken edge references.")
+                violations.append(
+                    f"Provenance DAG contains {len(audit['missing_edges'])} broken edge references."
+                )
         return {
             "is_valid": len(violations) == 0,
             "violations": violations,
@@ -119,10 +129,10 @@ class ProvenanceTracker:
 
 
 def validate_complete_provenance(
-    graph_or_tracker: Dict[str, Any] | ProvenanceTracker,
+    graph_or_tracker: dict[str, Any] | ProvenanceTracker,
     expected_num_methods: int = 4,
     expected_num_seeds: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Forensically audit a provenance graph for completeness, structural integrity,
 
     and zero missing or fabricated execution entities.
@@ -135,8 +145,8 @@ def validate_complete_provenance(
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
 
-    nodes_by_id: Dict[str, Dict[str, Any]] = {}
-    duplicate_experiments: List[str] = []
+    nodes_by_id: dict[str, dict[str, Any]] = {}
+    duplicate_experiments: list[str] = []
     seen_ids = set()
 
     for n in nodes:
@@ -147,18 +157,19 @@ def validate_complete_provenance(
         nodes_by_id[n_id] = n
 
     # 1. Experiment Node Coverage
-    exp_nodes = [
-        n for n in nodes
-        if n.get("node_type") in ("experiment", "seed_run")
-    ]
+    exp_nodes = [n for n in nodes if n.get("node_type") in ("experiment", "seed_run")]
     exp_runs_traced = len(exp_nodes)
     exp_runs_expected = expected_num_methods * expected_num_seeds
 
     # Check method and seed pairs
     seen_runs = set()
-    missing_experiments: List[str] = []
+    missing_experiments: list[str] = []
     for en in exp_nodes:
-        m = en.get("metadata", {}).get("method_id") or en.get("metadata", {}).get("method") or en.get("node_id")
+        m = (
+            en.get("metadata", {}).get("method_id")
+            or en.get("metadata", {}).get("method")
+            or en.get("node_id")
+        )
         s = en.get("metadata", {}).get("seed")
         key = f"{m}_seed_{s}"
         if key in seen_runs:
@@ -170,24 +181,35 @@ def validate_complete_provenance(
     exp_with_results = set()
     for rn in res_nodes:
         for p in rn.get("parent_ids", []):
-            if p in nodes_by_id and nodes_by_id[p].get("node_type") in ("experiment", "seed_run"):
+            if p in nodes_by_id and nodes_by_id[p].get("node_type") in (
+                "experiment",
+                "seed_run",
+            ):
                 exp_with_results.add(p)
     # If no separate result nodes but experiment nodes contain results directly
     missing_results = [
-        en.get("node_id") for en in exp_nodes
+        en.get("node_id")
+        for en in exp_nodes
         if en.get("node_id") not in exp_with_results and not res_nodes
     ]
-    every_experiment_has_result = (len(exp_with_results) == len(exp_nodes)) if res_nodes else True
+    every_experiment_has_result = (
+        (len(exp_with_results) == len(exp_nodes)) if res_nodes else True
+    )
 
     # 3. Statistical Critic & Meta Analysis Node
     stat_critic_node = next(
-        (n for n in nodes if n.get("node_type") in ("statistical_critic", "stat_critic")),
-        None
+        (
+            n
+            for n in nodes
+            if n.get("node_type") in ("statistical_critic", "stat_critic")
+        ),
+        None,
     )
     stat_critic_present = stat_critic_node is not None
     stat_input_ids = (
         stat_critic_node.get("metadata", {}).get("input_experiment_ids", [])
-        if stat_critic_node else []
+        if stat_critic_node
+        else []
     )
     all_exp_ids = {en.get("node_id") for en in exp_nodes}
     stat_critic_covers_all_exp = (
@@ -197,38 +219,55 @@ def validate_complete_provenance(
     )
 
     meta_analysis_node = next(
-        (n for n in nodes if n.get("node_type") in ("meta_analysis", "statistical_analysis")),
-        None
+        (
+            n
+            for n in nodes
+            if n.get("node_type") in ("meta_analysis", "statistical_analysis")
+        ),
+        None,
     )
     meta_analysis_present = meta_analysis_node is not None
 
     # 4. Review & Revision Lineage
     review_node = next(
-        (n for n in nodes if n.get("node_type") in ("scientific_review", "review_findings", "review", "review_verdict")),
-        None
+        (
+            n
+            for n in nodes
+            if n.get("node_type")
+            in ("scientific_review", "review_findings", "review", "review_verdict")
+        ),
+        None,
     )
     review_present = review_node is not None
 
     revision_node = next(
-        (n for n in nodes if n.get("node_type") in ("revision", "revision_cycle")),
-        None
+        (n for n in nodes if n.get("node_type") in ("revision", "revision_cycle")), None
     )
     revision_present = revision_node is not None
 
     # 5. Publication / Output Deliverable Node
     publication_node = next(
-        (n for n in nodes if n.get("node_type") in ("publication", "deliverable", "conclusion")),
-        None
+        (
+            n
+            for n in nodes
+            if n.get("node_type") in ("publication", "deliverable", "conclusion")
+        ),
+        None,
     )
     publication_present = publication_node is not None
 
     # 6. Orphan Node Detection (nodes with no parents or no children in workflow DAG)
     all_parents = {p for n in nodes for p in n.get("parent_ids", [])}
-    orphan_nodes: List[str] = []
+    orphan_nodes: list[str] = []
     root_types = {"question", "plan"}
     leaf_or_reference_types = {
-        "publication", "deliverable", "conclusion", "benchmark_eval",
-        "source", "claim", "doi_verification",
+        "publication",
+        "deliverable",
+        "conclusion",
+        "benchmark_eval",
+        "source",
+        "claim",
+        "doi_verification",
     }
 
     for n in nodes:
@@ -253,7 +292,7 @@ def validate_complete_provenance(
                 orphan_nodes.append(n_id)
 
     # 7. DAG Edge and Parent ID Validity
-    missing_edges: List[str] = []
+    missing_edges: list[str] = []
     for e in edges:
         if e.get("source") not in nodes_by_id or e.get("target") not in nodes_by_id:
             missing_edges.append(f"{e.get('source')}->{e.get('target')}")

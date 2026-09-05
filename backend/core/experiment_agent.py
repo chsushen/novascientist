@@ -7,11 +7,9 @@ maintains structured seed execution records, and bridges hardware runs with evid
 from __future__ import annotations
 
 import hashlib
-import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from backend.core.methodology_agent import MethodologySpec
 
@@ -19,6 +17,7 @@ from backend.core.methodology_agent import MethodologySpec
 @dataclass
 class ExperimentRecord:
     """Fine-grained execution record for a single deterministic seed run."""
+
     experiment_id: str
     method_id: str
     method_name: str
@@ -30,33 +29,34 @@ class ExperimentRecord:
     throughput: float
     compression_ratio: float
     runtime_sec: float
-    checkpoint_path: Optional[str] = None
+    checkpoint_path: str | None = None
     status: str = "completed"  # 'completed', 'failed', 'running'
-    error: Optional[str] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    hardware_device: Optional[str] = None
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    error: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    hardware_device: str | None = None
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class ExperimentSpec:
     """Complete experimental specification for multi-seed execution."""
+
     spec_id: str
     methodology_id: str
     dataset_name: str
     sample_count: int
-    seeds: List[int]
+    seeds: list[int]
     num_epochs: int
     batch_size: int
-    methods_to_evaluate: List[Dict[str, Any]]
+    methods_to_evaluate: list[dict[str, Any]]
     hardware_target: str
-    ablation_configurations: List[str]
+    ablation_configurations: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -71,21 +71,39 @@ class ExperimentAgent:
         methodology: MethodologySpec,
         dataset_name: str,
         sample_count: int,
-        seeds: Optional[List[int]] = None,
+        seeds: list[int] | None = None,
         num_epochs: int = 40,
         batch_size: int = 64,
         hardware_target: str = "Apple Silicon MPS / CUDA / CPU",
     ) -> ExperimentSpec:
         """Formulate an execution specification from methodology."""
         seed_list = seeds or [42, 179, 316, 453, 590]
-        s_hash = hashlib.sha256((methodology.methodology_id + dataset_name).encode("utf-8")).hexdigest()[:8]
+        s_hash = hashlib.sha256(
+            (methodology.methodology_id + dataset_name).encode("utf-8")
+        ).hexdigest()[:8]
         spec_id = f"spec_{s_hash}"
 
         methods = [
-            {"id": "dense_baseline", "name": "Primary Baseline (Baseline 1)", "precision": "Full Precision"},
-            {"id": "post_int8", "name": "Secondary Baseline (Baseline 2)", "precision": "Standard"},
-            {"id": "sparse_gnn", "name": "Lightweight Baseline (Baseline 3)", "precision": "Efficient"},
-            {"id": "proposed_mb_qgt", "name": f"Proposed {methodology.model_acronym}", "precision": "Proposed"},
+            {
+                "id": "dense_baseline",
+                "name": "Primary Baseline (Baseline 1)",
+                "precision": "Full Precision",
+            },
+            {
+                "id": "post_int8",
+                "name": "Secondary Baseline (Baseline 2)",
+                "precision": "Standard",
+            },
+            {
+                "id": "sparse_gnn",
+                "name": "Lightweight Baseline (Baseline 3)",
+                "precision": "Efficient",
+            },
+            {
+                "id": "proposed_mb_qgt",
+                "name": f"Proposed {methodology.model_acronym}",
+                "precision": "Proposed",
+            },
         ]
 
         ablations = [
@@ -110,12 +128,12 @@ class ExperimentAgent:
 
     def extract_experiment_records(
         self,
-        metrics_dict: Dict[str, Any],
+        metrics_dict: dict[str, Any],
         dataset_name: str = "Canonical Benchmark Dataset",
-        checkpoint_path: Optional[str] = None,
-    ) -> List[ExperimentRecord]:
+        checkpoint_path: str | None = None,
+    ) -> list[ExperimentRecord]:
         """Convert raw multi-seed metrics into fine-grained traceable experiment records."""
-        records: List[ExperimentRecord] = []
+        records: list[ExperimentRecord] = []
         seeds = metrics_dict.get("seeds", [42, 179, 316, 453, 590])
         methods = metrics_dict.get("methods", {})
         hw_device = (
@@ -132,12 +150,16 @@ class ExperimentAgent:
                 comp_ratio = m_data.get("mean_compression_ratio", 1.0)
             else:
                 m_name = getattr(m_data, "name", m_id)
-                seed_res = getattr(m_data, "seed_runs", getattr(m_data, "seed_results", []))
+                seed_res = getattr(
+                    m_data, "seed_runs", getattr(m_data, "seed_results", [])
+                )
                 comp_ratio = getattr(m_data, "mean_compression_ratio", 1.0)
 
             for idx, sr in enumerate(seed_res):
                 if isinstance(sr, dict):
-                    seed_val = sr.get("seed", seeds[idx] if idx < len(seeds) else 42 + idx)
+                    seed_val = sr.get(
+                        "seed", seeds[idx] if idx < len(seeds) else 42 + idx
+                    )
                     acc_val = sr.get("final_accuracy", sr.get("accuracy", 0.0))
                     mem_val = sr.get("peak_memory_mb", sr.get("memory_mb", 0.0))
                     lat_val = sr.get("inference_latency_ms", sr.get("latency_ms", 0.0))
@@ -148,12 +170,24 @@ class ExperimentAgent:
                     sr_start = sr.get("start_time", None)
                     sr_end = sr.get("end_time", None)
                 else:
-                    seed_val = getattr(sr, "seed", seeds[idx] if idx < len(seeds) else 42 + idx)
-                    acc_val = getattr(sr, "final_accuracy", getattr(sr, "accuracy", 0.0))
-                    mem_val = getattr(sr, "peak_memory_mb", getattr(sr, "memory_mb", 0.0))
-                    lat_val = getattr(sr, "inference_latency_ms", getattr(sr, "latency_ms", 0.0))
-                    tp_val = getattr(sr, "throughput_samples_sec", getattr(sr, "throughput", 0.0))
-                    runtime_val = getattr(sr, "runtime_sec", getattr(sr, "duration_sec", 0.0))
+                    seed_val = getattr(
+                        sr, "seed", seeds[idx] if idx < len(seeds) else 42 + idx
+                    )
+                    acc_val = getattr(
+                        sr, "final_accuracy", getattr(sr, "accuracy", 0.0)
+                    )
+                    mem_val = getattr(
+                        sr, "peak_memory_mb", getattr(sr, "memory_mb", 0.0)
+                    )
+                    lat_val = getattr(
+                        sr, "inference_latency_ms", getattr(sr, "latency_ms", 0.0)
+                    )
+                    tp_val = getattr(
+                        sr, "throughput_samples_sec", getattr(sr, "throughput", 0.0)
+                    )
+                    runtime_val = getattr(
+                        sr, "runtime_sec", getattr(sr, "duration_sec", 0.0)
+                    )
                     sr_status = getattr(sr, "status", "completed")
                     sr_error = getattr(sr, "error", None)
                     sr_start = getattr(sr, "start_time", None)
@@ -166,10 +200,14 @@ class ExperimentAgent:
                 exp_id = f"exp_{exp_counter:03d}"
                 exp_counter += 1
 
-                is_proposed = (m_id == "proposed_mb_qgt" or "proposed" in m_id.lower())
+                is_proposed = m_id == "proposed_mb_qgt" or "proposed" in m_id.lower()
                 valid_checkpoint = (
                     checkpoint_path
-                    if (is_proposed and sr_status == "completed" and checkpoint_path is not None)
+                    if (
+                        is_proposed
+                        and sr_status == "completed"
+                        and checkpoint_path is not None
+                    )
                     else None
                 )
 
@@ -179,7 +217,9 @@ class ExperimentAgent:
                     method_name=m_name,
                     seed=seed_val,
                     dataset=dataset_name,
-                    accuracy=round(acc_val * 100.0, 2) if acc_val <= 1.0 else round(acc_val, 2),
+                    accuracy=round(acc_val * 100.0, 2)
+                    if acc_val <= 1.0
+                    else round(acc_val, 2),
                     memory_mb=round(mem_val, 1),
                     latency_ms=round(lat_val, 2),
                     throughput=round(tp_val, 1),

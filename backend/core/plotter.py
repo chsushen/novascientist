@@ -10,36 +10,36 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 # Set non-interactive backend and writable cache directory
 os.environ.setdefault("MPLCONFIGDIR", tempfile.gettempdir())
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
-
 
 # Configure IEEE Transactions typography & aesthetics
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "DejaVu Serif", "Times"],
-    "font.size": 9,
-    "axes.labelsize": 9,
-    "axes.titlesize": 9.5,
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
-    "legend.fontsize": 8,
-    "figure.titlesize": 10,
-    "text.usetex": False,  # Robust across machines without full latex font packages
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.grid": True,
-    "grid.alpha": 0.35,
-    "grid.linestyle": "--",
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif", "Times"],
+        "font.size": 9,
+        "axes.labelsize": 9,
+        "axes.titlesize": 9.5,
+        "xtick.labelsize": 8,
+        "ytick.labelsize": 8,
+        "legend.fontsize": 8,
+        "figure.titlesize": 10,
+        "text.usetex": False,  # Robust across machines without full latex font packages
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.grid": True,
+        "grid.alpha": 0.35,
+        "grid.linestyle": "--",
+    }
+)
 
 
 class PublicationPlotter:
@@ -49,10 +49,10 @@ class PublicationPlotter:
     IEEE_DOUBLE_COL_WIDTH = 7.16  # inches
 
     PALETTE = {
-        "dense_baseline": "#475569",     # Slate
-        "post_int8": "#0284C7",           # Sky blue
-        "sparse_gnn": "#D97706",          # Amber
-        "proposed_mb_qgt": "#059669",     # Emerald green
+        "dense_baseline": "#475569",  # Slate
+        "post_int8": "#0284C7",  # Sky blue
+        "sparse_gnn": "#D97706",  # Amber
+        "proposed_mb_qgt": "#059669",  # Emerald green
     }
 
     def __init__(self, metrics_path: str, output_dir: str) -> None:
@@ -60,10 +60,10 @@ class PublicationPlotter:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        with open(self.metrics_path, "r", encoding="utf-8") as f:
+        with open(self.metrics_path, encoding="utf-8") as f:
             self.data = json.load(f)
 
-    def plot_convergence_dynamics(self) -> Tuple[Path, Path]:
+    def plot_convergence_dynamics(self) -> tuple[Path, Path]:
         """Generate convergence loss and accuracy dynamics over training epochs."""
         methods = self.data.get("methods", {})
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(self.IEEE_DOUBLE_COL_WIDTH, 2.6))
@@ -86,12 +86,32 @@ class PublicationPlotter:
             std_acc = np.std(accs, axis=0)
 
             # Subplot 1: Training Loss
-            ax1.plot(epochs, mean_loss, label=name.split("(")[0].strip(), color=color, lw=1.6)
-            ax1.fill_between(epochs, mean_loss - std_loss, mean_loss + std_loss, color=color, alpha=0.18)
+            ax1.plot(
+                epochs, mean_loss, label=name.split("(")[0].strip(), color=color, lw=1.6
+            )
+            ax1.fill_between(
+                epochs,
+                mean_loss - std_loss,
+                mean_loss + std_loss,
+                color=color,
+                alpha=0.18,
+            )
 
             # Subplot 2: Validation Accuracy
-            ax2.plot(epochs, mean_acc * 100.0, label=name.split("(")[0].strip(), color=color, lw=1.6)
-            ax2.fill_between(epochs, (mean_acc - std_acc) * 100.0, (mean_acc + std_acc) * 100.0, color=color, alpha=0.18)
+            ax2.plot(
+                epochs,
+                mean_acc * 100.0,
+                label=name.split("(")[0].strip(),
+                color=color,
+                lw=1.6,
+            )
+            ax2.fill_between(
+                epochs,
+                (mean_acc - std_acc) * 100.0,
+                (mean_acc + std_acc) * 100.0,
+                color=color,
+                alpha=0.18,
+            )
 
         ax1.set_xlabel("Optimization Epoch")
         ax1.set_ylabel(r"Task Objective Loss $\mathcal{L}_{task}$")
@@ -112,7 +132,7 @@ class PublicationPlotter:
 
         return pdf_path, png_path
 
-    def plot_pareto_frontier(self) -> Tuple[Path, Path]:
+    def plot_pareto_frontier(self) -> tuple[Path, Path]:
         """Generate Latency vs. Memory vs. Accuracy Pareto Tradeoff frontier."""
         methods = self.data.get("methods", {})
         fig, ax = plt.subplots(figsize=(self.IEEE_SINGLE_COL_WIDTH * 1.15, 2.9))
@@ -129,8 +149,29 @@ class PublicationPlotter:
             # Bubble size proportional to accuracy
             bubble_size = (acc - 70.0) * 16.0
 
-            ax.errorbar(mem, lat, xerr=std_mem, yerr=std_lat, fmt="o", color=color, ecolor=color, elinewidth=1.2, capsize=3, zorder=3)
-            scatter = ax.scatter(mem, lat, s=bubble_size, color=color, alpha=0.85, edgecolors="#0F172A", lw=1.2, label=f"{name} ({acc:.1f}%)", zorder=4)
+            ax.errorbar(
+                mem,
+                lat,
+                xerr=std_mem,
+                yerr=std_lat,
+                fmt="o",
+                color=color,
+                ecolor=color,
+                elinewidth=1.2,
+                capsize=3,
+                zorder=3,
+            )
+            scatter = ax.scatter(
+                mem,
+                lat,
+                s=bubble_size,
+                color=color,
+                alpha=0.85,
+                edgecolors="#0F172A",
+                lw=1.2,
+                label=f"{name} ({acc:.1f}%)",
+                zorder=4,
+            )
 
             # Annotate method label
             ax.annotate(
@@ -139,7 +180,9 @@ class PublicationPlotter:
                 textcoords="offset points",
                 xytext=(6, 5),
                 fontsize=7.5,
-                fontweight="bold" if "Proposed" in method_data.get("name", "") else "normal",
+                fontweight="bold"
+                if "Proposed" in method_data.get("name", "")
+                else "normal",
                 color="#0F172A",
             )
 
@@ -159,7 +202,7 @@ class PublicationPlotter:
 
         return pdf_path, png_path
 
-    def plot_meta_analysis_forest(self) -> Tuple[Path, Path]:
+    def plot_meta_analysis_forest(self) -> tuple[Path, Path]:
         """Generate DerSimonian-Laird Random-Effects Meta-Analysis Forest Plot."""
         meta = self.data.get("meta_analysis", {})
         effect_sizes = meta.get("effect_sizes", [0.06, 0.07, 0.055, 0.062, 0.068])
@@ -181,7 +224,9 @@ class PublicationPlotter:
         ax.axvline(0.0, color="#94A3B8", linestyle="--", lw=1.0, zorder=1)
 
         # Plot individual seed effect sizes and confidence intervals
-        for i, (y_pos, es, var, wt) in enumerate(zip(y_positions, effect_sizes, variances, weights)):
+        for i, (y_pos, es, var, wt) in enumerate(
+            zip(y_positions, effect_sizes, variances, weights)
+        ):
             se = np.sqrt(var)
             ci_lo = es - 1.96 * se
             ci_hi = es + 1.96 * se
@@ -190,32 +235,60 @@ class PublicationPlotter:
             ax.plot([ci_lo, ci_hi], [y_pos, y_pos], color="#0F172A", lw=1.3, zorder=2)
             # Study square (size proportional to weight)
             sq_size = np.clip(wt * 3.2, 25, 120)
-            ax.scatter(es, y_pos, marker="s", s=sq_size, color="#0284C7", edgecolors="#0369A1", zorder=3)
+            ax.scatter(
+                es,
+                y_pos,
+                marker="s",
+                s=sq_size,
+                color="#0284C7",
+                edgecolors="#0369A1",
+                zorder=3,
+            )
 
             # Label on right margin
             ax.text(
-                0.105, y_pos,
-                f"Seed {i+1}: {es:+.3f} [{ci_lo:+.3f}, {ci_hi:+.3f}]  (wt: {wt:.1f}%)",
-                va="center", ha="left", fontsize=7.2, color="#1E293B"
+                0.105,
+                y_pos,
+                f"Seed {i + 1}: {es:+.3f} [{ci_lo:+.3f}, {ci_hi:+.3f}]  (wt: {wt:.1f}%)",
+                va="center",
+                ha="left",
+                fontsize=7.2,
+                color="#1E293B",
             )
 
         # Summary diamond for pooled random-effects estimate
         summary_y = 0.0
         diamond_x = [ci_lower, pooled_effect, ci_upper, pooled_effect, ci_lower]
-        diamond_y = [summary_y, summary_y + 0.28, summary_y, summary_y - 0.28, summary_y]
+        diamond_y = [
+            summary_y,
+            summary_y + 0.28,
+            summary_y,
+            summary_y - 0.28,
+            summary_y,
+        ]
         ax.fill(diamond_x, diamond_y, color="#059669", alpha=0.9, zorder=4)
         ax.text(
-            0.105, summary_y,
+            0.105,
+            summary_y,
             f"RE Model: {pooled_effect:+.3f} [{ci_lower:+.3f}, {ci_upper:+.3f}] (p < {p_val_z:.1e})",
-            va="center", ha="left", fontsize=7.5, fontweight="bold", color="#064E3B"
+            va="center",
+            ha="left",
+            fontsize=7.5,
+            fontweight="bold",
+            color="#064E3B",
         )
 
-        labels = [f"Eval Seed #{i+1}" for i in range(k)] + ["DerSimonian-Laird RE"]
+        labels = [f"Eval Seed #{i + 1}" for i in range(k)] + ["DerSimonian-Laird RE"]
         ax.set_yticks(list(y_positions) + [summary_y])
         ax.set_yticklabels(labels, fontsize=8)
 
-        ax.set_xlabel(r"Accuracy Effect Size Difference $\Delta(\mathrm{Proposed} - \mathrm{Baseline})$")
-        ax.set_title(rf"Meta-Analysis Forest Plot ($I^2={i_sq:.1f}\%$, $Q={q_stat:.2f}$)", fontsize=8.8)
+        ax.set_xlabel(
+            r"Accuracy Effect Size Difference $\Delta(\mathrm{Proposed} - \mathrm{Baseline})$"
+        )
+        ax.set_title(
+            rf"Meta-Analysis Forest Plot ($I^2={i_sq:.1f}\%$, $Q={q_stat:.2f}$)",
+            fontsize=8.8,
+        )
         ax.set_xlim(-0.02, 0.19)
         ax.set_ylim(-0.8, k + 0.8)
 
@@ -228,7 +301,7 @@ class PublicationPlotter:
 
         return pdf_path, png_path
 
-    def generate_all_figures(self) -> Dict[str, Dict[str, str]]:
+    def generate_all_figures(self) -> dict[str, dict[str, str]]:
         """Generate full suite of IEEE Transactions publication vector plots."""
         conv_pdf, conv_png = self.plot_convergence_dynamics()
         pareto_pdf, pareto_png = self.plot_pareto_frontier()

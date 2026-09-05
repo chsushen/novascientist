@@ -9,44 +9,47 @@ Dynamically adapts model names, metrics, and data points per research domain and
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from matplotlib import patches
 
 from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher
 
 # IEEE Transactions Standard Style Configurations
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "DejaVu Serif", "Computer Modern Roman"],
-    "font.size": 10,
-    "axes.labelsize": 10,
-    "axes.titlesize": 11,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 9,
-    "figure.titlesize": 12,
-    "lines.linewidth": 1.75,
-    "grid.alpha": 0.35,
-    "grid.linestyle": "--",
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif", "Computer Modern Roman"],
+        "font.size": 10,
+        "axes.labelsize": 10,
+        "axes.titlesize": 11,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 9,
+        "figure.titlesize": 12,
+        "lines.linewidth": 1.75,
+        "grid.alpha": 0.35,
+        "grid.linestyle": "--",
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+    }
+)
 
 
 class ScientificFigureSuite:
     """Generates complete suite of 5 IEEE Transactions vector figures."""
 
-    def __init__(self, metrics_data: Dict[str, Any], output_dir: str = "./dist/workspace/figures") -> None:
+    def __init__(
+        self, metrics_data: dict[str, Any], output_dir: str = "./dist/workspace/figures"
+    ) -> None:
         self.metrics = metrics_data
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -57,10 +60,13 @@ class ScientificFigureSuite:
         self.model_acronym = self.classification.model_acronym
         self.model_full = self.classification.model_full_name
         self.metric_label = self.classification.primary_metric_name
-        
-        self.topic_hash = int(hashlib.sha256(self.topic.lower().strip().encode("utf-8")).hexdigest()[:8], 16)
 
-    def _save_fig(self, fig: plt.Figure, base_name: str) -> Dict[str, str]:
+        self.topic_hash = int(
+            hashlib.sha256(self.topic.lower().strip().encode("utf-8")).hexdigest()[:8],
+            16,
+        )
+
+    def _save_fig(self, fig: plt.Figure, base_name: str) -> dict[str, str]:
         """Save figure in dual vector PDF and high-res PNG formats."""
         pdf_path = self.output_dir / f"{base_name}.pdf"
         png_path = self.output_dir / f"{base_name}.png"
@@ -69,7 +75,7 @@ class ScientificFigureSuite:
         plt.close(fig)
         return {"pdf": str(pdf_path.resolve()), "png": str(png_path.resolve())}
 
-    def generate_fig1_system_architecture(self) -> Dict[str, str]:
+    def generate_fig1_system_architecture(self) -> dict[str, str]:
         """Fig 1: System Dataflow and Dynamic Quantization Tile Architecture."""
         fig, ax = plt.subplots(figsize=(7.6, 2.9), dpi=300)
         ax.axis("off")
@@ -86,80 +92,246 @@ class ScientificFigureSuite:
         # Block 1: Domain Inputs
         if self.domain == ComputationalDomain.VISION:
             input_title = "Input Multi-View\nVolumetric CT Slices"
-            input_math = r"$\mathbf{X}^{(v)} \in \mathbb{R}^{H \times W \times C}$" + "\n" + r"$\mathcal{D}_{\text{views}}$"
+            input_math = (
+                r"$\mathbf{X}^{(v)} \in \mathbb{R}^{H \times W \times C}$"
+                + "\n"
+                + r"$\mathcal{D}_{\text{views}}$"
+            )
         elif self.domain == ComputationalDomain.PHYSICS_SURROGATE:
             input_title = "Input Differential State\n& Boundary Conditions"
-            input_math = r"$(\mathbf{q}, \mathbf{p}) \in \mathbb{R}^{2d}$" + "\n" + r"$\mathcal{H}(\mathbf{q}, \mathbf{p})$"
+            input_math = (
+                r"$(\mathbf{q}, \mathbf{p}) \in \mathbb{R}^{2d}$"
+                + "\n"
+                + r"$\mathcal{H}(\mathbf{q}, \mathbf{p})$"
+            )
         elif self.domain == ComputationalDomain.NLP:
             input_title = "Input Token Sequence\nEmbeddings"
-            input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times d}$" + "\n" + r"$\mathcal{V}_{\text{vocab}}$"
+            input_math = (
+                r"$\mathbf{X} \in \mathbb{R}^{N \times d}$"
+                + "\n"
+                + r"$\mathcal{V}_{\text{vocab}}$"
+            )
         elif self.domain == ComputationalDomain.BIOINFORMATICS:
             input_title = "Input Long-Read De Bruijn\n& Assembly Contigs"
-            input_math = r"$\mathbf{G}_{\text{assembly}} = (\mathcal{V}_{\text{contig}}, \mathcal{E}_{\text{read}})$" + "\n" + r"$\mathbf{W}_{\text{kmer}} \in \mathbb{R}^{N \times 4^k}$"
+            input_math = (
+                r"$\mathbf{G}_{\text{assembly}} = (\mathcal{V}_{\text{contig}}, \mathcal{E}_{\text{read}})$"
+                + "\n"
+                + r"$\mathbf{W}_{\text{kmer}} \in \mathbb{R}^{N \times 4^k}$"
+            )
         elif self.domain == ComputationalDomain.QUANTUM:
             input_title = "Input Parameterized State\n& Entangled Qubits"
-            input_math = r"$|\psi(\boldsymbol{\theta})\rangle \in \mathcal{H}^{\otimes N}$" + "\n" + r"$H = \sum c_j P_j$"
+            input_math = (
+                r"$|\psi(\boldsymbol{\theta})\rangle \in \mathcal{H}^{\otimes N}$"
+                + "\n"
+                + r"$H = \sum c_j P_j$"
+            )
         else:
             input_title = "Input Sensor Stream\n& Graph Adjacency"
-            input_math = r"$\mathbf{X} \in \mathbb{R}^{N \times D}$" + "\n" + r"$\mathbf{A} \in \mathbb{R}^{N \times N}$"
+            input_math = (
+                r"$\mathbf{X} \in \mathbb{R}^{N \times D}$"
+                + "\n"
+                + r"$\mathbf{A} \in \mathbb{R}^{N \times N}$"
+            )
 
-        box1 = patches.FancyBboxPatch((0.25, 0.8), 2.0, 2.4, boxstyle="round,pad=0.1", fc="#EFF6FF", ec=c_blue, lw=1.5)
+        box1 = patches.FancyBboxPatch(
+            (0.25, 0.8),
+            2.0,
+            2.4,
+            boxstyle="round,pad=0.1",
+            fc="#EFF6FF",
+            ec=c_blue,
+            lw=1.5,
+        )
         ax.add_patch(box1)
-        ax.text(1.25, 2.35, input_title, ha="center", va="center", fontsize=8.2, weight="bold", color="#1E3A8A")
-        ax.text(1.25, 1.45, input_math, ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(
+            1.25,
+            2.35,
+            input_title,
+            ha="center",
+            va="center",
+            fontsize=8.2,
+            weight="bold",
+            color="#1E3A8A",
+        )
+        ax.text(
+            1.25, 1.45, input_math, ha="center", va="center", fontsize=8, color=c_slate
+        )
 
         # Arrow 1 -> 2
-        ax.annotate("", xy=(2.75, 2.0), xytext=(2.35, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
+        ax.annotate(
+            "",
+            xy=(2.75, 2.0),
+            xytext=(2.35, 2.0),
+            arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate),
+        )
 
         # Block 2: Representation Transformation Unit
-        box2 = patches.FancyBboxPatch((2.85, 0.8), 2.15, 2.4, boxstyle="round,pad=0.1", fc="#EEF2FF", ec=c_indigo, lw=1.5)
+        box2 = patches.FancyBboxPatch(
+            (2.85, 0.8),
+            2.15,
+            2.4,
+            boxstyle="round,pad=0.1",
+            fc="#EEF2FF",
+            ec=c_indigo,
+            lw=1.5,
+        )
         ax.add_patch(box2)
-        ax.text(3.92, 2.35, f"{self.model_acronym}\nRepresentation Encoder", ha="center", va="center", fontsize=8.5, weight="bold", color="#312E81")
-        ax.text(3.92, 1.45, r"$\mathbf{Z} = \phi(\mathbf{W}_e \mathbf{X} + \mathbf{b})$" + "\n" + r"$\mathcal{H} = \text{LayerNorm}(\mathbf{Z})$", ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(
+            3.92,
+            2.35,
+            f"{self.model_acronym}\nRepresentation Encoder",
+            ha="center",
+            va="center",
+            fontsize=8.5,
+            weight="bold",
+            color="#312E81",
+        )
+        ax.text(
+            3.92,
+            1.45,
+            r"$\mathbf{Z} = \phi(\mathbf{W}_e \mathbf{X} + \mathbf{b})$"
+            + "\n"
+            + r"$\mathcal{H} = \text{LayerNorm}(\mathbf{Z})$",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color=c_slate,
+        )
 
         # Arrow 2 -> 3
-        ax.annotate("", xy=(5.45, 2.0), xytext=(5.1, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
+        ax.annotate(
+            "",
+            xy=(5.45, 2.0),
+            xytext=(5.1, 2.0),
+            arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate),
+        )
 
         # Block 3: Dynamic Context Modulation Unit
-        box3 = patches.FancyBboxPatch((5.55, 0.8), 2.15, 2.4, boxstyle="round,pad=0.1", fc="#F5F3FF", ec=c_purple, lw=1.5)
+        box3 = patches.FancyBboxPatch(
+            (5.55, 0.8),
+            2.15,
+            2.4,
+            boxstyle="round,pad=0.1",
+            fc="#F5F3FF",
+            ec=c_purple,
+            lw=1.5,
+        )
         ax.add_patch(box3)
-        ax.text(6.62, 2.35, "Adaptive Modulation\n& State Alignment", ha="center", va="center", fontsize=8.3, weight="bold", color="#4C1D95")
-        ax.text(6.62, 1.45, "Dynamic Feature Gating\nContext Attentive Routing\nInvariant Subspace Map", ha="center", va="center", fontsize=7.5, color=c_slate)
+        ax.text(
+            6.62,
+            2.35,
+            "Adaptive Modulation\n& State Alignment",
+            ha="center",
+            va="center",
+            fontsize=8.3,
+            weight="bold",
+            color="#4C1D95",
+        )
+        ax.text(
+            6.62,
+            1.45,
+            "Dynamic Feature Gating\nContext Attentive Routing\nInvariant Subspace Map",
+            ha="center",
+            va="center",
+            fontsize=7.5,
+            color=c_slate,
+        )
 
         # Arrow 3 -> 4
-        ax.annotate("", xy=(8.15, 2.0), xytext=(7.8, 2.0), arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate))
+        ax.annotate(
+            "",
+            xy=(8.15, 2.0),
+            xytext=(7.8, 2.0),
+            arrowprops=dict(arrowstyle="->", lw=1.8, color=c_slate),
+        )
 
         # Block 4: Output Embeddings
-        box4 = patches.FancyBboxPatch((8.25, 0.8), 1.9, 2.4, boxstyle="round,pad=0.1", fc="#ECFDF5", ec=c_emerald, lw=1.5)
+        box4 = patches.FancyBboxPatch(
+            (8.25, 0.8),
+            1.9,
+            2.4,
+            boxstyle="round,pad=0.1",
+            fc="#ECFDF5",
+            ec=c_emerald,
+            lw=1.5,
+        )
         ax.add_patch(box4)
-        ax.text(9.20, 2.35, "Variance-Stabilized\nOutput Operator", ha="center", va="center", fontsize=8.3, weight="bold", color="#065F46")
-        ax.text(9.20, 1.45, r"$\hat{\mathbf{Y}} \in \mathbb{R}^{N \times K}$" + f"\n({self.model_acronym})", ha="center", va="center", fontsize=8, color=c_slate)
+        ax.text(
+            9.20,
+            2.35,
+            "Variance-Stabilized\nOutput Operator",
+            ha="center",
+            va="center",
+            fontsize=8.3,
+            weight="bold",
+            color="#065F46",
+        )
+        ax.text(
+            9.20,
+            1.45,
+            r"$\hat{\mathbf{Y}} \in \mathbb{R}^{N \times K}$"
+            + f"\n({self.model_acronym})",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color=c_slate,
+        )
 
         return self._save_fig(fig, "fig1_system_architecture")
 
-    def generate_fig2_convergence_curves(self) -> Dict[str, str]:
+    def generate_fig2_convergence_curves(self) -> dict[str, str]:
         """Fig 2: Dual-Panel Optimization Loss Decay and Validation Accuracy."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.8, 2.7), dpi=300)
 
         epochs = np.arange(1, 41)
         rng = np.random.default_rng(self.topic_hash % 1000)
 
-        p_acc = self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
-        d_acc = self.methods.get("dense_baseline", {}).get("mean_accuracy", 0.8233) * 100.0
-        int8_acc = self.methods.get("post_int8", {}).get("mean_accuracy", 0.7955) * 100.0
+        p_acc = (
+            self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
+        )
+        d_acc = (
+            self.methods.get("dense_baseline", {}).get("mean_accuracy", 0.8233) * 100.0
+        )
+        int8_acc = (
+            self.methods.get("post_int8", {}).get("mean_accuracy", 0.7955) * 100.0
+        )
 
-        dense_lbl = self.methods.get("dense_baseline", {}).get("name", "Baseline 1 (Primary)")
-        int8_lbl = self.methods.get("post_int8", {}).get("name", "Baseline 2 (Secondary)")
+        dense_lbl = self.methods.get("dense_baseline", {}).get(
+            "name", "Baseline 1 (Primary)"
+        )
+        int8_lbl = self.methods.get("post_int8", {}).get(
+            "name", "Baseline 2 (Secondary)"
+        )
 
         # Subplot 1: Loss curves
         h_loss = ((self.topic_hash >> 3) % 50) / 500.0
-        loss_dense = (1.85 + h_loss) * np.exp(-epochs / 9.0) + (0.32 + h_loss * 0.5) + rng.normal(0, 0.015, len(epochs))
-        loss_int8 = (1.95 + h_loss) * np.exp(-epochs / 7.5) + (0.44 + h_loss * 0.6) + rng.normal(0, 0.02, len(epochs))
-        loss_prop = (1.75 + h_loss * 0.7) * np.exp(-epochs / 11.0) + (0.21 + h_loss * 0.3) + rng.normal(0, 0.01, len(epochs))
+        loss_dense = (
+            (1.85 + h_loss) * np.exp(-epochs / 9.0)
+            + (0.32 + h_loss * 0.5)
+            + rng.normal(0, 0.015, len(epochs))
+        )
+        loss_int8 = (
+            (1.95 + h_loss) * np.exp(-epochs / 7.5)
+            + (0.44 + h_loss * 0.6)
+            + rng.normal(0, 0.02, len(epochs))
+        )
+        loss_prop = (
+            (1.75 + h_loss * 0.7) * np.exp(-epochs / 11.0)
+            + (0.21 + h_loss * 0.3)
+            + rng.normal(0, 0.01, len(epochs))
+        )
 
-        ax1.plot(epochs, loss_dense, label=dense_lbl[:22], color="#6B7280", linestyle="--")
+        ax1.plot(
+            epochs, loss_dense, label=dense_lbl[:22], color="#6B7280", linestyle="--"
+        )
         ax1.plot(epochs, loss_int8, label=int8_lbl[:22], color="#EF4444", linestyle=":")
-        ax1.plot(epochs, loss_prop, label=f"Proposed {self.model_acronym}", color="#2563EB", linewidth=2.2)
+        ax1.plot(
+            epochs,
+            loss_prop,
+            label=f"Proposed {self.model_acronym}",
+            color="#2563EB",
+            linewidth=2.2,
+        )
         ax1.set_xlabel("Training Epochs")
         ax1.set_ylabel("Optimization Loss (BCE / MSE)")
         ax1.set_title("(a) Convergence Dynamics", fontsize=9.5, weight="bold")
@@ -167,13 +339,33 @@ class ScientificFigureSuite:
         ax1.legend(loc="upper right", fontsize=8)
 
         # Subplot 2: Accuracy trajectories
-        acc_dense = 40.0 + (d_acc - 40.0) / (1.0 + np.exp(-(epochs - 10) / 4.0)) + rng.normal(0, 0.4, len(epochs))
-        acc_int8 = 38.0 + (int8_acc - 38.0) / (1.0 + np.exp(-(epochs - 8) / 3.8)) + rng.normal(0, 0.6, len(epochs))
-        acc_prop = 40.0 + (p_acc - 40.0) / (1.0 + np.exp(-(epochs - 12) / 4.2)) + rng.normal(0, 0.3, len(epochs))
+        acc_dense = (
+            40.0
+            + (d_acc - 40.0) / (1.0 + np.exp(-(epochs - 10) / 4.0))
+            + rng.normal(0, 0.4, len(epochs))
+        )
+        acc_int8 = (
+            38.0
+            + (int8_acc - 38.0) / (1.0 + np.exp(-(epochs - 8) / 3.8))
+            + rng.normal(0, 0.6, len(epochs))
+        )
+        acc_prop = (
+            40.0
+            + (p_acc - 40.0) / (1.0 + np.exp(-(epochs - 12) / 4.2))
+            + rng.normal(0, 0.3, len(epochs))
+        )
 
-        ax2.plot(epochs, acc_dense, label=dense_lbl[:22], color="#6B7280", linestyle="--")
+        ax2.plot(
+            epochs, acc_dense, label=dense_lbl[:22], color="#6B7280", linestyle="--"
+        )
         ax2.plot(epochs, acc_int8, label=int8_lbl[:22], color="#EF4444", linestyle=":")
-        ax2.plot(epochs, acc_prop, label=f"Proposed {self.model_acronym}", color="#2563EB", linewidth=2.2)
+        ax2.plot(
+            epochs,
+            acc_prop,
+            label=f"Proposed {self.model_acronym}",
+            color="#2563EB",
+            linewidth=2.2,
+        )
         ax2.set_xlabel("Training Epochs")
         ax2.set_ylabel(self.metric_label)
         ax2.set_title("(b) Generalization Trajectory", fontsize=9.5, weight="bold")
@@ -182,7 +374,7 @@ class ScientificFigureSuite:
         plt.tight_layout()
         return self._save_fig(fig, "fig2_convergence_curves")
 
-    def generate_fig3_pareto_frontier(self) -> Dict[str, str]:
+    def generate_fig3_pareto_frontier(self) -> dict[str, str]:
         """Fig 3: Multi-Objective Pareto Frontier (Latency vs RAM vs Performance)."""
         fig, ax = plt.subplots(figsize=(6.4, 3.4), dpi=300)
 
@@ -220,7 +412,16 @@ class ScientificFigureSuite:
 
         for label, mem, lat, acc, col in data:
             size = max(100, (acc - 70.0) * 45.0)
-            ax.scatter(mem, lat, s=size, color=col, alpha=0.85, edgecolors="black", linewidth=1.2, zorder=5)
+            ax.scatter(
+                mem,
+                lat,
+                s=size,
+                color=col,
+                alpha=0.85,
+                edgecolors="black",
+                linewidth=1.2,
+                zorder=5,
+            )
             offset_y = 1.8 if "Proposed" not in label else -3.5
             ax.annotate(
                 f"{label}\n({acc:.1f}%, {lat:.1f}ms)",
@@ -233,22 +434,33 @@ class ScientificFigureSuite:
             )
 
         # Draw Pareto curve
-        ax.plot([p_mem, s_mem, d_mem], [p_lat, s_lat, d_lat], linestyle=":", color="#3B82F6", lw=1.5, zorder=2)
+        ax.plot(
+            [p_mem, s_mem, d_mem],
+            [p_lat, s_lat, d_lat],
+            linestyle=":",
+            color="#3B82F6",
+            lw=1.5,
+            zorder=2,
+        )
 
         ax.set_xlabel("Peak Working Memory (MB) [Lower is Better]")
         ax.set_ylabel("Inference Latency (ms/sample) [Lower is Better]")
-        ax.set_title(f"Efficiency Trade-off ({self.model_acronym})", fontsize=10, weight="bold")
+        ax.set_title(
+            f"Efficiency Trade-off ({self.model_acronym})", fontsize=10, weight="bold"
+        )
         ax.grid(True, linestyle="--", alpha=0.4)
         ax.set_xlim(min(p_mem * 0.7, 30), max(d_mem * 1.15, 480))
         ax.set_ylim(max(0, p_lat * 0.5), max(d_lat * 1.25, 48))
 
         return self._save_fig(fig, "fig3_pareto_frontier")
 
-    def generate_fig4_ablation_study(self) -> Dict[str, str]:
+    def generate_fig4_ablation_study(self) -> dict[str, str]:
         """Fig 4: Component Ablation Study Bar Chart."""
         fig, ax = plt.subplots(figsize=(6.4, 3.0), dpi=300)
 
-        p_acc = self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
+        p_acc = (
+            self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
+        )
         p_mem = self.methods.get("proposed_mb_qgt", {}).get("mean_memory_mb", 75.8)
 
         ablations = [
@@ -258,10 +470,10 @@ class ScientificFigureSuite:
             "w/o Variance Stabilization",
             "Canonical Baseline",
         ]
-        
+
         delta_abl = ((self.topic_hash >> 2) % 100) / 100.0 * 1.2
         mem_ratio = ((self.topic_hash >> 5) % 50) / 100.0 * 0.15
-        
+
         accuracies = [
             p_acc,
             p_acc - (4.47 + delta_abl * 0.3),
@@ -280,10 +492,26 @@ class ScientificFigureSuite:
         x = np.arange(len(ablations))
         width = 0.38
 
-        bars1 = ax.bar(x - width/2, accuracies, width, label=self.metric_label, color="#2563EB", alpha=0.9, edgecolor="black")
-        
+        bars1 = ax.bar(
+            x - width / 2,
+            accuracies,
+            width,
+            label=self.metric_label,
+            color="#2563EB",
+            alpha=0.9,
+            edgecolor="black",
+        )
+
         ax2 = ax.twinx()
-        bars2 = ax2.bar(x + width/2, memory_mb, width, label="Peak RAM (MB)", color="#F59E0B", alpha=0.85, edgecolor="black")
+        bars2 = ax2.bar(
+            x + width / 2,
+            memory_mb,
+            width,
+            label="Peak RAM (MB)",
+            color="#F59E0B",
+            alpha=0.85,
+            edgecolor="black",
+        )
 
         ax.set_ylabel(self.metric_label, color="#1E3A8A")
         ax2.set_ylabel("Peak Working Memory (MB)", color="#B45309")
@@ -292,7 +520,11 @@ class ScientificFigureSuite:
 
         ax.set_xticks(x)
         ax.set_xticklabels(ablations, rotation=18, ha="right", fontsize=8)
-        ax.set_title(f"Component Ablation: Module Contributions ({self.model_acronym})", fontsize=10, weight="bold")
+        ax.set_title(
+            f"Component Ablation: Module Contributions ({self.model_acronym})",
+            fontsize=10,
+            weight="bold",
+        )
         ax.grid(True, linestyle="--", alpha=0.3)
 
         # Combined Legend
@@ -303,24 +535,38 @@ class ScientificFigureSuite:
         plt.tight_layout()
         return self._save_fig(fig, "fig4_ablation_study")
 
-    def generate_fig5_sensitivity_heatmap(self) -> Dict[str, str]:
+    def generate_fig5_sensitivity_heatmap(self) -> dict[str, str]:
         """Fig 5: 2D Hyperparameter Sensitivity Heatmap across Quantization Bits and Tile Sizes."""
         fig, ax = plt.subplots(figsize=(6.0, 3.2), dpi=300)
 
         quant_bits = ["4-Bit", "6-Bit", "8-Bit (Proposed)", "12-Bit", "16-Bit"]
-        tile_sizes = ["16 Bytes", "32 Bytes", "64 Bytes (Proposed)", "128 Bytes", "256 Bytes"]
+        tile_sizes = [
+            "16 Bytes",
+            "32 Bytes",
+            "64 Bytes (Proposed)",
+            "128 Bytes",
+            "256 Bytes",
+        ]
 
-        p_acc = self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
+        p_acc = (
+            self.methods.get("proposed_mb_qgt", {}).get("mean_accuracy", 0.8862) * 100.0
+        )
         delta = p_acc - 88.62
         h_jit = ((self.topic_hash >> 4) % 100) / 100.0 * 0.6 - 0.3
 
-        grid_acc = np.array([
-            [74.2, 76.5, 78.1, 77.8, 77.0],
-            [80.1, 82.4, 84.8, 84.2, 83.5],
-            [83.5, 86.8, 88.62, 88.1, 87.4],
-            [84.1, 87.0, 88.75, 88.3, 87.9],
-            [84.3, 87.2, 88.80, 88.4, 88.0],
-        ]) + delta + h_jit
+        grid_acc = (
+            np.array(
+                [
+                    [74.2, 76.5, 78.1, 77.8, 77.0],
+                    [80.1, 82.4, 84.8, 84.2, 83.5],
+                    [83.5, 86.8, 88.62, 88.1, 87.4],
+                    [84.1, 87.0, 88.75, 88.3, 87.9],
+                    [84.3, 87.2, 88.80, 88.4, 88.0],
+                ]
+            )
+            + delta
+            + h_jit
+        )
 
         sns.heatmap(
             grid_acc,
@@ -337,12 +583,16 @@ class ScientificFigureSuite:
 
         ax.set_xlabel("L1/L2 Cache Tile Size (Bytes)")
         ax.set_ylabel("Quantization Precision")
-        ax.set_title(f"Hyperparameter Sensitivity: Precision vs. Tile Width ({self.model_acronym})", fontsize=10, weight="bold")
+        ax.set_title(
+            f"Hyperparameter Sensitivity: Precision vs. Tile Width ({self.model_acronym})",
+            fontsize=10,
+            weight="bold",
+        )
 
         plt.tight_layout()
         return self._save_fig(fig, "fig5_sensitivity_heatmap")
 
-    def generate_all_figures(self) -> Dict[str, Dict[str, str]]:
+    def generate_all_figures(self) -> dict[str, dict[str, str]]:
         """Generate and save all 5 publication vector figures."""
         return {
             "fig1_system_architecture": self.generate_fig1_system_architecture(),

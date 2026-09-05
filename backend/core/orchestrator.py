@@ -24,60 +24,64 @@ Coordinates full autonomous research cycle across specialized agentic components
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import re
 import shutil
 import time
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 
 import pypdf
 
-from backend.core.agentic_planner import ResearchPlan, ResearchPlannerAgent
+from backend.core.agentic_planner import ResearchPlannerAgent
 from backend.core.ast_guard import ASTGuard
-from backend.core.baseline_selector import BaselineComparisonSuite, DynamicBaselineSelector
+from backend.core.baseline_selector import (
+    DynamicBaselineSelector,
+)
 from backend.core.conversational_agent import ExecutionMode, TargetPaperLength
 from backend.core.dataset_finder import DatasetFinder, DatasetMetadata
 from backend.core.deep_journal_assembler import DeepJournalAssembler
-from backend.core.evidence_agent import EvidenceBundle, LiteratureAgent
-from backend.core.evidence_validator import EvidenceValidationReport, EvidenceValidator
-from backend.core.experiment_agent import ExperimentAgent, ExperimentRecord, ExperimentSpec
-from backend.core.figure_generator import ScientificFigureSuite
-from backend.core.figure_planner import FigurePlanItem, FigurePlanningAgent
+from backend.core.evidence_agent import LiteratureAgent
+from backend.core.evidence_validator import EvidenceValidator
+from backend.core.experiment_agent import (
+    ExperimentAgent,
+)
+from backend.core.figure_planner import FigurePlanningAgent
 from backend.core.latex_assembler import AuthorProfile, CompliantLaTeXAssembler
-from backend.core.literature import LiteratureService, PaperMetadata
-from backend.core.literature_advisor import LiteratureAdvisor, LiteratureSynthesisReport
-from backend.core.manuscript_planner import ManuscriptPlan, ManuscriptPlanningAgent, VenueFormat
-from backend.core.math_agent import FormalTheorem, MathematicalFormulationAgent, TheoremDecisionType
-from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
-from backend.core.page_controller import PageBudgetEvaluation, PhysicalPageController
+from backend.core.literature import PaperMetadata
+from backend.core.literature_advisor import LiteratureAdvisor
+from backend.core.manuscript_planner import (
+    ManuscriptPlanningAgent,
+    VenueFormat,
+)
+from backend.core.math_agent import (
+    MathematicalFormulationAgent,
+)
+from backend.core.methodology_agent import MethodologyAgent
+from backend.core.page_controller import PhysicalPageController
 from backend.core.provenance import ProvenanceTracker, validate_complete_provenance
 from backend.core.real_trainer import RealPyTorchTrainer, get_torch_device
 from backend.core.research_contract import (
-    ClaimEvidenceStatus,
-    MathematicalTreatmentDecision,
-    QuestionDecompositionEngine,
     ResearchContractBuilder,
-    ScientificDecisionLog,
     ScientificResearchContract,
     StatisticalAnalysisType,
     generate_contract_consistency_report,
     validate_downstream_against_contract,
 )
 from backend.core.research_memory import ResearchMemory
-from backend.core.reviewer_swarm import ReviewerSwarm
-from backend.core.scientific_reviewer import BoundedRevisionLoop, RevisionHistory, ScientificReviewReport, ScientificReviewerAgent
-from backend.core.statistical_critic import StatisticalCriticAgent, StatisticalCritique
-from backend.core.tectonic_runner import CompilationResult, TectonicRunner
-from backend.core.topic_profile import TopicProfileExtractor, TopicResearchProfile
+from backend.core.scientific_reviewer import (
+    BoundedRevisionLoop,
+    ScientificReviewerAgent,
+)
+from backend.core.statistical_critic import StatisticalCriticAgent
+from backend.core.tectonic_runner import TectonicRunner
+from backend.core.topic_profile import TopicProfileExtractor
 from backend.core.universal_engine import (
-    ComputationalDomain,
     UniversalBenchmarkEngine,
     UniversalDomainDispatcher,
-    get_physical_hardware_info,
 )
 from backend.core.venue_matcher import VenueMatcher, VenueRecommendation
 
@@ -100,51 +104,54 @@ X_test_scaled = scaler.transform(X_test)
 @dataclass
 class OrchestratorResult:
     """Full bundle returned after pipeline execution with rich agentic telemetry."""
+
     success: bool
     topic: str
     target_length: str
     execution_mode: str
     device_name: str
     dataset: DatasetMetadata
-    papers: List[PaperMetadata]
-    venues: List[VenueRecommendation]
-    metrics: Dict[str, Any]
-    figures: Dict[str, Dict[str, str]]
+    papers: list[PaperMetadata]
+    venues: list[VenueRecommendation]
+    metrics: dict[str, Any]
+    figures: dict[str, dict[str, str]]
     latex_content: str
-    pdf_path: Optional[str]
-    zip_path: Optional[str]
-    checkpoint_path: Optional[str]
+    pdf_path: str | None
+    zip_path: str | None
+    checkpoint_path: str | None
     page_count: int
     elapsed_seconds: float
-    error_message: Optional[str] = None
+    error_message: str | None = None
     # Agentic telemetry fields (with backward-compatible defaults)
-    plan: Optional[Dict[str, Any]] = None
-    evidence: Optional[Dict[str, Any]] = None
-    methodology: Optional[Dict[str, Any]] = None
-    experiment_records: Optional[List[Dict[str, Any]]] = None
-    validation_report: Optional[Dict[str, Any]] = None
-    stat_critique: Optional[Dict[str, Any]] = None
-    review_report: Optional[Dict[str, Any]] = None
-    provenance_graph: Optional[Dict[str, Any]] = None
-    provenance_audit: Optional[Dict[str, Any]] = None
-    revision_history: Optional[Dict[str, Any]] = None
-    prior_knowledge: Optional[List[Dict[str, Any]]] = None
+    plan: dict[str, Any] | None = None
+    evidence: dict[str, Any] | None = None
+    methodology: dict[str, Any] | None = None
+    experiment_records: list[dict[str, Any]] | None = None
+    validation_report: dict[str, Any] | None = None
+    stat_critique: dict[str, Any] | None = None
+    review_report: dict[str, Any] | None = None
+    provenance_graph: dict[str, Any] | None = None
+    provenance_audit: dict[str, Any] | None = None
+    revision_history: dict[str, Any] | None = None
+    prior_knowledge: list[dict[str, Any]] | None = None
     # v2.1 & v2.2 Topic-Adaptive & Research-Question-First additions
-    topic_profile: Optional[Dict[str, Any]] = None
-    literature_synthesis: Optional[Dict[str, Any]] = None
-    baseline_suite: Optional[Dict[str, Any]] = None
-    theorem: Optional[Dict[str, Any]] = None
-    manuscript_plan: Optional[Dict[str, Any]] = None
-    page_budget_eval: Optional[Dict[str, Any]] = None
-    research_contract: Optional[Dict[str, Any]] = None
-    scientific_decision_log: Optional[Dict[str, Any]] = None
-    contract_validation_report: Optional[Dict[str, Any]] = None
+    topic_profile: dict[str, Any] | None = None
+    literature_synthesis: dict[str, Any] | None = None
+    baseline_suite: dict[str, Any] | None = None
+    theorem: dict[str, Any] | None = None
+    manuscript_plan: dict[str, Any] | None = None
+    page_budget_eval: dict[str, Any] | None = None
+    research_contract: dict[str, Any] | None = None
+    scientific_decision_log: dict[str, Any] | None = None
+    contract_validation_report: dict[str, Any] | None = None
 
 
 class NovaScientistOrchestrator:
     """Autonomous agentic research-to-publication engine for NovaScientist v2.3.0."""
 
-    def __init__(self, output_dir: str = "./dist", memory: Optional[ResearchMemory] = None) -> None:
+    def __init__(
+        self, output_dir: str = "./dist", memory: ResearchMemory | None = None
+    ) -> None:
         self.output_dir = Path(output_dir)
         self.workspace_dir = self.output_dir / "workspace"
         self.figures_dir = self.workspace_dir / "figures"
@@ -181,14 +188,14 @@ class NovaScientistOrchestrator:
     async def execute(
         self,
         topic: str,
-        author: Optional[AuthorProfile] = None,
-        target_length: Union[TargetPaperLength, str] = TargetPaperLength.FULL_JOURNAL,
-        execution_mode: Union[ExecutionMode, str] = ExecutionMode.REAL_PYTORCH_TRAINING,
+        author: AuthorProfile | None = None,
+        target_length: TargetPaperLength | str = TargetPaperLength.FULL_JOURNAL,
+        execution_mode: ExecutionMode | str = ExecutionMode.REAL_PYTORCH_TRAINING,
         num_seeds: int = 5,
         num_epochs: int = 40,
-        output_pdf: Optional[str] = None,
-        progress_callback: Optional[Callable[[str, float], None]] = None,
-        contract: Optional[ScientificResearchContract] = None,
+        output_pdf: str | None = None,
+        progress_callback: Callable[[str, float], None] | None = None,
+        contract: ScientificResearchContract | None = None,
     ) -> OrchestratorResult:
         """Run the complete topic-adaptive autonomous agentic research pipeline."""
         start_time = time.perf_counter()
@@ -208,28 +215,53 @@ class NovaScientistOrchestrator:
             )
         author.validate()
 
-        length_str = target_length.value if isinstance(target_length, TargetPaperLength) else str(target_length)
-        is_journal = ("8_12" in length_str or "journal" in length_str.lower() or "10" in length_str)
+        length_str = (
+            target_length.value
+            if isinstance(target_length, TargetPaperLength)
+            else str(target_length)
+        )
+        is_journal = (
+            "8_12" in length_str
+            or "journal" in length_str.lower()
+            or "10" in length_str
+        )
 
-        mode_str = execution_mode.value if isinstance(execution_mode, ExecutionMode) else str(execution_mode)
-        is_real_training = ("real" in mode_str.lower())
+        mode_str = (
+            execution_mode.value
+            if isinstance(execution_mode, ExecutionMode)
+            else str(execution_mode)
+        )
+        is_real_training = "real" in mode_str.lower()
 
         task_id = f"task_{int(time.time())}"
         prov = ProvenanceTracker(task_id=task_id)
         q_node = prov.record_node("q_001", "question", topic)
 
         classification = UniversalDomainDispatcher.classify_topic(topic)
-        
-        # Step 0A: Topic Research Profile Extraction
-        notify("Extracting structured TopicResearchProfile (domain, task, paradigm, modality)...", 0.03)
-        topic_profile = TopicProfileExtractor.extract(topic, domain=classification.domain.value)
 
-        prior_knowledge = self.memory.find_relevant_knowledge(topic, classification.domain_display_name)
+        # Step 0A: Topic Research Profile Extraction
+        notify(
+            "Extracting structured TopicResearchProfile (domain, task, paradigm, modality)...",
+            0.03,
+        )
+        topic_profile = TopicProfileExtractor.extract(
+            topic, domain=classification.domain.value
+        )
+
+        prior_knowledge = self.memory.find_relevant_knowledge(
+            topic, classification.domain_display_name
+        )
         if prior_knowledge:
-            notify(f"Research Memory: Retrieved {len(prior_knowledge)} relevant historical research task(s)...", 0.05)
+            notify(
+                f"Research Memory: Retrieved {len(prior_knowledge)} relevant historical research task(s)...",
+                0.05,
+            )
 
         # Step 0B: Research Planning Agent
-        notify("Research Planner formulating topic-adaptive objectives & constraints...", 0.07)
+        notify(
+            "Research Planner formulating topic-adaptive objectives & constraints...",
+            0.07,
+        )
         plan = self.planner.create_plan(
             topic,
             domain=classification.domain,
@@ -237,44 +269,79 @@ class NovaScientistOrchestrator:
             target_format=length_str,
             topic_profile=topic_profile,
         )
-        plan_node = prov.record_node(plan.plan_id, "plan", plan.topic_title, parent_ids=[q_node.node_id])
+        plan_node = prov.record_node(
+            plan.plan_id, "plan", plan.topic_title, parent_ids=[q_node.node_id]
+        )
 
         # Step 1: Scholarly Literature & Evidence Agent
-        notify("Literature Agent querying CrossRef & OpenAlex for verified empirical evidence...", 0.15)
-        evidence = await self.lit_agent.gather_evidence(topic, limit=10 if is_journal else 5)
-        papers: List[PaperMetadata] = []
+        notify(
+            "Literature Agent querying CrossRef & OpenAlex for verified empirical evidence...",
+            0.15,
+        )
+        evidence = await self.lit_agent.gather_evidence(
+            topic, limit=10 if is_journal else 5
+        )
+        papers: list[PaperMetadata] = []
         for s in evidence.sources:
-            src_node = prov.record_node(s.source_id, "source", s.title, {"doi": s.doi, "year": s.year}, parent_ids=[plan_node.node_id])
+            src_node = prov.record_node(
+                s.source_id,
+                "source",
+                s.title,
+                {"doi": s.doi, "year": s.year},
+                parent_ids=[plan_node.node_id],
+            )
             for c in s.claims:
-                prov.record_node(c.claim_id, "claim", c.claim_text, {"category": c.category}, parent_ids=[src_node.node_id])
-            papers.append(PaperMetadata(
-                doi=s.doi,
-                title=s.title,
-                authors=s.authors,
-                year=s.year,
-                venue=s.venue,
-                citation_count=s.citation_count,
-                url=s.url,
-                bibkey=s.bibkey,
-            ))
+                prov.record_node(
+                    c.claim_id,
+                    "claim",
+                    c.claim_text,
+                    {"category": c.category},
+                    parent_ids=[src_node.node_id],
+                )
+            papers.append(
+                PaperMetadata(
+                    doi=s.doi,
+                    title=s.title,
+                    authors=s.authors,
+                    year=s.year,
+                    venue=s.venue,
+                    citation_count=s.citation_count,
+                    url=s.url,
+                    bibkey=s.bibkey,
+                )
+            )
 
         # Step 1B: Literature Advisory & Dynamic Baselines
-        notify("Literature Advisor synthesizing baseline methods & candidate research gaps...", 0.18)
+        notify(
+            "Literature Advisor synthesizing baseline methods & candidate research gaps...",
+            0.18,
+        )
         lit_report = self.lit_advisor.synthesize(evidence, topic_profile)
-        baseline_suite = self.baseline_selector.select_baselines(topic_profile, lit_report)
+        baseline_suite = self.baseline_selector.select_baselines(
+            topic_profile, lit_report
+        )
 
         if contract and contract.selected_dataset:
-            dataset = DatasetFinder.find_dataset_by_name(contract.selected_dataset) or DatasetFinder.discover(topic, classification.domain)
+            dataset = DatasetFinder.find_dataset_by_name(
+                contract.selected_dataset
+            ) or DatasetFinder.discover(topic, classification.domain)
         else:
             dataset = DatasetFinder.discover(topic, classification.domain)
         venues = VenueMatcher.match_venues(topic, classification.domain, top_k=3)
         dev_type, dev_name = get_torch_device()
-        bibtex_content = self.lit_agent.lit_service.generate_bibtex(papers, dataset=dataset)
+        bibtex_content = self.lit_agent.lit_service.generate_bibtex(
+            papers, dataset=dataset
+        )
 
         # Step 1C: Research-Question-First Scientific Contract Formulation
         if contract is None:
-            notify("Formulating unified ScientificResearchContract and Question Decomposition...", 0.20)
-            contract = ResearchContractBuilder.build_contract(topic, topic_profile, literature_report=lit_report)
+            notify(
+                "Formulating unified ScientificResearchContract and Question Decomposition...",
+                0.20,
+            )
+            contract = ResearchContractBuilder.build_contract(
+                topic, topic_profile, literature_report=lit_report
+            )
         contract.freeze()
         contract_node = prov.record_node(
             contract.contract_id,
@@ -285,7 +352,10 @@ class NovaScientistOrchestrator:
         )
 
         # Step 2: Methodology Agent & Mathematical Formulation
-        notify(f"Methodology Agent formulating theoretical specification for {plan.model_acronym}...", 0.22)
+        notify(
+            f"Methodology Agent formulating theoretical specification for {plan.model_acronym}...",
+            0.22,
+        )
         methodology = self.method_agent.synthesize_methodology(
             plan,
             evidence,
@@ -295,10 +365,18 @@ class NovaScientistOrchestrator:
         )
         if contract:
             contract.methodology_spec = methodology
-        method_node = prov.record_node(methodology.methodology_id, "methodology", methodology.model_full_name, parent_ids=[contract_node.node_id])
+        method_node = prov.record_node(
+            methodology.methodology_id,
+            "methodology",
+            methodology.model_full_name,
+            parent_ids=[contract_node.node_id],
+        )
 
         # Step 2B: Mathematical Formulation Agent
-        notify("Mathematical Formulation Agent analyzing formal theorem & lemma justifications...", 0.25)
+        notify(
+            "Mathematical Formulation Agent analyzing formal theorem & lemma justifications...",
+            0.25,
+        )
         theorem = self.math_agent.formulate(
             topic_profile=topic_profile,
             methodology=methodology,
@@ -307,7 +385,9 @@ class NovaScientistOrchestrator:
         )
 
         # Step 3: Experiment Planning Agent
-        notify("Experiment Agent setting up multi-seed benchmarking specification...", 0.28)
+        notify(
+            "Experiment Agent setting up multi-seed benchmarking specification...", 0.28
+        )
         exp_spec = self.exp_agent.create_spec(
             methodology=methodology,
             dataset_name=dataset.name,
@@ -334,8 +414,11 @@ class NovaScientistOrchestrator:
         _ = ASTGuard.enforce(SAMPLE_SAFE_EXPERIMENT, filename="experiment_core.py")
 
         # Step 5: Hardware Training / Microbenchmarking
-        notify(f"Executing deterministic multi-seed PyTorch training on {dev_name}...", 0.45)
-        
+        notify(
+            f"Executing deterministic multi-seed PyTorch training on {dev_name}...",
+            0.45,
+        )
+
         # Purge stale metrics and workspace artifacts from previous runs
         for stale in [
             self.artifacts_dir / "metrics.json",
@@ -360,7 +443,9 @@ class NovaScientistOrchestrator:
             )
             pkg = trainer.run_full_benchmark()
         else:
-            engine = UniversalBenchmarkEngine(topic=topic, num_seeds=num_seeds, contract=contract)
+            engine = UniversalBenchmarkEngine(
+                topic=topic, num_seeds=num_seeds, contract=contract
+            )
             pkg = engine.run_experiments()
 
         metrics_dict = asdict(pkg)
@@ -372,11 +457,16 @@ class NovaScientistOrchestrator:
         final_ckpt_path = str(ckpt_file) if ckpt_file.exists() else None
 
         # Step 6: Extract Experiment Records & Validate Evidence
-        notify("Evidence Validator auditing claim alignment against empirical records...", 0.60)
-        exp_records = self.exp_agent.extract_experiment_records(metrics_dict, dataset_name=dataset.name, checkpoint_path=final_ckpt_path)
-        
-        all_exp_node_ids: List[str] = []
-        all_res_node_ids: List[str] = []
+        notify(
+            "Evidence Validator auditing claim alignment against empirical records...",
+            0.60,
+        )
+        exp_records = self.exp_agent.extract_experiment_records(
+            metrics_dict, dataset_name=dataset.name, checkpoint_path=final_ckpt_path
+        )
+
+        all_exp_node_ids: list[str] = []
+        all_res_node_ids: list[str] = []
         for er in exp_records:
             er_node = prov.record_node(
                 er.experiment_id,
@@ -420,8 +510,12 @@ class NovaScientistOrchestrator:
             )
             all_res_node_ids.append(res_node.node_id)
 
-        all_claim_ids = [c.claim_id for s in evidence.sources for c in s.claims] or [plan_node.node_id]
-        val_report = self.validator.validate_evidence(evidence, exp_records, metrics_dict)
+        all_claim_ids = [c.claim_id for s in evidence.sources for c in s.claims] or [
+            plan_node.node_id
+        ]
+        val_report = self.validator.validate_evidence(
+            evidence, exp_records, metrics_dict
+        )
         val_node = prov.record_node(
             "val_report_001",
             "validation_report",
@@ -436,14 +530,19 @@ class NovaScientistOrchestrator:
             parent_ids=all_claim_ids,
             relation="audits_evidence",
         )
-        methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(methodology, metrics_dict, contract=contract)
+        methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(
+            methodology, metrics_dict, contract=contract
+        )
         if contract:
             contract.hypothesis_evaluations = methodology.hypothesis_evaluations
 
         # Step 7: Statistical Critic Agent & Lineage
-        notify("Statistical Critic evaluating variance bounds and statistical plan...", 0.68)
+        notify(
+            "Statistical Critic evaluating variance bounds and statistical plan...",
+            0.68,
+        )
         stat_critique = self.stat_critic.evaluate_statistics(metrics_dict)
-        
+
         methods_dict = metrics_dict.get("methods", {})
         meta_dict = metrics_dict.get("meta_analysis", {})
         metrics_agg_node = prov.record_node(
@@ -460,14 +559,19 @@ class NovaScientistOrchestrator:
                         "mean_memory_mb": methods_dict[m].get("mean_memory_mb"),
                         "mean_latency_ms": methods_dict[m].get("mean_latency_ms"),
                     }
-                    for m in methods_dict if isinstance(methods_dict[m], dict)
+                    for m in methods_dict
+                    if isinstance(methods_dict[m], dict)
                 },
             },
             parent_ids=all_res_node_ids,
             relation="aggregates_results",
         )
 
-        stat_req = contract.statistical_requirement if contract else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
+        stat_req = (
+            contract.statistical_requirement
+            if contract
+            else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
+        )
         if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
             stat_node = prov.record_node(
                 "meta_analysis_001",
@@ -494,8 +598,12 @@ class NovaScientistOrchestrator:
                 "statistical_analysis",
                 f"Statistical Hypothesis Testing & Power Audit ({stat_req.value if hasattr(stat_req, 'value') else stat_req})",
                 {
-                    "statistical_requirement": stat_req.value if hasattr(stat_req, "value") else str(stat_req),
-                    "pairwise_comparisons": [c.to_dict() for c in stat_critique.pairwise_comparisons],
+                    "statistical_requirement": stat_req.value
+                    if hasattr(stat_req, "value")
+                    else str(stat_req),
+                    "pairwise_comparisons": [
+                        c.to_dict() for c in stat_critique.pairwise_comparisons
+                    ],
                 },
                 parent_ids=[metrics_agg_node.node_id],
                 relation="computes_statistics",
@@ -522,16 +630,35 @@ class NovaScientistOrchestrator:
         )
 
         # Step 7B: Fail-Closed Scientific Contract Telemetry Audit
-        validate_downstream_against_contract(contract, metrics_dict, artifact_type="telemetry")
+        validate_downstream_against_contract(
+            contract, metrics_dict, artifact_type="telemetry"
+        )
 
         # Step 8: Topic-Adaptive Vector Figures Suite
-        notify("Planning and generating topic-adaptive scientific figures (PDF & PNG)...", 0.75)
-        planned_figs = self.fig_planner.plan_figures(topic_profile, metrics_dict, output_dir=str(self.figures_dir), contract=contract)
-        figs = self.fig_planner.generate_figures(planned_figs, metrics_dict=metrics_dict, profile=topic_profile, output_dir=str(self.figures_dir))
-        validate_downstream_against_contract(contract, planned_figs, artifact_type="figures")
+        notify(
+            "Planning and generating topic-adaptive scientific figures (PDF & PNG)...",
+            0.75,
+        )
+        planned_figs = self.fig_planner.plan_figures(
+            topic_profile,
+            metrics_dict,
+            output_dir=str(self.figures_dir),
+            contract=contract,
+        )
+        figs = self.fig_planner.generate_figures(
+            planned_figs,
+            metrics_dict=metrics_dict,
+            profile=topic_profile,
+            output_dir=str(self.figures_dir),
+        )
+        validate_downstream_against_contract(
+            contract, planned_figs, artifact_type="figures"
+        )
 
         # Step 8B: Dynamic Manuscript Planning
-        venue_fmt = VenueFormat.EXTENDED_JOURNAL if is_journal else VenueFormat.FULL_CONFERENCE
+        venue_fmt = (
+            VenueFormat.EXTENDED_JOURNAL if is_journal else VenueFormat.FULL_CONFERENCE
+        )
         manuscript_plan = self.manuscript_planner.plan_manuscript(
             topic_profile=topic_profile,
             literature_report=lit_report,
@@ -545,32 +672,60 @@ class NovaScientistOrchestrator:
         # Step 9: Manuscript Assembly
         notify("Constructing complete IEEE Transactions LaTeX manuscript...", 0.82)
         if is_journal:
-            assembler = DeepJournalAssembler(metrics_dict, papers, author=author, dataset=dataset, contract=contract, manuscript_plan=manuscript_plan, figures=planned_figs)
+            assembler = DeepJournalAssembler(
+                metrics_dict,
+                papers,
+                author=author,
+                dataset=dataset,
+                contract=contract,
+                manuscript_plan=manuscript_plan,
+                figures=planned_figs,
+            )
             latex_content = assembler.generate_journal_latex()
         else:
-            assembler = CompliantLaTeXAssembler(metrics_dict, papers, author=author, dataset=dataset, contract=contract)
+            assembler = CompliantLaTeXAssembler(
+                metrics_dict, papers, author=author, dataset=dataset, contract=contract
+            )
             latex_content = assembler.generate_latex()
 
         # Step 9B: Fail-Closed Manuscript Contract Audit & Consistency Report
-        validate_downstream_against_contract(contract, latex_content, artifact_type="manuscript")
-        consistency_rep = generate_contract_consistency_report(contract, latex_content, planned_figs, metrics_dict)
-        with open(self.workspace_dir / "contract_consistency_report.json", "w", encoding="utf-8") as f:
+        validate_downstream_against_contract(
+            contract, latex_content, artifact_type="manuscript"
+        )
+        consistency_rep = generate_contract_consistency_report(
+            contract, latex_content, planned_figs, metrics_dict
+        )
+        with open(
+            self.workspace_dir / "contract_consistency_report.json",
+            "w",
+            encoding="utf-8",
+        ) as f:
             json.dump(consistency_rep, f, indent=2)
-        with open(self.artifacts_dir / "contract_consistency_report.json", "w", encoding="utf-8") as f:
+        with open(
+            self.artifacts_dir / "contract_consistency_report.json",
+            "w",
+            encoding="utf-8",
+        ) as f:
             json.dump(consistency_rep, f, indent=2)
 
         # Step 10: Adversarial Scientific Reviewer & Bounded Revision Loop
-        notify("Scientific Reviewer executing bounded self-critique revision loop (k<=3)...", 0.88)
-        revised_latex, review_report, rev_history = self.revision_loop.run_revision_loop(
-            raw_latex=latex_content,
-            metrics_dict=metrics_dict,
-            validation_report=val_report,
-            stat_critique=stat_critique,
-            revision_callback=lambda msg, it: notify(msg, 0.88 + it * 0.02),
+        notify(
+            "Scientific Reviewer executing bounded self-critique revision loop (k<=3)...",
+            0.88,
+        )
+        revised_latex, review_report, rev_history = (
+            self.revision_loop.run_revision_loop(
+                raw_latex=latex_content,
+                metrics_dict=metrics_dict,
+                validation_report=val_report,
+                stat_critique=stat_critique,
+                revision_callback=lambda msg, it: notify(msg, 0.88 + it * 0.02),
+            )
         )
         latex_content = revised_latex
         avg_score = (
-            sum(review_report.category_scores.values()) / len(review_report.category_scores)
+            sum(review_report.category_scores.values())
+            / len(review_report.category_scores)
             if review_report.category_scores
             else (8.5 if review_report.passed else 5.0)
         )
@@ -587,9 +742,15 @@ class NovaScientistOrchestrator:
                 "minor_count": review_report.minor_count,
                 "category_scores": review_report.category_scores,
                 "findings_count": len(review_report.findings),
-                "recommendations": [f.recommended_action for f in review_report.findings],
+                "recommendations": [
+                    f.recommended_action for f in review_report.findings
+                ],
             },
-            parent_ids=[stat_critic_node.node_id, val_node.node_id, method_node.node_id],
+            parent_ids=[
+                stat_critic_node.node_id,
+                val_node.node_id,
+                method_node.node_id,
+            ],
             relation="conducts_peer_review",
         )
         actions_list = [
@@ -632,7 +793,9 @@ class NovaScientistOrchestrator:
         )
 
         # Step 12: Tectonic Compilation & ZIP Packaging
-        notify("Compiling IEEE publication PDF via Tectonic / Publication Engine...", 0.94)
+        notify(
+            "Compiling IEEE publication PDF via Tectonic / Publication Engine...", 0.94
+        )
         runner = TectonicRunner(str(self.workspace_dir))
         runner.stage_artifacts(latex_content, bibtex_content, str(metrics_file), figs)
         comp_res = runner.compile_pdf()
@@ -707,9 +870,17 @@ class NovaScientistOrchestrator:
                 pdf_path=final_pdf_path,
                 provenance_dag=prov,
             )
-            with open(self.workspace_dir / "contract_validation_report.json", "w", encoding="utf-8") as f:
+            with open(
+                self.workspace_dir / "contract_validation_report.json",
+                "w",
+                encoding="utf-8",
+            ) as f:
                 json.dump(contract_validation_report, f, indent=2)
-            with open(self.artifacts_dir / "contract_validation_report.json", "w", encoding="utf-8") as f:
+            with open(
+                self.artifacts_dir / "contract_validation_report.json",
+                "w",
+                encoding="utf-8",
+            ) as f:
                 json.dump(contract_validation_report, f, indent=2)
 
         # Step 14: Record into Persistent Research Memory
@@ -734,13 +905,18 @@ class NovaScientistOrchestrator:
             shutil.copy2(final_pdf_path, out_p)
 
         elapsed = time.perf_counter() - start_time
-        notify(f"✓ Topic-adaptive research pipeline completed in {elapsed:.1f}s ({page_count} pages, Review: {review_report.overall_verdict.title()})!", 1.0)
+        notify(
+            f"✓ Topic-adaptive research pipeline completed in {elapsed:.1f}s ({page_count} pages, Review: {review_report.overall_verdict.title()})!",
+            1.0,
+        )
 
         return OrchestratorResult(
             success=comp_res.success,
             topic=topic,
             target_length="8–12 Page Journal" if is_journal else "4-Page Conference",
-            execution_mode="Real PyTorch Training" if is_real_training else "Fast Microbenchmark",
+            execution_mode="Real PyTorch Training"
+            if is_real_training
+            else "Fast Microbenchmark",
             device_name=dev_name,
             dataset=dataset,
             papers=papers,

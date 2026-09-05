@@ -7,14 +7,13 @@ streaming execution status, retrieving verified evidence, and downloading immuta
 from __future__ import annotations
 
 import logging
-import os
 import time
-from typing import Any, Dict, List, Optional
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from backend.config import config
@@ -22,7 +21,7 @@ from backend.core.orchestrator import AuthorProfile
 from backend.jobs.job_manager import JobManager, JobState
 from backend.reproducibility.manifest_generator import ReproducibilityGenerator
 from backend.storage.artifact_store import ArtifactStore
-from backend.storage.workspace_manager import WorkspaceManager, RunStatus
+from backend.storage.workspace_manager import RunStatus, WorkspaceManager
 
 logger = logging.getLogger("novascientist.api")
 
@@ -37,7 +36,9 @@ class CreateProjectRequest(BaseModel):
 class CreateRunRequest(BaseModel):
     topic: str = Field(..., min_length=5, max_length=500)
     author_name: str = Field(default="Anonymous Author(s)")
-    author_affiliation: str = Field(default="Affiliation Withheld for Double-Blind Review")
+    author_affiliation: str = Field(
+        default="Affiliation Withheld for Double-Blind Review"
+    )
     author_email: str = Field(default="anonymous@conference-review.org")
     target_length: str = Field(default="8_12_pages_journal")
     execution_mode: str = Field(default="fast_microbenchmark")
@@ -46,12 +47,12 @@ class CreateRunRequest(BaseModel):
 
 
 def create_app(
-    workspace_manager: Optional[WorkspaceManager] = None,
-    artifact_store: Optional[ArtifactStore] = None,
-    job_manager: Optional[JobManager] = None,
+    workspace_manager: WorkspaceManager | None = None,
+    artifact_store: ArtifactStore | None = None,
+    job_manager: JobManager | None = None,
 ) -> FastAPI:
     """Application factory for NovaScientist API Server."""
-    
+
     app = FastAPI(
         title="NovaScientist Production Research API",
         description="Evidence-First Autonomous Research Infrastructure for Scientific Investigation",
@@ -75,7 +76,7 @@ def create_app(
     job_mgr = job_manager or JobManager(workspace_manager=ws_mgr, artifact_store=store)
 
     @app.get("/health", tags=["Diagnostics"])
-    async def health_check() -> Dict[str, Any]:
+    async def health_check() -> dict[str, Any]:
         """System liveness and readiness probe."""
         return {
             "status": "healthy",
@@ -85,7 +86,7 @@ def create_app(
         }
 
     @app.get("/diagnostics", tags=["Diagnostics"])
-    async def diagnostics() -> Dict[str, Any]:
+    async def diagnostics() -> dict[str, Any]:
         """Comprehensive operational telemetry and environment report."""
         git_sha = ReproducibilityGenerator.get_git_sha()
         jobs = job_mgr.list_jobs()
@@ -103,8 +104,10 @@ def create_app(
 
     # ==================== PROJECTS ====================
 
-    @app.post("/api/v1/projects", status_code=status.HTTP_201_CREATED, tags=["Projects"])
-    async def create_project(req: CreateProjectRequest) -> Dict[str, Any]:
+    @app.post(
+        "/api/v1/projects", status_code=status.HTTP_201_CREATED, tags=["Projects"]
+    )
+    async def create_project(req: CreateProjectRequest) -> dict[str, Any]:
         """Create a new research workspace project."""
         proj = ws_mgr.create_project(
             name=req.name,
@@ -114,13 +117,13 @@ def create_app(
         return proj.to_dict()
 
     @app.get("/api/v1/projects", tags=["Projects"])
-    async def list_projects(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_projects(user_id: str | None = None) -> list[dict[str, Any]]:
         """List all projects."""
         projects = ws_mgr.list_projects(user_id=user_id)
         return [p.to_dict() for p in projects]
 
     @app.get("/api/v1/projects/{project_id}", tags=["Projects"])
-    async def get_project(project_id: str) -> Dict[str, Any]:
+    async def get_project(project_id: str) -> dict[str, Any]:
         """Retrieve project metadata and constituent research runs."""
         try:
             proj = ws_mgr.get_project(project_id)
@@ -129,17 +132,25 @@ def create_app(
             d["run_records"] = [r.to_dict() for r in runs]
             return d
         except KeyError:
-            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
+            raise HTTPException(
+                status_code=404, detail=f"Project '{project_id}' not found."
+            )
 
     # ==================== RUNS ====================
 
-    @app.post("/api/v1/projects/{project_id}/runs", status_code=status.HTTP_202_ACCEPTED, tags=["Research Runs"])
-    async def submit_run(project_id: str, req: CreateRunRequest) -> Dict[str, Any]:
+    @app.post(
+        "/api/v1/projects/{project_id}/runs",
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["Research Runs"],
+    )
+    async def submit_run(project_id: str, req: CreateRunRequest) -> dict[str, Any]:
         """Submit and queue a new asynchronous research run."""
         try:
             ws_mgr.get_project(project_id)
         except KeyError:
-            raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
+            raise HTTPException(
+                status_code=404, detail=f"Project '{project_id}' not found."
+            )
 
         author = AuthorProfile(
             name=req.author_name,
@@ -165,7 +176,7 @@ def create_app(
         }
 
     @app.get("/api/v1/runs/{run_id}", tags=["Research Runs"])
-    async def get_run(run_id: str) -> Dict[str, Any]:
+    async def get_run(run_id: str) -> dict[str, Any]:
         """Get full details and status of a research run."""
         try:
             run = ws_mgr.get_run(run_id)
@@ -174,12 +185,12 @@ def create_app(
             raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found.")
 
     @app.get("/api/v1/runs/{run_id}/status", tags=["Research Runs"])
-    async def get_run_status(run_id: str) -> Dict[str, Any]:
+    async def get_run_status(run_id: str) -> dict[str, Any]:
         """Poll live execution progress for a run."""
         job = job_mgr.get_job_by_run_id(run_id)
         if job:
             return job.to_dict()
-        
+
         try:
             run = ws_mgr.get_run(run_id)
             return {
@@ -188,68 +199,88 @@ def create_app(
                 "topic": run.topic,
                 "state": run.status.value,
                 "progress_percent": 100.0 if run.status == RunStatus.COMPLETED else 0.0,
-                "stage_message": "Run finished." if run.status == RunStatus.COMPLETED else "Status persisted.",
+                "stage_message": "Run finished."
+                if run.status == RunStatus.COMPLETED
+                else "Status persisted.",
             }
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found.")
 
     @app.post("/api/v1/runs/{run_id}/cancel", tags=["Research Runs"])
-    async def cancel_run(run_id: str) -> Dict[str, Any]:
+    async def cancel_run(run_id: str) -> dict[str, Any]:
         """Cancel a running or queued job."""
         job = job_mgr.get_job_by_run_id(run_id)
         if job:
             success = job_mgr.cancel_job(job.job_id)
             return {"cancelled": success, "run_id": run_id}
-        raise HTTPException(status_code=404, detail=f"Active job for run '{run_id}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Active job for run '{run_id}' not found."
+        )
 
     # ==================== RUN SUB-RESOURCES ====================
 
     @app.get("/api/v1/runs/{run_id}/contract", tags=["Artifacts & Evidence"])
-    async def get_run_contract(run_id: str) -> Dict[str, Any]:
+    async def get_run_contract(run_id: str) -> dict[str, Any]:
         """Retrieve frozen scientific research contract."""
         run = ws_mgr.get_run(run_id)
         if not run.contract_data:
-            raise HTTPException(status_code=404, detail="Scientific contract not yet generated for this run.")
+            raise HTTPException(
+                status_code=404,
+                detail="Scientific contract not yet generated for this run.",
+            )
         return run.contract_data
 
     @app.get("/api/v1/runs/{run_id}/evidence", tags=["Artifacts & Evidence"])
-    async def get_run_evidence(run_id: str) -> Dict[str, Any]:
+    async def get_run_evidence(run_id: str) -> dict[str, Any]:
         """Retrieve literature evidence and citations."""
         run = ws_mgr.get_run(run_id)
         if not run.evidence_data:
-            raise HTTPException(status_code=404, detail="Literature evidence not yet gathered for this run.")
+            raise HTTPException(
+                status_code=404,
+                detail="Literature evidence not yet gathered for this run.",
+            )
         return run.evidence_data
 
     @app.get("/api/v1/runs/{run_id}/results", tags=["Artifacts & Evidence"])
-    async def get_run_results(run_id: str) -> Dict[str, Any]:
+    async def get_run_results(run_id: str) -> dict[str, Any]:
         """Retrieve empirical multi-seed telemetry and metrics."""
         run = ws_mgr.get_run(run_id)
         if not run.results_data:
-            raise HTTPException(status_code=404, detail="Results not yet compiled for this run.")
+            raise HTTPException(
+                status_code=404, detail="Results not yet compiled for this run."
+            )
         return run.results_data
 
     @app.get("/api/v1/runs/{run_id}/statistics", tags=["Artifacts & Evidence"])
-    async def get_run_statistics(run_id: str) -> Dict[str, Any]:
+    async def get_run_statistics(run_id: str) -> dict[str, Any]:
         """Retrieve statistical critique and validation report."""
         run = ws_mgr.get_run(run_id)
         if not run.statistics_data:
-            raise HTTPException(status_code=404, detail="Statistical analysis not yet completed for this run.")
+            raise HTTPException(
+                status_code=404,
+                detail="Statistical analysis not yet completed for this run.",
+            )
         return run.statistics_data
 
     @app.get("/api/v1/runs/{run_id}/provenance", tags=["Artifacts & Evidence"])
-    async def get_run_provenance(run_id: str) -> Dict[str, Any]:
+    async def get_run_provenance(run_id: str) -> dict[str, Any]:
         """Retrieve complete provenance DAG."""
         run = ws_mgr.get_run(run_id)
         if not run.provenance_data:
-            raise HTTPException(status_code=404, detail="Provenance graph not yet finalized for this run.")
+            raise HTTPException(
+                status_code=404,
+                detail="Provenance graph not yet finalized for this run.",
+            )
         return run.provenance_data
 
     @app.get("/api/v1/runs/{run_id}/paper", tags=["Artifacts & Evidence"])
-    async def get_run_paper(run_id: str) -> Dict[str, Any]:
+    async def get_run_paper(run_id: str) -> dict[str, Any]:
         """Retrieve LaTeX manuscript source and physical page metrics."""
         run = ws_mgr.get_run(run_id)
         if not run.manuscript_latex:
-            raise HTTPException(status_code=404, detail="Paper not yet compiled for this run.")
+            raise HTTPException(
+                status_code=404, detail="Paper not yet compiled for this run."
+            )
         return {
             "run_id": run.run_id,
             "latex_content": run.manuscript_latex,
@@ -258,20 +289,27 @@ def create_app(
             "zip_artifact_id": run.zip_artifact_id,
         }
 
-    @app.get("/api/v1/runs/{run_id}/artifacts/{artifact_id}/download", tags=["Artifacts & Evidence"])
+    @app.get(
+        "/api/v1/runs/{run_id}/artifacts/{artifact_id}/download",
+        tags=["Artifacts & Evidence"],
+    )
     async def download_artifact(run_id: str, artifact_id: str) -> FileResponse:
         """Download an immutable verified artifact file."""
         try:
             art = store.get_artifact(artifact_id, verify_integrity=True)
             if art.run_id != run_id:
-                raise HTTPException(status_code=403, detail="Artifact does not belong to specified run.")
+                raise HTTPException(
+                    status_code=403, detail="Artifact does not belong to specified run."
+                )
             return FileResponse(
                 path=art.location,
                 filename=Path(art.location).name,
                 media_type="application/octet-stream",
             )
         except KeyError:
-            raise HTTPException(status_code=404, detail=f"Artifact '{artifact_id}' not found.")
+            raise HTTPException(
+                status_code=404, detail=f"Artifact '{artifact_id}' not found."
+            )
 
     return app
 

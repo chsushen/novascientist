@@ -12,9 +12,9 @@ import asyncio
 import json
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.core.agentic_planner import ResearchPlannerAgent
 from backend.core.evidence_agent import LiteratureAgent
@@ -25,8 +25,7 @@ from backend.core.scientific_reviewer import BoundedRevisionLoop
 from backend.core.statistical_critic import StatisticalCriticAgent
 from backend.core.universal_engine import UniversalBenchmarkEngine
 
-
-BENCHMARK_TOPICS: List[str] = [
+BENCHMARK_TOPICS: list[str] = [
     "Physics-Informed Dynamic Neural Surrogates under Bounded Memory",
     "Low-Compute Dynamic Graph Representation under Quantized Memory",
     "Sub-Linear Memory LLM Attention Mechanisms for Sequence Modeling",
@@ -35,7 +34,7 @@ BENCHMARK_TOPICS: List[str] = [
     "Metamaterial Terahertz Resonator Cloaking under Anisotropic Dielectrics",
 ]
 
-ADVERSARIAL_BENCHMARK_TOPICS: List[str] = [
+ADVERSARIAL_BENCHMARK_TOPICS: list[str] = [
     "   ",  # Blank query
     "xyz123abc_non_academic_gibberish",  # Out-of-distribution / nonsense query
     "A",  # Minimal 1-char query
@@ -45,13 +44,14 @@ ADVERSARIAL_BENCHMARK_TOPICS: List[str] = [
 @dataclass
 class TopicEvaluationResult:
     """Outcome of evaluation for a single research question with fine-grained counts."""
+
     topic: str
     plan_valid: bool
     sources_retrieved: int
     claims_extracted: int
     verified_doi_count: int
     total_sources_with_doi: int
-    verified_doi_rate: Optional[float]
+    verified_doi_rate: float | None
     unsupported_claim_rate: float
     supported_claims_count: int
     total_claims_count: int
@@ -63,13 +63,13 @@ class TopicEvaluationResult:
     review_passed: bool
     revision_iterations: int
     latency_sec: float
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TopicEvaluationResult:
+    def from_dict(cls, data: dict[str, Any]) -> TopicEvaluationResult:
         valid_fields = {f for f in cls.__dataclass_fields__}
         filtered = {k: v for k, v in data.items() if k in valid_fields}
         return cls(**filtered)
@@ -78,30 +78,33 @@ class TopicEvaluationResult:
 @dataclass
 class BenchmarkSuiteSummary:
     """Overall metrics across the complete evaluation test set computed from observed telemetry."""
+
     timestamp: str
     total_topics_evaluated: int
     planning_success_rate: float
     mean_sources_per_topic: float
     mean_claims_per_topic: float
-    verified_doi_rate: Optional[float]
+    verified_doi_rate: float | None
     unsupported_claim_rate: float
     citation_correctness_rate: float
     experiment_success_rate: float
     statistical_critic_pass_rate: float
     revision_convergence_rate: float
     mean_latency_sec: float
-    results: List[TopicEvaluationResult] = field(default_factory=list)
+    results: list[TopicEvaluationResult] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["results"] = [r.to_dict() for r in self.results]
         return d
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkSuiteSummary:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkSuiteSummary:
         res_list = [TopicEvaluationResult.from_dict(r) for r in data.get("results", [])]
         valid_fields = {f for f in cls.__dataclass_fields__}
-        filtered = {k: v for k, v in data.items() if k in valid_fields and k != "results"}
+        filtered = {
+            k: v for k, v in data.items() if k in valid_fields and k != "results"
+        }
         return cls(results=res_list, **filtered)
 
 
@@ -119,7 +122,9 @@ class AgenticEvaluationBenchmark:
         self.stat_critic = StatisticalCriticAgent()
         self.revision_loop = BoundedRevisionLoop()
 
-    async def evaluate_topic(self, topic: str, num_seeds: int = 5) -> TopicEvaluationResult:
+    async def evaluate_topic(
+        self, topic: str, num_seeds: int = 5
+    ) -> TopicEvaluationResult:
         """Execute deterministic agentic benchmark for a single topic with error boundaries."""
         t0 = time.perf_counter()
 
@@ -136,10 +141,14 @@ class AgenticEvaluationBenchmark:
             # Tally DOIs
             doi_sources = [s for s in sources if s.doi and s.doi.strip()]
             verified_dois = [
-                s for s in doi_sources
-                if getattr(s, "doi_verified", False) or getattr(s, "doi_status", "") == "verified"
+                s
+                for s in doi_sources
+                if getattr(s, "doi_verified", False)
+                or getattr(s, "doi_status", "") == "verified"
             ]
-            doi_rate = round(len(verified_dois) / len(doi_sources), 3) if doi_sources else None
+            doi_rate = (
+                round(len(verified_dois) / len(doi_sources), 3) if doi_sources else None
+            )
 
             # 3. Methodology
             method = self.method_agent.synthesize_methodology(plan, evidence)
@@ -151,11 +160,17 @@ class AgenticEvaluationBenchmark:
             exp_records = self.exp_agent.extract_experiment_records(metrics_dict)
 
             completed_exps = [er for er in exp_records if er.status == "completed"]
-            exp_success_rate = round(len(completed_exps) / len(exp_records), 3) if exp_records else 0.0
+            exp_success_rate = (
+                round(len(completed_exps) / len(exp_records), 3) if exp_records else 0.0
+            )
 
             # 5. Validation
-            val_report = self.validator.validate_evidence(evidence, exp_records, metrics_dict)
-            supported_claims = [c for c in val_report.claims if c.support_score in ["supported", "weak"]]
+            val_report = self.validator.validate_evidence(
+                evidence, exp_records, metrics_dict
+            )
+            supported_claims = [
+                c for c in val_report.claims if c.support_score in ["supported", "weak"]
+            ]
             unsupported_rate = val_report.unsupported_rate
 
             # 6. Statistical Critic
@@ -163,11 +178,13 @@ class AgenticEvaluationBenchmark:
 
             # 7. Review & Revision
             mock_latex = rf"\title{{{topic}}} \section{{Introduction}} Deterministic multi-seed evaluation."
-            revised_latex, review_report, history = self.revision_loop.run_revision_loop(
-                raw_latex=mock_latex,
-                metrics_dict=metrics_dict,
-                validation_report=val_report,
-                stat_critique=stat_critique,
+            revised_latex, review_report, history = (
+                self.revision_loop.run_revision_loop(
+                    raw_latex=mock_latex,
+                    metrics_dict=metrics_dict,
+                    validation_report=val_report,
+                    stat_critique=stat_critique,
+                )
             )
 
             elapsed = time.perf_counter() - t0
@@ -215,12 +232,12 @@ class AgenticEvaluationBenchmark:
                 review_passed=False,
                 revision_iterations=0,
                 latency_sec=round(elapsed, 2),
-                error_message=f"{type(exc).__name__}: {str(exc)}",
+                error_message=f"{type(exc).__name__}: {exc!s}",
             )
 
     async def run_full_benchmark(
         self,
-        topics: Optional[List[str]] = None,
+        topics: list[str] | None = None,
         num_seeds: int = 5,
         include_adversarial: bool = False,
     ) -> BenchmarkSuiteSummary:
@@ -229,7 +246,7 @@ class AgenticEvaluationBenchmark:
         if include_adversarial:
             eval_topics.extend(ADVERSARIAL_BENCHMARK_TOPICS)
 
-        results: List[TopicEvaluationResult] = []
+        results: list[TopicEvaluationResult] = []
         for t in eval_topics:
             res = await self.evaluate_topic(t, num_seeds=num_seeds)
             results.append(res)
@@ -247,20 +264,29 @@ class AgenticEvaluationBenchmark:
         # DOI verification rate aggregated across all observed DOI-bearing sources
         total_dois = sum(r.total_sources_with_doi for r in results)
         total_verified_dois = sum(r.verified_doi_count for r in results)
-        agg_doi_rate = round(total_verified_dois / total_dois, 3) if total_dois > 0 else None
+        agg_doi_rate = (
+            round(total_verified_dois / total_dois, 3) if total_dois > 0 else None
+        )
 
         # Unsupported claims rate aggregated across all observed claims
         all_claims = sum(r.total_claims_count for r in results)
         supported_claims = sum(r.supported_claims_count for r in results)
         agg_unsupported_rate = (
             round((all_claims - supported_claims) / all_claims, 3)
-            if all_claims > 0 else 0.0
+            if all_claims > 0
+            else 0.0
         )
 
         # Citation correctness rate: sources with non-empty metadata
         total_sources = sum(r.sources_retrieved for r in results)
-        citation_correct_rate = 1.0 if total_sources == 0 else round(
-            sum(r.sources_retrieved for r in results if not r.error_message) / total_sources, 3
+        citation_correct_rate = (
+            1.0
+            if total_sources == 0
+            else round(
+                sum(r.sources_retrieved for r in results if not r.error_message)
+                / total_sources,
+                3,
+            )
         )
 
         # Experiment success rate aggregated across all seed records
@@ -271,13 +297,17 @@ class AgenticEvaluationBenchmark:
         stat_passed = sum(1 for r in results if r.stat_critic_passed)
         stat_rate = round(stat_passed / n, 3)
 
-        rev_converged = sum(1 for r in results if r.review_passed or r.review_verdict in ["accept", "minor_revision"])
+        rev_converged = sum(
+            1
+            for r in results
+            if r.review_passed or r.review_verdict in ["accept", "minor_revision"]
+        )
         rev_rate = round(rev_converged / n, 3)
 
         mean_latency = round(sum(r.latency_sec for r in results) / n, 2)
 
         summary = BenchmarkSuiteSummary(
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             total_topics_evaluated=total_topics,
             planning_success_rate=plan_rate,
             mean_sources_per_topic=mean_sources,

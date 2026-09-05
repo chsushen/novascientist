@@ -9,18 +9,18 @@ methodology plans, and experiment suites from TopicResearchProfile.
 from __future__ import annotations
 
 import hashlib
-import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
-from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher
 from backend.core.topic_profile import TopicProfileExtractor, TopicResearchProfile
+from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher
 
 
 @dataclass
 class ResearchPlan:
     """Typed schema representing a structured research plan."""
+
     plan_id: str
     research_question: str
     topic_title: str
@@ -28,24 +28,28 @@ class ResearchPlan:
     domain_display_name: str
     model_acronym: str
     model_full_name: str
-    objectives: List[str] = field(default_factory=list)
-    sub_questions: List[str] = field(default_factory=list)
-    literature_requirements: List[str] = field(default_factory=list)
-    methodology_plan: List[str] = field(default_factory=list)
-    experiment_plan: List[str] = field(default_factory=list)
-    evaluation_plan: List[str] = field(default_factory=list)
-    risk_factors: List[str] = field(default_factory=list)
-    expected_outputs: List[str] = field(default_factory=list)
+    objectives: list[str] = field(default_factory=list)
+    sub_questions: list[str] = field(default_factory=list)
+    literature_requirements: list[str] = field(default_factory=list)
+    methodology_plan: list[str] = field(default_factory=list)
+    experiment_plan: list[str] = field(default_factory=list)
+    evaluation_plan: list[str] = field(default_factory=list)
+    risk_factors: list[str] = field(default_factory=list)
+    expected_outputs: list[str] = field(default_factory=list)
     target_format: str = "8_12_pages_journal"
-    constraints: Dict[str, Any] = field(default_factory=dict)
+    constraints: dict[str, Any] = field(default_factory=dict)
     is_valid: bool = False
-    validation_notes: List[str] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    validation_notes: list[str] = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert plan to dictionary format."""
         d = asdict(self)
-        d["domain"] = self.domain.value if isinstance(self.domain, ComputationalDomain) else str(self.domain)
+        d["domain"] = (
+            self.domain.value
+            if isinstance(self.domain, ComputationalDomain)
+            else str(self.domain)
+        )
         return d
 
 
@@ -58,11 +62,11 @@ class ResearchPlannerAgent:
     def create_plan(
         self,
         research_question: str,
-        domain: Optional[ComputationalDomain] = None,
-        constraints: Optional[Dict[str, Any]] = None,
+        domain: ComputationalDomain | None = None,
+        constraints: dict[str, Any] | None = None,
         target_format: str = "8_12_pages_journal",
         num_seeds: int = 5,
-        topic_profile: Optional[TopicResearchProfile] = None,
+        topic_profile: TopicResearchProfile | None = None,
     ) -> ResearchPlan:
         """Synthesize a complete structured research plan for a given research question."""
         cleaned_q = research_question.strip()
@@ -71,9 +75,11 @@ class ResearchPlannerAgent:
 
         classification = UniversalDomainDispatcher.classify_topic(cleaned_q)
         active_domain = domain or classification.domain
-        
+
         # Topic profile extraction for dynamic adaptive intelligence
-        profile = topic_profile or TopicProfileExtractor.extract(cleaned_q, domain=active_domain.value)
+        profile = topic_profile or TopicProfileExtractor.extract(
+            cleaned_q, domain=active_domain.value
+        )
 
         q_hash = hashlib.sha256(cleaned_q.encode("utf-8")).hexdigest()[:8]
         plan_id = f"plan_{q_hash}"
@@ -86,14 +92,22 @@ class ResearchPlannerAgent:
         }
 
         # Dynamic topic-driven objectives
-        metric_str = ", ".join(profile.candidate_metrics[:2]) if profile.candidate_metrics else classification.primary_metric_name
-        baselines_str = ", ".join(profile.candidate_baselines[:3]) if profile.candidate_baselines else "standard baselines"
+        metric_str = (
+            ", ".join(profile.candidate_metrics[:2])
+            if profile.candidate_metrics
+            else classification.primary_metric_name
+        )
+        baselines_str = (
+            ", ".join(profile.candidate_baselines[:3])
+            if profile.candidate_baselines
+            else "standard baselines"
+        )
 
         objectives = [
             f"Formulate and evaluate the {classification.model_full_name} ({classification.model_acronym}) architecture for {profile.subdomain}.",
             f"Develop domain-appropriate inductive biases and algorithmic operators optimized for {profile.task_type.value}.",
             f"Empirically validate performance across {metric_str} using k={num_seeds} deterministic seeds against {baselines_str}.",
-            f"Perform DerSimonian-Laird random-effects meta-analysis to quantify pooled effect size and inter-seed heterogeneity.",
+            "Perform DerSimonian-Laird random-effects meta-analysis to quantify pooled effect size and inter-seed heterogeneity.",
         ]
 
         sub_questions = [
@@ -167,9 +181,9 @@ class ResearchPlannerAgent:
         plan.validation_notes = validation_notes
         return plan
 
-    def validate_plan(self, plan: ResearchPlan) -> Tuple[bool, List[str]]:
+    def validate_plan(self, plan: ResearchPlan) -> tuple[bool, list[str]]:
         """Validate research plan against structural and scientific consistency criteria."""
-        notes: List[str] = []
+        notes: list[str] = []
 
         if not plan.research_question or len(plan.research_question) < 5:
             notes.append("Research question is missing or too brief.")
@@ -181,7 +195,9 @@ class ResearchPlannerAgent:
             notes.append("Plan must specify at least 1 sub-question.")
 
         if len(plan.experiment_plan) < 3:
-            notes.append("Experiment plan must include baseline, ablation, and proposed evaluations.")
+            notes.append(
+                "Experiment plan must include baseline, ablation, and proposed evaluations."
+            )
 
         if not plan.model_acronym:
             notes.append("Proposed model acronym must be specified.")

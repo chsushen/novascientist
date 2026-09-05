@@ -8,19 +8,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from backend.config import config
 
 
 class ArtifactType(str, Enum):
     """Categorization of immutable research artifacts."""
+
     DATASET = "dataset"
     EXPERIMENT_SPEC = "experiment_spec"
     RESULT = "result"
@@ -37,12 +37,12 @@ class ArtifactType(str, Enum):
 
 class ArtifactIntegrityError(Exception):
     """Raised when an artifact fails SHA-256 integrity verification."""
-    pass
 
 
 @dataclass
 class StoredArtifact:
     """Metadata record for an immutable research artifact."""
+
     artifact_id: str
     project_id: str
     run_id: str
@@ -51,17 +51,21 @@ class StoredArtifact:
     sha256: str
     created_at: float = field(default_factory=time.time)
     source: str = "novascientist_pipeline"
-    provenance_nodes: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    provenance_nodes: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize metadata to dictionary."""
         d = asdict(self)
-        d["artifact_type"] = self.artifact_type.value if isinstance(self.artifact_type, ArtifactType) else str(self.artifact_type)
+        d["artifact_type"] = (
+            self.artifact_type.value
+            if isinstance(self.artifact_type, ArtifactType)
+            else str(self.artifact_type)
+        )
         return d
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StoredArtifact:
+    def from_dict(cls, data: dict[str, Any]) -> StoredArtifact:
         """Construct record from dictionary."""
         d = dict(data)
         if "artifact_type" in d:
@@ -72,20 +76,22 @@ class StoredArtifact:
 class ArtifactStore:
     """Manages persistent immutable storage for research runs."""
 
-    def __init__(self, base_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, base_dir: str | Path | None = None) -> None:
         self.base_dir = Path(base_dir) if base_dir else config.data_dir / "artifacts"
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.index_file = self.base_dir / "artifact_index.json"
-        self._index: Dict[str, StoredArtifact] = {}
+        self._index: dict[str, StoredArtifact] = {}
         self._load_index()
 
     def _load_index(self) -> None:
         """Load artifact catalog from disk."""
         if self.index_file.exists():
             try:
-                with open(self.index_file, "r", encoding="utf-8") as f:
+                with open(self.index_file, encoding="utf-8") as f:
                     raw = json.load(f)
-                    self._index = {k: StoredArtifact.from_dict(v) for k, v in raw.items()}
+                    self._index = {
+                        k: StoredArtifact.from_dict(v) for k, v in raw.items()
+                    }
             except Exception:
                 self._index = {}
 
@@ -98,7 +104,7 @@ class ArtifactStore:
         shutil.move(str(tmp_path), str(self.index_file))
 
     @staticmethod
-    def compute_sha256(content: Union[str, bytes, Path]) -> str:
+    def compute_sha256(content: str | bytes | Path) -> str:
         """Compute SHA-256 hash of string, bytes, or file on disk."""
         h = hashlib.sha256()
         if isinstance(content, str):
@@ -118,9 +124,9 @@ class ArtifactStore:
         artifact_type: ArtifactType,
         filename: str,
         content: bytes,
-        provenance_nodes: Optional[List[str]] = None,
+        provenance_nodes: list[str] | None = None,
         source: str = "novascientist_pipeline",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> StoredArtifact:
         """Store binary payload immutably."""
         sha256_hash = self.compute_sha256(content)
@@ -155,9 +161,9 @@ class ArtifactStore:
         artifact_type: ArtifactType,
         filename: str,
         content: str,
-        provenance_nodes: Optional[List[str]] = None,
+        provenance_nodes: list[str] | None = None,
         source: str = "novascientist_pipeline",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> StoredArtifact:
         """Store text string (e.g. LaTeX, JSON, Markdown)."""
         return self.store_bytes(
@@ -176,11 +182,11 @@ class ArtifactStore:
         project_id: str,
         run_id: str,
         artifact_type: ArtifactType,
-        source_file: Union[str, Path],
-        target_filename: Optional[str] = None,
-        provenance_nodes: Optional[List[str]] = None,
+        source_file: str | Path,
+        target_filename: str | None = None,
+        provenance_nodes: list[str] | None = None,
         source: str = "novascientist_pipeline",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> StoredArtifact:
         """Copy and register an existing file from disk."""
         src_path = Path(source_file)
@@ -212,11 +218,13 @@ class ArtifactStore:
         self._save_index()
         return record
 
-    def get_artifact(self, artifact_id: str, verify_integrity: bool = True) -> StoredArtifact:
+    def get_artifact(
+        self, artifact_id: str, verify_integrity: bool = True
+    ) -> StoredArtifact:
         """Retrieve artifact metadata with optional SHA-256 verification."""
         if artifact_id not in self._index:
             raise KeyError(f"Artifact ID '{artifact_id}' not found in store.")
-        
+
         record = self._index[artifact_id]
         if verify_integrity:
             loc = Path(record.location)
@@ -240,10 +248,10 @@ class ArtifactStore:
         """Read artifact text content with fail-closed integrity check."""
         return self.read_bytes(artifact_id).decode("utf-8")
 
-    def list_run_artifacts(self, run_id: str) -> List[StoredArtifact]:
+    def list_run_artifacts(self, run_id: str) -> list[StoredArtifact]:
         """List all artifacts generated for a given research run."""
         return [art for art in self._index.values() if art.run_id == run_id]
 
-    def list_project_artifacts(self, project_id: str) -> List[StoredArtifact]:
+    def list_project_artifacts(self, project_id: str) -> list[StoredArtifact]:
         """List all artifacts for an entire project workspace."""
         return [art for art in self._index.values() if art.project_id == project_id]

@@ -11,55 +11,56 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
 
 
 class ASTGuardViolation(Exception):
     """Base exception for AST guard violations."""
-    pass
 
 
 class DataLeakageError(ASTGuardViolation):
     """Raised when data leakage is statically detected."""
-    pass
 
 
 class ASTSecurityError(ASTGuardViolation):
     """Raised when unsafe code execution is detected."""
-    pass
 
 
 @dataclass
 class DiagnosticReport:
     """Detailed summary of AST static analysis."""
+
     is_valid: bool
-    violations: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    split_line: Optional[int] = None
+    violations: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    split_line: int | None = None
     seed_initialized: bool = False
-    fitted_variables: Set[str] = field(default_factory=set)
+    fitted_variables: set[str] = field(default_factory=set)
 
 
 class ExperimentASTVisitor(ast.NodeVisitor):
     """AST Visitor enforcing machine learning evaluation integrity."""
 
     LEAKY_METHODS = {"fit", "fit_transform", "fit_resample"}
-    SPLIT_FUNCTIONS = {"train_test_split", "KFold", "StratifiedKFold", "TimeSeriesSplit", "GroupKFold"}
-    SEED_FUNCTIONS = {
-        "manual_seed", "seed", "set_seed", "default_rng"
+    SPLIT_FUNCTIONS = {
+        "train_test_split",
+        "KFold",
+        "StratifiedKFold",
+        "TimeSeriesSplit",
+        "GroupKFold",
     }
+    SEED_FUNCTIONS = {"manual_seed", "seed", "set_seed", "default_rng"}
     UNSAFE_CALLS = {"eval", "exec", "__import__"}
 
     def __init__(self) -> None:
         self.split_detected = False
-        self.split_line: Optional[int] = None
-        self.split_target_vars: Set[str] = set()
-        self.train_vars: Set[str] = set()
-        self.test_vars: Set[str] = set()
+        self.split_line: int | None = None
+        self.split_target_vars: set[str] = set()
+        self.train_vars: set[str] = set()
+        self.test_vars: set[str] = set()
         self.seed_initialized = False
-        self.violations: List[str] = []
-        self.warnings: List[str] = []
-        self.fitted_entities: Set[str] = set()
+        self.violations: list[str] = []
+        self.warnings: list[str] = []
+        self.fitted_entities: set[str] = set()
 
     def visit_Call(self, node: ast.Call) -> None:
         # Check for unsafe function calls (eval, exec)
@@ -69,7 +70,10 @@ class ExperimentASTVisitor(ast.NodeVisitor):
             self.violations.append(msg)
 
         # Check for seed initialization
-        if func_name in self.SEED_FUNCTIONS or (isinstance(node.func, ast.Attribute) and node.func.attr in self.SEED_FUNCTIONS):
+        if func_name in self.SEED_FUNCTIONS or (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in self.SEED_FUNCTIONS
+        ):
             self.seed_initialized = True
 
         # Check for train_test_split calls
@@ -78,13 +82,20 @@ class ExperimentASTVisitor(ast.NodeVisitor):
             self.split_line = node.lineno
 
         # Check for fit / fit_transform data leakage
-        if isinstance(node.func, ast.Attribute) and node.func.attr in self.LEAKY_METHODS:
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in self.LEAKY_METHODS
+        ):
             method_name = node.func.attr
             caller = self._get_node_repr(node.func.value)
-            
+
             # Check arguments passed to .fit()
-            arg_names = [self._get_node_repr(arg) for arg in node.args if isinstance(arg, ast.Name)]
-            
+            arg_names = [
+                self._get_node_repr(arg)
+                for arg in node.args
+                if isinstance(arg, ast.Name)
+            ]
+
             if not self.split_detected:
                 # fit() called before dataset splitting -> Data Leakage!
                 msg = (
@@ -96,13 +107,17 @@ class ExperimentASTVisitor(ast.NodeVisitor):
             else:
                 # If splitting occurred, ensure test variables are not passed to fit()
                 for arg in arg_names:
-                    if "test" in arg.lower() or "val" in arg.lower() or arg in self.test_vars:
+                    if (
+                        "test" in arg.lower()
+                        or "val" in arg.lower()
+                        or arg in self.test_vars
+                    ):
                         msg = (
                             f"[Line {node.lineno}] Contamination Error: Method '{caller}.{method_name}()' fitted on test/validation "
                             f"partition '{arg}'. Test data must only be transformed via .transform()."
                         )
                         self.violations.append(msg)
-            
+
             self.fitted_entities.add(caller)
 
         self.generic_visit(node)
@@ -121,7 +136,11 @@ class ExperimentASTVisitor(ast.NodeVisitor):
                                 name = elt.id
                                 if "train" in name.lower() or idx % 2 == 0:
                                     self.train_vars.add(name)
-                                if "test" in name.lower() or "val" in name.lower() or idx % 2 == 1:
+                                if (
+                                    "test" in name.lower()
+                                    or "val" in name.lower()
+                                    or idx % 2 == 1
+                                ):
                                     self.test_vars.add(name)
         self.generic_visit(node)
 
@@ -146,14 +165,18 @@ class ASTGuard:
     """Public interface for static experiment analysis."""
 
     @classmethod
-    def analyze_source(cls, source_code: str, filename: str = "<experiment>") -> DiagnosticReport:
+    def analyze_source(
+        cls, source_code: str, filename: str = "<experiment>"
+    ) -> DiagnosticReport:
         """Statically inspect source code and return a DiagnosticReport."""
         try:
             tree = ast.parse(source_code, filename=filename)
         except SyntaxError as e:
             return DiagnosticReport(
                 is_valid=False,
-                violations=[f"Python Syntax Error in {filename} at line {e.lineno}: {e.msg}"],
+                violations=[
+                    f"Python Syntax Error in {filename} at line {e.lineno}: {e.msg}"
+                ],
             )
 
         visitor = ExperimentASTVisitor()
@@ -175,10 +198,14 @@ class ASTGuard:
         )
 
     @classmethod
-    def enforce(cls, source_code: str, filename: str = "<experiment>") -> DiagnosticReport:
+    def enforce(
+        cls, source_code: str, filename: str = "<experiment>"
+    ) -> DiagnosticReport:
         """Analyze source code and raise DataLeakageError if violations are found."""
         report = cls.analyze_source(source_code, filename)
         if not report.is_valid:
             violations_str = "\n".join(report.violations)
-            raise DataLeakageError(f"AST Static Analysis Failed for {filename}:\n{violations_str}")
+            raise DataLeakageError(
+                f"AST Static Analysis Failed for {filename}:\n{violations_str}"
+            )
         return report

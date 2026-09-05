@@ -10,39 +10,41 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
-import scipy.stats as stats
+from scipy import stats
 
 
 @dataclass
 class MetricSummary:
     """Summary statistics for a specific metric across seeds."""
+
     metric_name: str
     sample_size: int
     mean: float
     std: float
     se: float
-    ci_95_lower: Optional[float]
-    ci_95_upper: Optional[float]
+    ci_95_lower: float | None
+    ci_95_upper: float | None
     min: float
     max: float
     median: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class MethodStatisticalSummary:
     """Statistical profile for an evaluation method across all metrics."""
+
     method_id: str
     method_name: str
     sample_size: int
-    metrics: Dict[str, MetricSummary] = field(default_factory=dict)
+    metrics: dict[str, MetricSummary] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "method_id": self.method_id,
             "method_name": self.method_name,
@@ -54,27 +56,29 @@ class MethodStatisticalSummary:
 @dataclass
 class PairwiseComparison:
     """Statistical hypothesis test comparing proposed method against a baseline."""
+
     baseline_id: str
     baseline_name: str
     proposed_id: str
     proposed_name: str
     metric_name: str
     test_used: str  # 'paired_t_test', 'wilcoxon_signed_rank', 'insufficient_samples', 'constant_difference'
-    statistic: Optional[float]
-    p_value: Optional[float]
-    effect_size_cohens_d: Optional[float]
+    statistic: float | None
+    p_value: float | None
+    effect_size_cohens_d: float | None
     effect_size_magnitude: str  # 'negligible', 'small', 'medium', 'large', 'undefined'
     is_significant: bool  # p < 0.05
     mean_difference: float
-    degrees_of_freedom: Optional[int] = None
+    degrees_of_freedom: int | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class StatisticalCritique:
     """Structured findings from the statistical critic agent."""
+
     critique_id: str
     passed: bool
     num_seeds: int
@@ -83,13 +87,13 @@ class StatisticalCritique:
     meta_analysis_significant: bool
     heterogeneity_acceptable: bool
     cherry_picking_risk: str  # 'low', 'medium', 'high'
-    critical_issues: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
-    method_summaries: Dict[str, MethodStatisticalSummary] = field(default_factory=dict)
-    pairwise_comparisons: List[PairwiseComparison] = field(default_factory=list)
+    critical_issues: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    method_summaries: dict[str, MethodStatisticalSummary] = field(default_factory=dict)
+    pairwise_comparisons: list[PairwiseComparison] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         res = asdict(self)
         res["method_summaries"] = {
             k: v.to_dict() if hasattr(v, "to_dict") else v
@@ -110,30 +114,67 @@ class StatisticalCriticAgent:
     MAX_ALLOWED_HETEROGENEITY_I2 = 75.0
     SIGNIFICANCE_ALPHA = 0.05
 
-    METRIC_ALIASES: Dict[str, List[str]] = {
-        "accuracy": ["final_accuracy", "accuracy", "acc", "val_acc", "test_acc", "mean_accuracy"],
-        "memory_mb": ["peak_memory_mb", "memory_mb", "memory", "mem_mb", "mem", "mean_memory_mb"],
-        "latency_ms": ["inference_latency_ms", "latency_ms", "latency", "lat_ms", "lat", "mean_latency_ms"],
-        "throughput": ["throughput_samples_sec", "throughput", "throughput_fps", "mean_throughput"],
-        "compression_ratio": ["compression_ratio", "compression", "comp_ratio", "mean_compression_ratio"],
+    METRIC_ALIASES: dict[str, list[str]] = {
+        "accuracy": [
+            "final_accuracy",
+            "accuracy",
+            "acc",
+            "val_acc",
+            "test_acc",
+            "mean_accuracy",
+        ],
+        "memory_mb": [
+            "peak_memory_mb",
+            "memory_mb",
+            "memory",
+            "mem_mb",
+            "mem",
+            "mean_memory_mb",
+        ],
+        "latency_ms": [
+            "inference_latency_ms",
+            "latency_ms",
+            "latency",
+            "lat_ms",
+            "lat",
+            "mean_latency_ms",
+        ],
+        "throughput": [
+            "throughput_samples_sec",
+            "throughput",
+            "throughput_fps",
+            "mean_throughput",
+        ],
+        "compression_ratio": [
+            "compression_ratio",
+            "compression",
+            "comp_ratio",
+            "mean_compression_ratio",
+        ],
     }
 
     def __init__(self) -> None:
         pass
 
     @staticmethod
-    def _extract_metric_series(method_data: Any, metric_canonical: str) -> List[float]:
+    def _extract_metric_series(method_data: Any, metric_canonical: str) -> list[float]:
         """Extract a series of numeric observations for a canonical metric."""
-        aliases = StatisticalCriticAgent.METRIC_ALIASES.get(metric_canonical, [metric_canonical])
+        aliases = StatisticalCriticAgent.METRIC_ALIASES.get(
+            metric_canonical, [metric_canonical]
+        )
 
         if method_data is None:
             return []
 
         # Check if method_data is a dict or object
         if isinstance(method_data, dict):
-            runs = method_data.get("seed_runs") or method_data.get("seed_results") or method_data.get("runs")
+            runs = (
+                method_data.get("seed_runs")
+                or method_data.get("seed_results")
+                or method_data.get("runs")
+            )
             if runs and isinstance(runs, list):
-                extracted: List[float] = []
+                extracted: list[float] = []
                 for r in runs:
                     val = None
                     if isinstance(r, dict):
@@ -165,7 +206,9 @@ class StatisticalCriticAgent:
                     return [float(method_data[a])]
 
         elif hasattr(method_data, "__dict__"):
-            runs = getattr(method_data, "seed_runs", None) or getattr(method_data, "seed_results", None)
+            runs = getattr(method_data, "seed_runs", None) or getattr(
+                method_data, "seed_results", None
+            )
             if runs and isinstance(runs, list):
                 extracted = []
                 for r in runs:
@@ -194,7 +237,7 @@ class StatisticalCriticAgent:
         return []
 
     @staticmethod
-    def _compute_metric_summary(metric_name: str, values: List[float]) -> MetricSummary:
+    def _compute_metric_summary(metric_name: str, values: list[float]) -> MetricSummary:
         """Calculate mean, std, se, 95% CI, min, max, median for actual values."""
         n = len(values)
         if n == 0:
@@ -212,7 +255,9 @@ class StatisticalCriticAgent:
             )
 
         # Check for NaN / Inf
-        clean_values = [float(v) for v in values if not math.isnan(v) and not math.isinf(v)]
+        clean_values = [
+            float(v) for v in values if not math.isnan(v) and not math.isinf(v)
+        ]
         if len(clean_values) != n:
             # Propagate NaN if present
             return MetricSummary(
@@ -237,7 +282,11 @@ class StatisticalCriticAgent:
             std_val = float(np.std(clean_values, ddof=1))
             se_val = float(std_val / math.sqrt(n))
             # 95% Confidence Interval via Student's t distribution
-            t_crit = float(stats.t.ppf(1.0 - StatisticalCriticAgent.SIGNIFICANCE_ALPHA / 2.0, df=n - 1))
+            t_crit = float(
+                stats.t.ppf(
+                    1.0 - StatisticalCriticAgent.SIGNIFICANCE_ALPHA / 2.0, df=n - 1
+                )
+            )
             ci_lower = float(mean_val - t_crit * se_val)
             ci_upper = float(mean_val + t_crit * se_val)
         else:
@@ -260,7 +309,9 @@ class StatisticalCriticAgent:
         )
 
     @staticmethod
-    def _compute_cohens_d(group1: List[float], group2: List[float]) -> Tuple[Optional[float], str]:
+    def _compute_cohens_d(
+        group1: list[float], group2: list[float]
+    ) -> tuple[float | None, str]:
         """Compute Cohen's d effect size and classify its magnitude."""
         n1 = len(group1)
         n2 = len(group2)
@@ -298,12 +349,14 @@ class StatisticalCriticAgent:
         baseline_id: str,
         baseline_name: str,
         metric_name: str,
-        proposed_vals: List[float],
-        baseline_vals: List[float],
+        proposed_vals: list[float],
+        baseline_vals: list[float],
     ) -> PairwiseComparison:
         """Conduct deterministic hypothesis testing between proposed and baseline methods."""
         n = min(len(proposed_vals), len(baseline_vals))
-        mean_diff = float(np.mean(proposed_vals) - np.mean(baseline_vals)) if n > 0 else 0.0
+        mean_diff = (
+            float(np.mean(proposed_vals) - np.mean(baseline_vals)) if n > 0 else 0.0
+        )
 
         if n < StatisticalCriticAgent.MIN_SEEDS_HARD_THRESHOLD:
             return PairwiseComparison(
@@ -412,7 +465,9 @@ class StatisticalCriticAgent:
                     p_value=round(float(t_res.pvalue), 6),
                     effect_size_cohens_d=d_val,
                     effect_size_magnitude=d_mag,
-                    is_significant=(float(t_res.pvalue) < StatisticalCriticAgent.SIGNIFICANCE_ALPHA),
+                    is_significant=(
+                        float(t_res.pvalue) < StatisticalCriticAgent.SIGNIFICANCE_ALPHA
+                    ),
                     mean_difference=round(mean_diff, 6),
                     degrees_of_freedom=n - 1,
                 )
@@ -430,19 +485,25 @@ class StatisticalCriticAgent:
                     p_value=round(float(t_res.pvalue), 6),
                     effect_size_cohens_d=d_val,
                     effect_size_magnitude=d_mag,
-                    is_significant=(float(t_res.pvalue) < StatisticalCriticAgent.SIGNIFICANCE_ALPHA),
+                    is_significant=(
+                        float(t_res.pvalue) < StatisticalCriticAgent.SIGNIFICANCE_ALPHA
+                    ),
                     mean_difference=round(mean_diff, 6),
                     degrees_of_freedom=n - 1,
                 )
 
-    def evaluate_statistics(self, metrics_dict: Optional[Dict[str, Any]]) -> StatisticalCritique:
+    def evaluate_statistics(
+        self, metrics_dict: dict[str, Any] | None
+    ) -> StatisticalCritique:
         """Conduct rigorous data-driven statistical audit across all evaluation folds."""
-        critical_issues: List[str] = []
-        warnings: List[str] = []
-        recommendations: List[str] = []
+        critical_issues: list[str] = []
+        warnings: list[str] = []
+        recommendations: list[str] = []
 
         if not metrics_dict or not isinstance(metrics_dict, dict):
-            critical_issues.append("Missing Telemetry: Experiment metrics dictionary is empty or invalid.")
+            critical_issues.append(
+                "Missing Telemetry: Experiment metrics dictionary is empty or invalid."
+            )
             return StatisticalCritique(
                 critique_id="stat_critique_err",
                 passed=False,
@@ -454,12 +515,16 @@ class StatisticalCriticAgent:
                 cherry_picking_risk="high",
                 critical_issues=critical_issues,
                 warnings=warnings,
-                recommendations=["Re-run experiment pipeline to produce valid metrics.json artifact."],
+                recommendations=[
+                    "Re-run experiment pipeline to produce valid metrics.json artifact."
+                ],
             )
 
         methods = metrics_dict.get("methods", {})
         if not isinstance(methods, dict) or len(methods) == 0:
-            critical_issues.append("Missing Methods: No evaluation methods found in experiment telemetry.")
+            critical_issues.append(
+                "Missing Methods: No evaluation methods found in experiment telemetry."
+            )
             return StatisticalCritique(
                 critique_id="stat_critique_err",
                 passed=False,
@@ -471,15 +536,17 @@ class StatisticalCriticAgent:
                 cherry_picking_risk="high",
                 critical_issues=critical_issues,
                 warnings=warnings,
-                recommendations=["Provide at least 2 distinct evaluation methods (proposed + baseline)."],
+                recommendations=[
+                    "Provide at least 2 distinct evaluation methods (proposed + baseline)."
+                ],
             )
 
         seeds = metrics_dict.get("seeds", [])
         num_seeds = len(seeds) if isinstance(seeds, list) else 0
 
         # Build method statistical profiles from actual telemetry
-        method_summaries: Dict[str, MethodStatisticalSummary] = {}
-        all_sample_sizes: List[int] = []
+        method_summaries: dict[str, MethodStatisticalSummary] = {}
+        all_sample_sizes: list[int] = []
 
         for m_id, m_data in methods.items():
             m_name = (
@@ -487,10 +554,16 @@ class StatisticalCriticAgent:
                 if isinstance(m_data, dict)
                 else getattr(m_data, "name", m_id)
             )
-            metric_summaries: Dict[str, MetricSummary] = {}
+            metric_summaries: dict[str, MetricSummary] = {}
             m_sizes = []
 
-            for canonical_metric in ["accuracy", "memory_mb", "latency_ms", "throughput", "compression_ratio"]:
+            for canonical_metric in [
+                "accuracy",
+                "memory_mb",
+                "latency_ms",
+                "throughput",
+                "compression_ratio",
+            ]:
                 series = self._extract_metric_series(m_data, canonical_metric)
                 if series:
                     # Check for NaN / Inf
@@ -511,31 +584,45 @@ class StatisticalCriticAgent:
                 metrics=metric_summaries,
             )
 
-        effective_seeds = num_seeds if num_seeds > 0 else (max(all_sample_sizes) if all_sample_sizes else 0)
+        effective_seeds = (
+            num_seeds
+            if num_seeds > 0
+            else (max(all_sample_sizes) if all_sample_sizes else 0)
+        )
 
         # 1. Sample Size Rigorous Evaluation
         if effective_seeds == 0:
             sample_size_ok = False
-            critical_issues.append("Missing Telemetry: No experimental seeds or sample runs evaluated.")
-            recommendations.append(f"Execute multi-seed evaluation with at least k={self.RECOMMENDED_SEEDS} random seeds.")
+            critical_issues.append(
+                "Missing Telemetry: No experimental seeds or sample runs evaluated."
+            )
+            recommendations.append(
+                f"Execute multi-seed evaluation with at least k={self.RECOMMENDED_SEEDS} random seeds."
+            )
         elif effective_seeds == 1:
             sample_size_ok = False
             critical_issues.append(
                 "Insufficient repeated-seed evidence: only 1 seed evaluated (minimum 3 required for statistical significance)."
             )
-            recommendations.append(f"Execute multi-seed evaluation with at least k={self.RECOMMENDED_SEEDS} random seeds.")
+            recommendations.append(
+                f"Execute multi-seed evaluation with at least k={self.RECOMMENDED_SEEDS} random seeds."
+            )
         elif effective_seeds < self.MIN_SEEDS_HARD_THRESHOLD:
             sample_size_ok = False
             critical_issues.append(
                 f"Sample Size Violation: Evaluated {effective_seeds} seeds. Minimum required for statistical significance is k={self.MIN_SEEDS_HARD_THRESHOLD}."
             )
-            recommendations.append(f"Increase random seed count to at least k={self.RECOMMENDED_SEEDS}.")
+            recommendations.append(
+                f"Increase random seed count to at least k={self.RECOMMENDED_SEEDS}."
+            )
         elif effective_seeds < self.RECOMMENDED_SEEDS:
             sample_size_ok = True
             warnings.append(
                 f"Low Seed Count: Evaluated {effective_seeds} seeds. While k={effective_seeds} allows hypothesis testing, k={self.RECOMMENDED_SEEDS} is recommended for publication."
             )
-            recommendations.append(f"Consider scaling seed evaluation to k={self.RECOMMENDED_SEEDS} for tighter confidence bounds.")
+            recommendations.append(
+                f"Consider scaling seed evaluation to k={self.RECOMMENDED_SEEDS} for tighter confidence bounds."
+            )
         else:
             sample_size_ok = True
 
@@ -544,7 +631,9 @@ class StatisticalCriticAgent:
             critical_issues.append(
                 f"Missing Baselines: Comparative evaluation requires at least 2 distinct methods. Found {len(methods)}."
             )
-            recommendations.append("Include standard baseline architectures for comparative benchmark.")
+            recommendations.append(
+                "Include standard baseline architectures for comparative benchmark."
+            )
 
         # 3. Variance & Dispersion Check
         variance_ok = True
@@ -572,15 +661,19 @@ class StatisticalCriticAgent:
         if not proposed_key and methods:
             proposed_key = list(methods.keys())[0]
 
-        pairwise_comparisons: List[PairwiseComparison] = []
+        pairwise_comparisons: list[PairwiseComparison] = []
         if proposed_key and proposed_key in method_summaries:
             prop_summary = method_summaries[proposed_key]
-            prop_acc_vals = self._extract_metric_series(methods[proposed_key], "accuracy")
+            prop_acc_vals = self._extract_metric_series(
+                methods[proposed_key], "accuracy"
+            )
 
             for base_key, base_summary in method_summaries.items():
                 if base_key == proposed_key:
                     continue
-                base_acc_vals = self._extract_metric_series(methods[base_key], "accuracy")
+                base_acc_vals = self._extract_metric_series(
+                    methods[base_key], "accuracy"
+                )
                 if prop_acc_vals and base_acc_vals:
                     cmp_res = self._conduct_pairwise_test(
                         proposed_id=proposed_key,
@@ -604,19 +697,21 @@ class StatisticalCriticAgent:
             i_sq = meta.get("i_squared_percent", 0.0)
             p_val_z = meta.get("p_value_z", 0.0 if abs(z_stat) >= 1.96 else 0.10)
 
-            meta_sig = (abs(z_stat) >= 1.96 or p_val_z < self.SIGNIFICANCE_ALPHA)
+            meta_sig = abs(z_stat) >= 1.96 or p_val_z < self.SIGNIFICANCE_ALPHA
             if not meta_sig:
                 warnings.append(
                     f"Marginal Effect Size: DerSimonian-Laird Z={z_stat:.2f} does not reach p<{self.SIGNIFICANCE_ALPHA} significance."
                 )
 
-            hetero_ok = (i_sq <= self.MAX_ALLOWED_HETEROGENEITY_I2)
+            hetero_ok = i_sq <= self.MAX_ALLOWED_HETEROGENEITY_I2
             if not hetero_ok:
                 critical_issues.append(
                     f"Excessive Heterogeneity: I² = {i_sq:.1f}% exceeds maximum publication threshold ({self.MAX_ALLOWED_HETEROGENEITY_I2:.1f}%)."
                 )
             elif i_sq > 50.0:
-                warnings.append(f"Moderate Heterogeneity: I² = {i_sq:.1f}% observed across evaluation folds.")
+                warnings.append(
+                    f"Moderate Heterogeneity: I² = {i_sq:.1f}% observed across evaluation folds."
+                )
         else:
             meta_sig = True
             hetero_ok = True
@@ -630,15 +725,15 @@ class StatisticalCriticAgent:
                 if spread > 0.20:
                     cherry_risk = "high"
                     critical_issues.append(
-                        f"Excessive Seed Dispersion: Accuracy spread of {spread*100:.1f}% in proposed method indicates unstable optimization."
+                        f"Excessive Seed Dispersion: Accuracy spread of {spread * 100:.1f}% in proposed method indicates unstable optimization."
                     )
                 elif spread > 0.12:
                     cherry_risk = "medium"
                     warnings.append(
-                        f"Moderate Seed Dispersion: Accuracy spread of {spread*100:.1f}% observed in proposed method across seeds."
+                        f"Moderate Seed Dispersion: Accuracy spread of {spread * 100:.1f}% observed in proposed method across seeds."
                     )
 
-        passed = (len(critical_issues) == 0)
+        passed = len(critical_issues) == 0
 
         return StatisticalCritique(
             critique_id="stat_critique_001",

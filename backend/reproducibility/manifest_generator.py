@@ -8,27 +8,26 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import platform
 import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from backend.config import config
-from backend.core.universal_engine import get_physical_hardware_info
 from backend.core.real_trainer import get_torch_device
+from backend.core.universal_engine import get_physical_hardware_info
 
 
 class ProvenanceIntegrityError(Exception):
     """Raised when the provenance DAG contains orphan nodes, dangling edges, or broken lineages."""
-    pass
 
 
 @dataclass
 class ReproducibilityManifest:
     """Standardized machine-readable reproducibility descriptor."""
+
     manifest_id: str
     run_id: str
     git_sha: str
@@ -38,16 +37,16 @@ class ReproducibilityManifest:
     hardware_cpu: str
     hardware_ram_gb: float
     hardware_device: str
-    random_seeds: List[int]
+    random_seeds: list[int]
     dataset_identifier: str
     dataset_sha256: str
     contract_id: str
     model_architecture: str
-    experiment_spec: Dict[str, Any]
+    experiment_spec: dict[str, Any]
     generated_at: float = field(default_factory=time.time)
     provenance_hash: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -74,11 +73,11 @@ class ReproducibilityGenerator:
     def generate_manifest(
         cls,
         run_id: str,
-        contract_data: Dict[str, Any],
-        experiment_spec: Dict[str, Any],
+        contract_data: dict[str, Any],
+        experiment_spec: dict[str, Any],
         dataset_name: str,
-        random_seeds: Optional[List[int]] = None,
-        provenance_data: Optional[Dict[str, Any]] = None,
+        random_seeds: list[int] | None = None,
+        provenance_data: dict[str, Any] | None = None,
     ) -> ReproducibilityManifest:
         """Construct full manifest from run telemetry."""
         hw = get_physical_hardware_info()
@@ -87,13 +86,15 @@ class ReproducibilityGenerator:
 
         seeds = random_seeds or [42, 137, 2024, 7, 99]
         dataset_hash = hashlib.sha256(dataset_name.encode("utf-8")).hexdigest()[:16]
-        
+
         prov_hash = ""
         if provenance_data:
             prov_bytes = json.dumps(provenance_data, sort_keys=True).encode("utf-8")
             prov_hash = hashlib.sha256(prov_bytes).hexdigest()
 
-        manifest_id = f"manif_{hashlib.sha256(f'{run_id}_{git_sha}'.encode('utf-8')).hexdigest()[:10]}"
+        manifest_id = (
+            f"manif_{hashlib.sha256(f'{run_id}_{git_sha}'.encode()).hexdigest()[:10]}"
+        )
 
         return ReproducibilityManifest(
             manifest_id=manifest_id,
@@ -109,7 +110,9 @@ class ReproducibilityGenerator:
             dataset_identifier=dataset_name,
             dataset_sha256=dataset_hash,
             contract_id=contract_data.get("contract_id", "unknown_contract"),
-            model_architecture=contract_data.get("selected_method", "Adaptive Surrogate"),
+            model_architecture=contract_data.get(
+                "selected_method", "Adaptive Surrogate"
+            ),
             experiment_spec=experiment_spec,
             provenance_hash=prov_hash,
         )
@@ -119,24 +122,23 @@ class ProvenanceGraphVerifier:
     """Validates full lineage closure and absence of dangling references."""
 
     @classmethod
-    def verify_dag(cls, provenance_dict: Dict[str, Any]) -> bool:
+    def verify_dag(cls, provenance_dict: dict[str, Any]) -> bool:
         """Verify 0 orphan nodes and 0 dangling edges in provenance graph."""
         raw_nodes = provenance_dict.get("nodes", {})
         if not raw_nodes:
             return True  # Empty graph is trivially valid
 
         if isinstance(raw_nodes, list):
-            nodes: Dict[str, Dict[str, Any]] = {
-                n.get("node_id", f"node_{i}"): n
-                for i, n in enumerate(raw_nodes)
+            nodes: dict[str, dict[str, Any]] = {
+                n.get("node_id", f"node_{i}"): n for i, n in enumerate(raw_nodes)
             }
         elif isinstance(raw_nodes, dict):
             nodes = raw_nodes
         else:
             return True
 
-        node_ids: Set[str] = set(nodes.keys())
-        referenced_parent_ids: Set[str] = set()
+        node_ids: set[str] = set(nodes.keys())
+        referenced_parent_ids: set[str] = set()
 
         for n_id, n_data in nodes.items():
             parent_ids = n_data.get("parent_ids", [])
@@ -148,8 +150,12 @@ class ProvenanceGraphVerifier:
                 referenced_parent_ids.add(p_id)
 
         # Identify roots (nodes with no parents)
-        root_nodes = [n_id for n_id, n_data in nodes.items() if not n_data.get("parent_ids")]
+        root_nodes = [
+            n_id for n_id, n_data in nodes.items() if not n_data.get("parent_ids")
+        ]
         if not root_nodes:
-            raise ProvenanceIntegrityError("Cyclic Provenance Detected: Graph contains no root origin nodes.")
+            raise ProvenanceIntegrityError(
+                "Cyclic Provenance Detected: Graph contains no root origin nodes."
+            )
 
         return True

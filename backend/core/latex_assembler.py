@@ -7,32 +7,30 @@ dynamically dispatches domain-specific mathematical formulations, generates
 deep 5-8 page publication manuscripts, and validates numeric provenance invariants.
 """
 
-import json
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-from backend.core.literature import PaperMetadata
+from typing import Any
+
 from backend.core.dataset_finder import DatasetFinder, DatasetMetadata
+from backend.core.literature import PaperMetadata
 from backend.core.research_contract import (
     MathematicalTreatmentDecision,
     StatisticalAnalysisType,
-    ScientificResearchContract,
 )
 
 
 class ComplianceViolationError(Exception):
     """Raised when authorship or publishing ethical standards are violated."""
-    pass
 
 
 class MetricConsistencyError(Exception):
     """Raised when LaTeX text contains unverified/hallucinated numerical claims."""
-    pass
 
 
 @dataclass
 class AuthorProfile:
     """Scholarly author metadata supporting double-blind and verified human profiles."""
+
     name: str = "Anonymous Author(s)"
     affiliation: str = "Affiliation Withheld for Double-Blind Review"
     email: str = "anonymous@conference-review.org"
@@ -40,7 +38,9 @@ class AuthorProfile:
     def validate(self) -> None:
         """Enforce strict compliance checks against AI identity contamination."""
         if not self.name or not self.name.strip():
-            raise ComplianceViolationError("Pre-Flight Compliance Gate Failed: Author name must not be empty.")
+            raise ComplianceViolationError(
+                "Pre-Flight Compliance Gate Failed: Author name must not be empty."
+            )
 
         lower_name = self.name.lower().strip()
         if "anonymous" in lower_name or "withheld" in lower_name:
@@ -48,8 +48,15 @@ class AuthorProfile:
 
         # Explicitly ban AI agent identifiers as primary authors per IEEE/ACM 2024+ policies
         forbidden_ai_tokens = [
-            "ai agent", "autonomous agent", "autonomous research engine",
-            "novascientist", "bot", "chatgpt", "gemini", "claude", "llm"
+            "ai agent",
+            "autonomous agent",
+            "autonomous research engine",
+            "novascientist",
+            "bot",
+            "chatgpt",
+            "gemini",
+            "claude",
+            "llm",
         ]
         for token in forbidden_ai_tokens:
             if token in lower_name:
@@ -59,10 +66,14 @@ class AuthorProfile:
                 )
 
         if not self.affiliation or len(self.affiliation.strip()) < 3:
-            raise ComplianceViolationError("Pre-Flight Compliance Gate Failed: Valid institutional affiliation is required.")
+            raise ComplianceViolationError(
+                "Pre-Flight Compliance Gate Failed: Valid institutional affiliation is required."
+            )
 
         if not self.email or "@" not in self.email or "." not in self.email:
-            raise ComplianceViolationError(f"Pre-Flight Compliance Gate Failed: Invalid corresponding email '{self.email}'.")
+            raise ComplianceViolationError(
+                f"Pre-Flight Compliance Gate Failed: Invalid corresponding email '{self.email}'."
+            )
 
 
 class CompliantLaTeXAssembler:
@@ -70,11 +81,11 @@ class CompliantLaTeXAssembler:
 
     def __init__(
         self,
-        metrics_data: Dict[str, Any],
-        papers: List[PaperMetadata],
-        author: Optional[AuthorProfile] = None,
-        dataset: Optional[DatasetMetadata] = None,
-        contract: Optional[Any] = None,
+        metrics_data: dict[str, Any],
+        papers: list[PaperMetadata],
+        author: AuthorProfile | None = None,
+        dataset: DatasetMetadata | None = None,
+        contract: Any | None = None,
     ) -> None:
         self.contract = contract
         self.metrics = metrics_data
@@ -85,11 +96,15 @@ class CompliantLaTeXAssembler:
 
         domain_str = "physics_surrogate"
         if isinstance(self.metrics.get("hardware_info"), dict):
-            domain_str = self.metrics["hardware_info"].get("domain", "physics_surrogate")
+            domain_str = self.metrics["hardware_info"].get(
+                "domain", "physics_surrogate"
+            )
         elif isinstance(self.metrics.get("domain"), str):
             domain_str = self.metrics["domain"]
 
-        self.dataset = dataset or DatasetFinder.discover(self.metrics.get("topic", ""), domain_str)
+        self.dataset = dataset or DatasetFinder.discover(
+            self.metrics.get("topic", ""), domain_str
+        )
 
         self.methods = self.metrics.get("methods", {})
         self.meta = self.metrics.get("meta_analysis", {})
@@ -98,10 +113,23 @@ class CompliantLaTeXAssembler:
         self.int8 = self.methods.get("post_int8", {})
         self.sparse = self.methods.get("sparse_gnn", {})
 
-    def _get_domain_equations(self, domain: str, topic: str = "") -> Dict[str, str]:
+    def _get_domain_equations(self, domain: str, topic: str = "") -> dict[str, str]:
         """Dispatch domain-specific mathematical equations and theoretical background."""
         is_transport_disaster = any(
-            k in topic.lower() for k in ["traffic", "evacuation", "disaster", "resilience", "transport", "corridor", "shelter", "sensor", "highway", "metr", "pems"]
+            k in topic.lower()
+            for k in [
+                "traffic",
+                "evacuation",
+                "disaster",
+                "resilience",
+                "transport",
+                "corridor",
+                "shelter",
+                "sensor",
+                "highway",
+                "metr",
+                "pems",
+            ]
         )
 
         if domain == "physics_surrogate":
@@ -220,10 +248,48 @@ bounded under low-bit dynamic scaling factors.""",
         for pat, repl in corrections.items():
             cleaned = re.sub(pat, repl, cleaned, flags=re.IGNORECASE)
 
-        acronyms = {"PDE", "GNN", "PINN", "FNO", "CPU", "GPU", "RAM", "AI", "ML", "IEEE", "ACM", "INT8", "FP32", "QAT", "AST", "CNN", "RNN", "LLM", "NLP"}
+        acronyms = {
+            "PDE",
+            "GNN",
+            "PINN",
+            "FNO",
+            "CPU",
+            "GPU",
+            "RAM",
+            "AI",
+            "ML",
+            "IEEE",
+            "ACM",
+            "INT8",
+            "FP32",
+            "QAT",
+            "AST",
+            "CNN",
+            "RNN",
+            "LLM",
+            "NLP",
+        }
         minor_words = {
-            "a", "an", "and", "as", "at", "but", "by", "for", "in", "nor",
-            "of", "on", "or", "so", "the", "to", "under", "via", "with", "yet"
+            "a",
+            "an",
+            "and",
+            "as",
+            "at",
+            "but",
+            "by",
+            "for",
+            "in",
+            "nor",
+            "of",
+            "on",
+            "or",
+            "so",
+            "the",
+            "to",
+            "under",
+            "via",
+            "with",
+            "yet",
         }
 
         words = cleaned.split()
@@ -233,8 +299,12 @@ bounded under low-bit dynamic scaling factors.""",
             if "-" in word:
                 parts = word.split("-")
                 capped_parts = [
-                    p.upper() if p.upper() in acronyms else (
-                        p.lower() if (i > 0 and idx > 0 and p.lower() in minor_words) else p.capitalize()
+                    p.upper()
+                    if p.upper() in acronyms
+                    else (
+                        p.lower()
+                        if (i > 0 and idx > 0 and p.lower() in minor_words)
+                        else p.capitalize()
                     )
                     for idx, p in enumerate(parts)
                 ]
@@ -255,10 +325,16 @@ bounded under low-bit dynamic scaling factors.""",
 
     def generate_latex(self) -> str:
         """Construct a complete, deep 5-8 page IEEE Transactions LaTeX document."""
-        topic_raw = self.metrics.get("topic", "Physics-Informed Dynamic Neural Surrogates under Bounded Memory")
+        topic_raw = self.metrics.get(
+            "topic", "Physics-Informed Dynamic Neural Surrogates under Bounded Memory"
+        )
         topic = self.format_academic_title(topic_raw)
-        domain_str = self.metrics.get("hardware_info", {}).get("domain", "physics_surrogate")
-        domain_name = self.metrics.get("hardware_info", {}).get("domain_name", "Physics-Informed Neural Surrogates & PDE Dynamics")
+        domain_str = self.metrics.get("hardware_info", {}).get(
+            "domain", "physics_surrogate"
+        )
+        domain_name = self.metrics.get("hardware_info", {}).get(
+            "domain_name", "Physics-Informed Neural Surrogates & PDE Dynamics"
+        )
 
         hw = self.metrics.get("hardware_info", {})
         if not isinstance(hw, dict):
@@ -269,11 +345,26 @@ bounded under low-bit dynamic scaling factors.""",
         arch = hw.get("architecture", "arm64/x86_64")
 
         is_transport_disaster = any(
-            k in topic_raw.lower() for k in ["traffic", "evacuation", "disaster", "resilience", "transport", "corridor", "shelter", "sensor", "highway", "metr", "pems"]
+            k in topic_raw.lower()
+            for k in [
+                "traffic",
+                "evacuation",
+                "disaster",
+                "resilience",
+                "transport",
+                "corridor",
+                "shelter",
+                "sensor",
+                "highway",
+                "metr",
+                "pems",
+            ]
         )
 
         topic_latex = topic.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
-        domain_name_latex = domain_name.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
+        domain_name_latex = (
+            domain_name.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
+        )
 
         eq_dict = self._get_domain_equations(domain_str, topic_raw)
 
@@ -303,11 +394,39 @@ bounded under low-bit dynamic scaling factors.""",
 
         # Bib keys for citations
         cite_keys = [p.bibkey for p in self.papers]
-        dataset_cite = self.dataset.bibtex_key if self.dataset and self.dataset.bibtex_key else "dataset_canonical"
-        dataset_name_latex = self.dataset.name.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_") if self.dataset else "Canonical Benchmark Dataset"
-        dataset_desc_latex = self.dataset.description.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_") if self.dataset else ""
-        dataset_dim_latex = self.dataset.dimension.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_") if self.dataset else ""
-        dataset_splits_latex = self.dataset.splits.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_") if self.dataset else ""
+        dataset_cite = (
+            self.dataset.bibtex_key
+            if self.dataset and self.dataset.bibtex_key
+            else "dataset_canonical"
+        )
+        dataset_name_latex = (
+            self.dataset.name.replace("&", r"\&")
+            .replace("%", r"\%")
+            .replace("_", r"\_")
+            if self.dataset
+            else "Canonical Benchmark Dataset"
+        )
+        dataset_desc_latex = (
+            self.dataset.description.replace("&", r"\&")
+            .replace("%", r"\%")
+            .replace("_", r"\_")
+            if self.dataset
+            else ""
+        )
+        dataset_dim_latex = (
+            self.dataset.dimension.replace("&", r"\&")
+            .replace("%", r"\%")
+            .replace("_", r"\_")
+            if self.dataset
+            else ""
+        )
+        dataset_splits_latex = (
+            self.dataset.splits.replace("&", r"\&")
+            .replace("%", r"\%")
+            .replace("_", r"\_")
+            if self.dataset
+            else ""
+        )
 
         cite_all = ", ".join(cite_keys) if cite_keys else "ref_generic_1"
         cite_primary = cite_keys[0] if cite_keys else "ref_generic_1"
@@ -315,67 +434,140 @@ bounded under low-bit dynamic scaling factors.""",
         cite_tertiary = cite_keys[2] if len(cite_keys) > 2 else cite_secondary
 
         contract = self.contract
-        stat_req = contract.statistical_requirement if contract else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
-        math_dec = contract.mathematical_requirement if contract else MathematicalTreatmentDecision.FORMAL_THEOREM
+        stat_req = (
+            contract.statistical_requirement
+            if contract
+            else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
+        )
+        math_dec = (
+            contract.mathematical_requirement
+            if contract
+            else MathematicalTreatmentDecision.FORMAL_THEOREM
+        )
 
         if contract:
             contract_has_hardware = any(
-                any(m in metric.lower() for m in ["latency", "memory", "ram", "throughput", "fps", "flops", "macs", "param", "hardware"])
+                any(
+                    m in metric.lower()
+                    for m in [
+                        "latency",
+                        "memory",
+                        "ram",
+                        "throughput",
+                        "fps",
+                        "flops",
+                        "macs",
+                        "param",
+                        "hardware",
+                    ]
+                )
                 for metric in (contract.primary_metrics + contract.secondary_metrics)
             ) or any(
-                k in contract.research_question.lower() or k in " ".join(contract.required_experiments).lower()
-                for k in ["hardware", "quantization", "int8", "cache", "block-floating", "fp32", "ram", "latency", "throughput"]
+                k in contract.research_question.lower()
+                or k in " ".join(contract.required_experiments).lower()
+                for k in [
+                    "hardware",
+                    "quantization",
+                    "int8",
+                    "cache",
+                    "block-floating",
+                    "fp32",
+                    "ram",
+                    "latency",
+                    "throughput",
+                ]
             )
         else:
             contract_has_hardware = True
 
-        prim_metric = contract.primary_metrics[0] if (contract and contract.primary_metrics) else "Accuracy (%)"
-        sec_metric = contract.secondary_metrics[0] if (contract and contract.secondary_metrics) else "Standard Error"
+        prim_metric = (
+            contract.primary_metrics[0]
+            if (contract and contract.primary_metrics)
+            else "Accuracy (%)"
+        )
+        sec_metric = (
+            contract.secondary_metrics[0]
+            if (contract and contract.secondary_metrics)
+            else "Standard Error"
+        )
 
         if contract and contract.selected_baselines:
             dense_model_name = contract.selected_baselines[0]
-            int8_model_name = contract.selected_baselines[1] if len(contract.selected_baselines) > 1 else "Canonical Benchmark Model"
-            sparse_model_name = contract.selected_baselines[2] if len(contract.selected_baselines) > 2 else "Ablation Baseline"
+            int8_model_name = (
+                contract.selected_baselines[1]
+                if len(contract.selected_baselines) > 1
+                else "Canonical Benchmark Model"
+            )
+            sparse_model_name = (
+                contract.selected_baselines[2]
+                if len(contract.selected_baselines) > 2
+                else "Ablation Baseline"
+            )
             proposed_model_name = contract.selected_method
         else:
-            proposed_model_name = self.proposed.get('name', 'Memory-Bounded Dynamic Neural Surrogate').split('(')[0].strip()
-            dense_model_name = self.dense.get('name', 'Standard Dense Baseline').split('(')[0].strip()
-            int8_model_name = self.int8.get('name', 'Static INT8 Quantized Model').split('(')[0].strip()
-            sparse_model_name = self.sparse.get('name', 'Dynamic Sparsified Surrogate').split('(')[0].strip()
+            proposed_model_name = (
+                self.proposed.get("name", "Memory-Bounded Dynamic Neural Surrogate")
+                .split("(")[0]
+                .strip()
+            )
+            dense_model_name = (
+                self.dense.get("name", "Standard Dense Baseline").split("(")[0].strip()
+            )
+            int8_model_name = (
+                self.int8.get("name", "Static INT8 Quantized Model")
+                .split("(")[0]
+                .strip()
+            )
+            sparse_model_name = (
+                self.sparse.get("name", "Dynamic Sparsified Surrogate")
+                .split("(")[0]
+                .strip()
+            )
 
         if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
             abstract_stat = rf"We synthesize empirical fold distributions through a formal DerSimonian-Laird random-effects meta-analysis, yielding a pooled summary effect size of \textbf{{+{pooled_es:.2f}\%}} [95\% CI: {ci_lo:.2f}\%, {ci_hi:.2f}\%] with heterogeneity index $I^2 = {i_sq:.1f}\%$ and statistical significance $p < 10^{{-4}}$."
             kw_stat = "DerSimonian-Laird Meta-Analysis"
             contrib_stat = rf"\item \textbf{{Meta-Analytic Synthesis:}} We synthesize empirical fold distributions via the DerSimonian-Laird random-effects estimator, demonstrating a statistically significant pooled gain of \textbf{{+{pooled_es:.2f}\%}} ($Z = {z_stat:.2f}, p < 10^{{-4}}$) with zero observed inter-seed heterogeneity ($I^2 = {i_sq:.1f}\%$)."
             algo_stat = r"\State Execute DerSimonian-Laird Random-Effects Meta-Analysis"
-        elif stat_req in (StatisticalAnalysisType.PAIRED_T_TEST, StatisticalAnalysisType.EFFECT_SIZE_COHENS_D):
+        elif stat_req in (
+            StatisticalAnalysisType.PAIRED_T_TEST,
+            StatisticalAnalysisType.EFFECT_SIZE_COHENS_D,
+        ):
             cohen_d = abs(p_acc - d_acc) / max(p_acc_std, 0.01)
             abstract_stat = rf"Two-tailed paired Student's $t$-testing and Cohen's $d$ effect size estimation confirm a statistically significant gain of \textbf{{+{p_acc - d_acc:.2f}\%}} ($t(4) = {z_stat:.2f}, p < 0.001, d = {cohen_d:.2f}$) across deterministic seeds."
             kw_stat = "Paired Student's t-Test, Cohen's d Effect Size"
-            contrib_stat = rf"\item \textbf{{Statistical Verification:}} We evaluate significance via two-tailed paired Student's $t$-tests and Cohen's $d$ effect sizes across $k=5$ seeds ($p < 0.001, d > 1.5$)."
-            algo_stat = r"\State Execute Paired Hypothesis Test and Effect Size Estimation"
+            contrib_stat = r"\item \textbf{Statistical Verification:} We evaluate significance via two-tailed paired Student's $t$-tests and Cohen's $d$ effect sizes across $k=5$ seeds ($p < 0.001, d > 1.5$)."
+            algo_stat = (
+                r"\State Execute Paired Hypothesis Test and Effect Size Estimation"
+            )
         elif stat_req == StatisticalAnalysisType.BOOTSTRAP_CONFIDENCE_INTERVAL:
             abstract_stat = rf"Non-parametric bootstrap resampling ($B=1000$ replications) establishes a 95\% confidence interval of [{ci_lo:.2f}\%, {ci_hi:.2f}\%] ($p < 0.001$)."
             kw_stat = "Bootstrap Confidence Intervals"
-            contrib_stat = rf"\item \textbf{{Bootstrap Resampling:}} We compute empirical 95\% confidence bounds via $B=1000$ bootstrap resamples, confirming lower-bound treatment gains."
+            contrib_stat = r"\item \textbf{Bootstrap Resampling:} We compute empirical 95\% confidence bounds via $B=1000$ bootstrap resamples, confirming lower-bound treatment gains."
             algo_stat = r"\State Compute Non-Parametric Bootstrap Resampling Confidence Intervals"
         else:
             abstract_stat = rf"Multi-seed empirical evaluation confirms a primary performance gain of \textbf{{+{p_acc - d_acc:.2f}\%}} with between-seed variance bounded by $\pm {p_acc_std:.2f}\%$."
             kw_stat = "Statistical Hypothesis Testing"
-            contrib_stat = rf"\item \textbf{{Multi-Seed Validation:}} We evaluate empirical stability across deterministic seeds, verifying bounded variance."
-            algo_stat = r"\State Compute Multi-Seed Descriptive Statistics and Variance Bounds"
+            contrib_stat = r"\item \textbf{Multi-Seed Validation:} We evaluate empirical stability across deterministic seeds, verifying bounded variance."
+            algo_stat = (
+                r"\State Compute Multi-Seed Descriptive Statistics and Variance Bounds"
+            )
 
-        if math_dec in (MathematicalTreatmentDecision.EMPIRICAL_ONLY, MathematicalTreatmentDecision.NONE, MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE):
-            theorem_block = rf"""\subsection{{Empirical Optimization Formulation}}
-We formulate the empirical objective functional $\mathcal{{L}}(\theta) = \frac{{1}}{{N}}\sum_{{i=1}}^N \ell(f_\theta(\mathbf{{x}}_i), y_i) + \lambda \mathcal{{R}}(\theta)$, where $\ell(\cdot, \cdot)$ is the task loss and $\mathcal{{R}}(\theta)$ stabilizes optimization trajectories across stochastic seeds."""
+        if math_dec in (
+            MathematicalTreatmentDecision.EMPIRICAL_ONLY,
+            MathematicalTreatmentDecision.NONE,
+            MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE,
+        ):
+            theorem_block = r"""\subsection{Empirical Optimization Formulation}
+We formulate the empirical objective functional $\mathcal{L}(\theta) = \frac{1}{N}\sum_{i=1}^N \ell(f_\theta(\mathbf{x}_i), y_i) + \lambda \mathcal{R}(\theta)$, where $\ell(\cdot, \cdot)$ is the task loss and $\mathcal{R}(\theta)$ stabilizes optimization trajectories across stochastic seeds."""
         else:
-            theorem_block = rf"""\begin{{theorem}}[Bounded Optimization Variance]
-Let $\hat{{\mathbf{{y}}}}_b \in \mathbb{{R}}^D$ be the model prediction under variance-stabilized gradient scaling. The empirical variance of the stochastic gradient updates across independent random partitions satisfies:
-\begin{{equation}}
-\mathbb{{E}}\left[\|\nabla \mathcal{{L}}(\theta) - \mathbf{{g}}_b\|^2\right] \le \frac{{\sigma^2}}{{B}} + \epsilon_{{\text{{quant}}}}^2
-\end{{equation}}
-where $\sigma^2$ is the intrinsic batch gradient dispersion and $\epsilon_{{\text{{quant}}}}$ represents bounded representation distortion.
-\end{{theorem}}"""
+            theorem_block = r"""\begin{theorem}[Bounded Optimization Variance]
+Let $\hat{\mathbf{y}}_b \in \mathbb{R}^D$ be the model prediction under variance-stabilized gradient scaling. The empirical variance of the stochastic gradient updates across independent random partitions satisfies:
+\begin{equation}
+\mathbb{E}\left[\|\nabla \mathcal{L}(\theta) - \mathbf{g}_b\|^2\right] \le \frac{\sigma^2}{B} + \epsilon_{\text{quant}}^2
+\end{equation}
+where $\sigma^2$ is the intrinsic batch gradient dispersion and $\epsilon_{\text{quant}}$ represents bounded representation distortion.
+\end{theorem}"""
 
         if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
             stat_sec_block = rf"""\section{{DerSimonian-Laird Meta-Analysis}}
@@ -438,8 +630,8 @@ Across $k=5$ evaluation folds, {proposed_model_name} achieves a primary performa
 \textbf{{Model Architecture}} & \textbf{{Accuracy (\%)}} & \textbf{{Peak RAM (MB)}} & \textbf{{Latency (ms)}} & \textbf{{Throughput (samples/s)}} & \textbf{{Compression}} & \textbf{{Speedup}} \\
 \midrule
 {dense_model_name} & {d_acc:.2f} $\pm$ {d_acc_std:.2f} & {self.dense.get("mean_memory_mb", 395.0):.1f} $\pm$ {self.dense.get("std_memory_mb", 9.2):.1f} & {d_lat:.2f} $\pm$ {self.dense.get("std_latency_ms", 1.4):.1f} & {self.dense.get("mean_throughput", 166.4):.1f} & 1.00$\times$ & 1.00$\times$ \\
-{int8_model_name} & {int8_acc:.2f} $\pm$ {self.int8.get("std_accuracy", 0.014)*100.0:.2f} & {self.int8.get("mean_memory_mb", 114.0):.1f} $\pm$ {self.int8.get("std_memory_mb", 4.1):.1f} & {self.int8.get("mean_latency_ms", 23.5):.2f} $\pm$ {self.int8.get("std_latency_ms", 0.9):.1f} & {self.int8.get("mean_throughput", 265.2):.1f} & {self.int8.get("mean_compression_ratio", 3.7):.1f}$\times$ & {(d_lat / self.int8.get("mean_latency_ms", 23.5)):.2f}$\times$ \\
-{sparse_model_name} & {sparse_acc:.2f} $\pm$ {self.sparse.get("std_accuracy", 0.012)*100.0:.2f} & {self.sparse.get("mean_memory_mb", 160.0):.1f} $\pm$ {self.sparse.get("std_memory_mb", 5.3):.1f} & {self.sparse.get("mean_latency_ms", 18.9):.2f} $\pm$ {self.sparse.get("std_latency_ms", 0.8):.1f} & {self.sparse.get("mean_throughput", 323.0):.1f} & {self.sparse.get("mean_compression_ratio", 2.6):.1f}$\times$ & {(d_lat / self.sparse.get("mean_latency_ms", 18.9)):.2f}$\times$ \\
+{int8_model_name} & {int8_acc:.2f} $\pm$ {self.int8.get("std_accuracy", 0.014) * 100.0:.2f} & {self.int8.get("mean_memory_mb", 114.0):.1f} $\pm$ {self.int8.get("std_memory_mb", 4.1):.1f} & {self.int8.get("mean_latency_ms", 23.5):.2f} $\pm$ {self.int8.get("std_latency_ms", 0.9):.1f} & {self.int8.get("mean_throughput", 265.2):.1f} & {self.int8.get("mean_compression_ratio", 3.7):.1f}$\times$ & {(d_lat / self.int8.get("mean_latency_ms", 23.5)):.2f}$\times$ \\
+{sparse_model_name} & {sparse_acc:.2f} $\pm$ {self.sparse.get("std_accuracy", 0.012) * 100.0:.2f} & {self.sparse.get("mean_memory_mb", 160.0):.1f} $\pm$ {self.sparse.get("std_memory_mb", 5.3):.1f} & {self.sparse.get("mean_latency_ms", 18.9):.2f} $\pm$ {self.sparse.get("std_latency_ms", 0.8):.1f} & {self.sparse.get("mean_throughput", 323.0):.1f} & {self.sparse.get("mean_compression_ratio", 2.6):.1f}$\times$ & {(d_lat / self.sparse.get("mean_latency_ms", 18.9)):.2f}$\times$ \\
 \textbf{{{proposed_model_name}}} & \textbf{{{p_acc:.2f} $\pm$ {p_acc_std:.2f}}} & \textbf{{{p_mem:.1f} $\pm$ {self.proposed.get("std_memory_mb", 2.1):.1f}}} & \textbf{{{p_lat:.2f} $\pm$ {self.proposed.get("std_latency_ms", 0.4):.1f}}} & \textbf{{{self.proposed.get("mean_throughput", 688.0):.1f}}} & \textbf{{{self.proposed.get("mean_compression_ratio", 6.1):.1f}$\times$}} & \textbf{{{speedup:.2f}$\times$}} \\
 \bottomrule
 \end{{tabular}}%
@@ -463,10 +655,10 @@ Table~\ref{{tab:benchmark_results}} presents the empirical comparison across all
 \toprule
 \textbf{{Model Architecture}} & \textbf{{{prim_metric}}} & \textbf{{Standard Error ($\pm$)}} & \textbf{{95\% Confidence Interval}} & \textbf{{Statistical $p$-value}} \\
 \midrule
-{dense_model_name} & {d_acc:.2f} $\pm$ {d_acc_std:.2f} & {d_acc_std/2.236:.2f} & [{d_acc - 1.96*d_acc_std/2.236:.2f}\%, {d_acc + 1.96*d_acc_std/2.236:.2f}\%] & Reference Baseline \\
+{dense_model_name} & {d_acc:.2f} $\pm$ {d_acc_std:.2f} & {d_acc_std / 2.236:.2f} & [{d_acc - 1.96 * d_acc_std / 2.236:.2f}\%, {d_acc + 1.96 * d_acc_std / 2.236:.2f}\%] & Reference Baseline \\
 {int8_model_name} & {int8_acc:.2f} $\pm$ 1.34 & 0.60 & [{int8_acc - 1.18:.2f}\%, {int8_acc + 1.18:.2f}\%] & $p = 0.0028$ \\
 {sparse_model_name} & {sparse_acc:.2f} $\pm$ 1.11 & 0.50 & [{sparse_acc - 0.98:.2f}\%, {sparse_acc + 0.98:.2f}\%] & $p = 0.0014$ \\
-\textbf{{{proposed_model_name}}} & \textbf{{{p_acc:.2f} $\pm$ {p_acc_std:.2f}}} & \textbf{{{p_acc_std/2.236:.2f}}} & \textbf{{[{p_acc - 1.96*p_acc_std/2.236:.2f}\%, {p_acc + 1.96*p_acc_std/2.236:.2f}\%]}} & \textbf{{$p < 0.0001$}} \\
+\textbf{{{proposed_model_name}}} & \textbf{{{p_acc:.2f} $\pm$ {p_acc_std:.2f}}} & \textbf{{{p_acc_std / 2.236:.2f}}} & \textbf{{[{p_acc - 1.96 * p_acc_std / 2.236:.2f}\%, {p_acc + 1.96 * p_acc_std / 2.236:.2f}\%]}} & \textbf{{$p < 0.0001$}} \\
 \bottomrule
 \end{{tabular}}%
 }}
@@ -535,26 +727,30 @@ Table~\ref{{tab:benchmark_results}} presents the empirical comparison across all
                 else:
                     fig_blocks.append(rf"""\begin{{figure}}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{{figures/fig{idx}_{f_low.replace(' ', '_')[:15]}.pdf}}
+\includegraphics[width=\columnwidth]{{figures/fig{idx}_{f_low.replace(" ", "_")[:15]}.pdf}}
 \caption{{{freq} evaluation profile across benchmark configurations.}}
 \label{{fig:fig_{idx:02d}}}
 \end{{figure}}""")
         elif not contract:
-            fig_blocks.append(rf"""\begin{{figure*}}[t]
+            fig_blocks.append(r"""\begin{figure*}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{{figures/convergence_frontier.pdf}}
-\caption{{Optimization and generalization trajectories across $k=5$ deterministic seeds.}}
-\label{{fig:convergence}}
-\end{{figure*}}
+\includegraphics[width=0.92\textwidth]{figures/convergence_frontier.pdf}
+\caption{Optimization and generalization trajectories across $k=5$ deterministic seeds.}
+\label{fig:convergence}
+\end{figure*}
 
-\begin{{figure}}[htbp]
+\begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{{figures/pareto_tradeoff.pdf}}
-\caption{{Pareto efficiency frontier comparing Peak RAM footprint against per-sample inference latency.}}
-\label{{fig:pareto}}
-\end{{figure}}""")
+\includegraphics[width=\columnwidth]{figures/pareto_tradeoff.pdf}
+\caption{Pareto efficiency frontier comparing Peak RAM footprint against per-sample inference latency.}
+\label{fig:pareto}
+\end{figure}""")
 
-        figures_block_assembled = "\n\n".join(fig_blocks) if fig_blocks else "% Zero figures required by contract."
+        figures_block_assembled = (
+            "\n\n".join(fig_blocks)
+            if fig_blocks
+            else "% Zero figures required by contract."
+        )
 
         latex_doc = rf"""\documentclass[journal,10pt,twocolumn]{{IEEEtran}}
 \usepackage[utf8]{{inputenc}}
@@ -609,7 +805,7 @@ To address these challenges, we formulate, implement, and benchmark \textbf{{{pr
 
 The principal technical contributions of this manuscript are summarized as follows:
 \begin{{itemize}}
-    \item \textbf{{Theoretical Formulation:}} We establish a theoretical framework for {eq_dict['operator_desc']}, providing analytical formulations for optimization stability.
+    \item \textbf{{Theoretical Formulation:}} We establish a theoretical framework for {eq_dict["operator_desc"]}, providing analytical formulations for optimization stability.
     \item \textbf{{Static AST Integrity:}} We enforce automated AST dataflow verification to guarantee zero data leakage or pre-split estimator contamination across all evaluated training pipelines.
     \item \textbf{{Empirical Multi-Seed Profiling:}} Across $k=5$ deterministic evaluation seeds on \textbf{{{dataset_name_latex}}}, the proposed architecture achieves \textbf{{{p_acc:.2f}\% $\pm$ {p_acc_std:.2f}\%}} performance, significantly outperforming canonical baselines (\textbf{{{d_acc:.2f}\% $\pm$ {d_acc_std:.2f}\%}}).
     {contrib_stat}
@@ -630,14 +826,14 @@ Recent advances incorporate domain constraints and structured inductive biases t
 \section{{Theoretical Formulation and Methodology}}
 \label{{sec:methodology}}
 
-\subsection{{{eq_dict['theory_title']}}}
-Consider a continuous problem domain governed by {eq_dict['operator_desc']}. The canonical optimization objective is formulated as:
+\subsection{{{eq_dict["theory_title"]}}}
+Consider a continuous problem domain governed by {eq_dict["operator_desc"]}. The canonical optimization objective is formulated as:
 
-{eq_dict['loss_eq']}
+{eq_dict["loss_eq"]}
 
 To optimize empirical performance and convergence stability, the proposed framework adopts the following structured formulation:
 
-{eq_dict['formulation_eq']}
+{eq_dict["formulation_eq"]}
 
 {theorem_block}
 
@@ -666,7 +862,7 @@ The execution pipeline enforces strict pre-split isolation and evaluates the pro
 \end{{algorithmic}}
 \end{{algorithm}}
 
-\section{{{ "Empirical Evaluation and Hardware Profiling" if contract_has_hardware else "Empirical Evaluation and Benchmark Protocol" }}}
+\section{{{"Empirical Evaluation and Hardware Profiling" if contract_has_hardware else "Empirical Evaluation and Benchmark Protocol"}}}
 \label{{sec:experiments}}
 
 \subsection{{Experimental Setup and Baselines}}
@@ -713,16 +909,18 @@ We presented a comprehensive empirical and theoretical study of memory-bounded s
         return latex_doc
 
     @staticmethod
-    def validate_numerical_invariants(latex_content: str, metrics: Dict[str, Any]) -> List[str]:
+    def validate_numerical_invariants(
+        latex_content: str, metrics: dict[str, Any]
+    ) -> list[str]:
         """Verify that every major numerical token in LaTeX is backed by metrics.json."""
-        errors: List[str] = []
+        errors: list[str] = []
         proposed = metrics.get("methods", {}).get("proposed_mb_qgt", {})
         dense = metrics.get("methods", {}).get("dense_baseline", {})
         meta = metrics.get("meta_analysis", {})
 
         expected_tokens = [
-            f"{proposed.get('mean_accuracy', 0)*100.0:.2f}",
-            f"{dense.get('mean_accuracy', 0)*100.0:.2f}",
+            f"{proposed.get('mean_accuracy', 0) * 100.0:.2f}",
+            f"{dense.get('mean_accuracy', 0) * 100.0:.2f}",
             f"{proposed.get('mean_memory_mb', 0):.1f}",
             f"{dense.get('mean_memory_mb', 0):.1f}",
             f"{proposed.get('mean_latency_ms', 0):.2f}",
@@ -731,7 +929,9 @@ We presented a comprehensive empirical and theoretical study of memory-bounded s
 
         for tok in expected_tokens:
             if tok not in latex_content:
-                errors.append(f"Provenance Invariant Error: Expected metric token '{tok}' from metrics.json not found in generated LaTeX manuscript.")
+                errors.append(
+                    f"Provenance Invariant Error: Expected metric token '{tok}' from metrics.json not found in generated LaTeX manuscript."
+                )
 
         return errors
 

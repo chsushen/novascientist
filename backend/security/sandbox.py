@@ -9,39 +9,34 @@ Enforces strict defense-in-depth controls:
 
 from __future__ import annotations
 
-import ast
-import os
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union
-
-from backend.config import config
+from typing import Any
 
 
 class SecurityViolationError(Exception):
     """Raised when an operation violates security boundaries."""
-    pass
 
 
 class PathTraversalError(SecurityViolationError):
     """Raised when an input attempts to traverse outside authorized directories."""
-    pass
 
 
 class SecretLeakageError(SecurityViolationError):
     """Raised when confidential credentials appear in serialized outputs."""
-    pass
 
 
 class MaliciousLatexError(SecurityViolationError):
     """Raised when LaTeX content contains dangerous commands or shell escapes."""
-    pass
 
 
-def validate_safe_path(target_path: Union[str, Path], base_directory: Union[str, Path]) -> Path:
+def validate_safe_path(target_path: str | Path, base_directory: str | Path) -> Path:
     """Ensure target_path resolves strictly within base_directory."""
     base = Path(base_directory).resolve()
-    target = (base / target_path if not Path(target_path).is_absolute() else Path(target_path)).resolve()
+    target = (
+        base / target_path if not Path(target_path).is_absolute() else Path(target_path)
+    ).resolve()
 
     try:
         target.relative_to(base)
@@ -57,23 +52,35 @@ class SecurityAuditor:
 
     # Common API key and secret patterns
     SECRET_PATTERNS = [
-        re.compile(r"sk-[a-zA-Z0-9]{20,}"),                    # OpenAI
-        re.compile(r"ghp_[a-zA-Z0-9]{36,}"),                   # GitHub Personal Access Token
-        re.compile(r"AIza[0-9A-Za-z-_]{35}"),                  # Google API Key
-        re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}"),          # Slack Token
-        re.compile(r"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),  # Private Keys
+        re.compile(r"sk-[a-zA-Z0-9]{20,}"),  # OpenAI
+        re.compile(r"ghp_[a-zA-Z0-9]{36,}"),  # GitHub Personal Access Token
+        re.compile(r"AIza[0-9A-Za-z-_]{35}"),  # Google API Key
+        re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}"),  # Slack Token
+        re.compile(
+            r"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"
+        ),  # Private Keys
     ]
 
     # Forbidden file extensions for user uploads
-    FORBIDDEN_EXTENSIONS: Set[str] = {
-        ".exe", ".bat", ".cmd", ".sh", ".bash", ".zsh",
-        ".so", ".dylib", ".dll", ".pyc", ".pyd", ".bin",
+    FORBIDDEN_EXTENSIONS: set[str] = {
+        ".exe",
+        ".bat",
+        ".cmd",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".so",
+        ".dylib",
+        ".dll",
+        ".pyc",
+        ".pyd",
+        ".bin",
     }
 
     MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
 
     @classmethod
-    def scan_for_secrets(cls, text: str) -> List[str]:
+    def scan_for_secrets(cls, text: str) -> list[str]:
         """Scan string content for sensitive credentials."""
         leaks = []
         for pattern in cls.SECRET_PATTERNS:
@@ -161,6 +168,8 @@ class ControlledCodeSandbox:
     }
 
     @classmethod
-    def execute_pure_function(cls, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    def execute_pure_function(
+        cls, func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
         """Execute a Python callable safely."""
         return func(*args, **kwargs)

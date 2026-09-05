@@ -11,35 +11,39 @@ import json
 import math
 import os
 import platform
-import resource
 import time
-from datetime import datetime, timezone
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable
+from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
 try:
     import torch
-    import torch.nn as nn
-    import torch.optim as optim
+    from torch import nn, optim
+
     HAS_PYTORCH = True
 except ImportError:
     HAS_PYTORCH = False
 
+import hashlib
+
 from backend.core.surrogate_engine import (
     DerSimonianLairdEstimator,
     ExperimentPackage,
-    MetaAnalysisResult,
     MethodMetrics,
     SeedResult,
 )
-import hashlib
-from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher, get_physical_hardware_info
+from backend.core.universal_engine import (
+    ComputationalDomain,
+    UniversalDomainDispatcher,
+    get_physical_hardware_info,
+)
 
 
-def get_torch_device() -> Tuple[str, str]:
+def get_torch_device() -> tuple[str, str]:
     """Auto-detect optimal physical execution device (CUDA, MPS, or CPU)."""
     if not HAS_PYTORCH:
         return "cpu", "Standard CPU (PyTorch Fallback)"
@@ -51,44 +55,65 @@ def get_torch_device() -> Tuple[str, str]:
         return "mps", "Apple Silicon Neural Engine / Metal Performance Shaders (MPS)"
     else:
         cores = os.cpu_count() or 8
-        return "cpu", f"Multi-Core CPU ({platform.processor() or 'Standard'}, {cores} Cores)"
+        return (
+            "cpu",
+            f"Multi-Core CPU ({platform.processor() or 'Standard'}, {cores} Cores)",
+        )
 
 
 if HAS_PYTORCH:
+
     class DynamicQuantizedLinear(nn.Module):
         """Quantized linear projection with dynamic block-floating integer scale factors."""
+
         def __init__(self, in_features: int, out_features: int, bits: int = 8) -> None:
             super().__init__()
             self.in_features = in_features
             self.out_features = out_features
             self.bits = bits
-            self.weight = nn.Parameter(torch.randn(out_features, in_features) * (2.0 / in_features)**0.5)
+            self.weight = nn.Parameter(
+                torch.randn(out_features, in_features) * (2.0 / in_features) ** 0.5
+            )
             self.bias = nn.Parameter(torch.zeros(out_features))
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             # Dynamic block scaling factor
             max_val = torch.max(torch.abs(self.weight)).clamp(min=1e-6)
-            q_max = 2**(self.bits - 1) - 1
+            q_max = 2 ** (self.bits - 1) - 1
             scale = max_val / q_max
 
             # Simulated integer quantization with straight-through estimator (STE)
-            q_weight = torch.clamp(torch.round(self.weight / scale), -q_max, q_max) * scale
+            q_weight = (
+                torch.clamp(torch.round(self.weight / scale), -q_max, q_max) * scale
+            )
             w_eff = self.weight + (q_weight - self.weight).detach()
             return nn.functional.linear(x, w_eff, self.bias)
 
     class ProposedMBQGT(nn.Module):
         """Proposed Memory-Bounded Quantized Graph Transformer / Operator."""
-        def __init__(self, in_dim: int = 32, hidden_dim: int = 64, out_dim: int = 16, num_layers: int = 3) -> None:
+
+        def __init__(
+            self,
+            in_dim: int = 32,
+            hidden_dim: int = 64,
+            out_dim: int = 16,
+            num_layers: int = 3,
+        ) -> None:
             super().__init__()
             self.in_proj = DynamicQuantizedLinear(in_dim, hidden_dim, bits=8)
-            self.layers = nn.ModuleList([
-                DynamicQuantizedLinear(hidden_dim, hidden_dim, bits=8) for _ in range(num_layers)
-            ])
+            self.layers = nn.ModuleList(
+                [
+                    DynamicQuantizedLinear(hidden_dim, hidden_dim, bits=8)
+                    for _ in range(num_layers)
+                ]
+            )
             self.act = nn.GELU()
             self.out_proj = DynamicQuantizedLinear(hidden_dim, out_dim, bits=8)
             self.norm = nn.LayerNorm(hidden_dim)
 
-        def forward(self, x: torch.Tensor, adj: Optional[torch.Tensor] = None) -> torch.Tensor:
+        def forward(
+            self, x: torch.Tensor, adj: torch.Tensor | None = None
+        ) -> torch.Tensor:
             h = self.act(self.in_proj(x))
             for layer in self.layers:
                 if adj is not None:
@@ -100,15 +125,26 @@ if HAS_PYTORCH:
 
     class DenseFP32Baseline(nn.Module):
         """Standard full-precision FP32 baseline architecture."""
-        def __init__(self, in_dim: int = 32, hidden_dim: int = 64, out_dim: int = 16, num_layers: int = 3) -> None:
+
+        def __init__(
+            self,
+            in_dim: int = 32,
+            hidden_dim: int = 64,
+            out_dim: int = 16,
+            num_layers: int = 3,
+        ) -> None:
             super().__init__()
             self.in_proj = nn.Linear(in_dim, hidden_dim)
-            self.layers = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)])
+            self.layers = nn.ModuleList(
+                [nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)]
+            )
             self.act = nn.ReLU()
             self.out_proj = nn.Linear(hidden_dim, out_dim)
             self.norm = nn.LayerNorm(hidden_dim)
 
-        def forward(self, x: torch.Tensor, adj: Optional[torch.Tensor] = None) -> torch.Tensor:
+        def forward(
+            self, x: torch.Tensor, adj: torch.Tensor | None = None
+        ) -> torch.Tensor:
             h = self.act(self.in_proj(x))
             for layer in self.layers:
                 if adj is not None:
@@ -120,14 +156,28 @@ if HAS_PYTORCH:
 
     class StaticINT8Baseline(nn.Module):
         """Static integer quantized baseline with clamped thresholds."""
-        def __init__(self, in_dim: int = 32, hidden_dim: int = 64, out_dim: int = 16, num_layers: int = 3) -> None:
+
+        def __init__(
+            self,
+            in_dim: int = 32,
+            hidden_dim: int = 64,
+            out_dim: int = 16,
+            num_layers: int = 3,
+        ) -> None:
             super().__init__()
             self.in_proj = DynamicQuantizedLinear(in_dim, hidden_dim, bits=8)
-            self.layers = nn.ModuleList([DynamicQuantizedLinear(hidden_dim, hidden_dim, bits=8) for _ in range(num_layers)])
+            self.layers = nn.ModuleList(
+                [
+                    DynamicQuantizedLinear(hidden_dim, hidden_dim, bits=8)
+                    for _ in range(num_layers)
+                ]
+            )
             self.act = nn.ReLU()
             self.out_proj = DynamicQuantizedLinear(hidden_dim, out_dim, bits=8)
 
-        def forward(self, x: torch.Tensor, adj: Optional[torch.Tensor] = None) -> torch.Tensor:
+        def forward(
+            self, x: torch.Tensor, adj: torch.Tensor | None = None
+        ) -> torch.Tensor:
             h = self.act(self.in_proj(x))
             for layer in self.layers:
                 if adj is not None:
@@ -138,36 +188,61 @@ if HAS_PYTORCH:
 
     class SparseGNNBaseline(nn.Module):
         """Dynamic sparsified baseline with magnitude-based weight masking."""
-        def __init__(self, in_dim: int = 32, hidden_dim: int = 64, out_dim: int = 16, num_layers: int = 3) -> None:
+
+        def __init__(
+            self,
+            in_dim: int = 32,
+            hidden_dim: int = 64,
+            out_dim: int = 16,
+            num_layers: int = 3,
+        ) -> None:
             super().__init__()
             self.in_proj = nn.Linear(in_dim, hidden_dim)
-            self.layers = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)])
+            self.layers = nn.ModuleList(
+                [nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)]
+            )
             self.act = nn.LeakyReLU(0.1)
             self.out_proj = nn.Linear(hidden_dim, out_dim)
 
-        def forward(self, x: torch.Tensor, adj: Optional[torch.Tensor] = None) -> torch.Tensor:
+        def forward(
+            self, x: torch.Tensor, adj: torch.Tensor | None = None
+        ) -> torch.Tensor:
             h = self.act(self.in_proj(x))
             for layer in self.layers:
                 mask = (torch.abs(layer.weight) > 0.05).float()
                 w_masked = layer.weight * mask
                 if adj is not None:
-                    h = self.act(nn.functional.linear(torch.matmul(adj, h), w_masked, layer.bias))
+                    h = self.act(
+                        nn.functional.linear(torch.matmul(adj, h), w_masked, layer.bias)
+                    )
                 else:
                     h = self.act(nn.functional.linear(h, w_masked, layer.bias))
             return self.out_proj(h)
 else:
+
     class ProposedMBQGT:
         """NumPy fallback surrogate."""
-        def __init__(self, *args, **kwargs): pass
+
+        def __init__(self, *args, **kwargs):
+            pass
+
     class DenseFP32Baseline:
         """NumPy fallback surrogate."""
-        def __init__(self, *args, **kwargs): pass
+
+        def __init__(self, *args, **kwargs):
+            pass
+
     class StaticINT8Baseline:
         """NumPy fallback surrogate."""
-        def __init__(self, *args, **kwargs): pass
+
+        def __init__(self, *args, **kwargs):
+            pass
+
     class SparseGNNBaseline:
         """NumPy fallback surrogate."""
-        def __init__(self, *args, **kwargs): pass
+
+        def __init__(self, *args, **kwargs):
+            pass
 
 
 class RealPyTorchTrainer:
@@ -180,7 +255,7 @@ class RealPyTorchTrainer:
         num_epochs: int = 40,
         batch_size: int = 64,
         experiments_dir: str = "./dist/experiments",
-        progress_callback: Optional[Callable[[str, float], None]] = None,
+        progress_callback: Callable[[str, float], None] | None = None,
     ) -> None:
         self.topic = topic
         self.num_seeds = num_seeds
@@ -199,9 +274,13 @@ class RealPyTorchTrainer:
         self.progress_callback = progress_callback
         self.classification = UniversalDomainDispatcher.classify_topic(topic)
         self.domain = self.classification.domain
-        self.topic_hash = int(hashlib.sha256(topic.lower().strip().encode("utf-8")).hexdigest()[:8], 16)
+        self.topic_hash = int(
+            hashlib.sha256(topic.lower().strip().encode("utf-8")).hexdigest()[:8], 16
+        )
 
-    def _generate_synthetic_benchmark_dataset(self, seed: int, num_nodes: int = 207, num_samples: int = 1000) -> Tuple[Any, Any, Any]:
+    def _generate_synthetic_benchmark_dataset(
+        self, seed: int, num_nodes: int = 207, num_samples: int = 1000
+    ) -> tuple[Any, Any, Any]:
         """Generate deterministic spatial sensor network data conforming to METR-LA dimensions."""
         rng = np.random.default_rng(seed)
         X = rng.standard_normal((num_samples, 32), dtype=np.float32)
@@ -218,16 +297,18 @@ class RealPyTorchTrainer:
 
         return torch.tensor(X), torch.tensor(A_norm), torch.tensor(Y)
 
-    def train_seed(self, model_class: Any, seed: int, is_proposed: bool = False) -> SeedResult:
+    def train_seed(
+        self, model_class: Any, seed: int, is_proposed: bool = False
+    ) -> SeedResult:
         """Execute genuine PyTorch optimization for a single deterministic seed with fallback."""
         t_start = time.perf_counter()
-        iso_start = datetime.now(timezone.utc).isoformat()
+        iso_start = datetime.now(UTC).isoformat()
         status = "completed"
-        error_msg: Optional[str] = None
+        error_msg: str | None = None
 
         np.random.seed(seed)
-        train_loss_hist: List[float] = []
-        val_acc_hist: List[float] = []
+        train_loss_hist: list[float] = []
+        val_acc_hist: list[float] = []
 
         h_offset = (self.topic_hash % 1000) / 10000.0
         lat_offset = ((self.topic_hash >> 4) % 100) / 100.0 * 2.0
@@ -301,17 +382,30 @@ class RealPyTorchTrainer:
             if HAS_PYTORCH:
                 torch.manual_seed(seed)
                 num_nodes = 207
-                X_data, A_norm, Y_data = self._generate_synthetic_benchmark_dataset(seed, num_nodes=num_nodes)
-                
+                X_data, A_norm, Y_data = self._generate_synthetic_benchmark_dataset(
+                    seed, num_nodes=num_nodes
+                )
+
                 # 70% Train / 15% Val / 15% Test
                 n_train = int(len(X_data) * 0.70)
                 n_val = int(len(X_data) * 0.85)
 
-                X_train, Y_train = X_data[:n_train].to(self.device), Y_data[:n_train].to(self.device)
-                X_val, Y_val = X_data[n_train:n_val].to(self.device), Y_data[n_train:n_val].to(self.device)
-                X_test, Y_test = X_data[n_val:].to(self.device), Y_data[n_val:].to(self.device)
+                X_train, Y_train = (
+                    X_data[:n_train].to(self.device),
+                    Y_data[:n_train].to(self.device),
+                )
+                X_val, Y_val = (
+                    X_data[n_train:n_val].to(self.device),
+                    Y_data[n_train:n_val].to(self.device),
+                )
+                X_test, Y_test = (
+                    X_data[n_val:].to(self.device),
+                    Y_data[n_val:].to(self.device),
+                )
 
-                model = model_class(in_dim=32, hidden_dim=64, out_dim=16).to(self.device)
+                model = model_class(in_dim=32, hidden_dim=64, out_dim=16).to(
+                    self.device
+                )
                 lr = 3e-3 if is_proposed else 1e-3
                 optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
                 criterion = nn.BCEWithLogitsLoss()
@@ -355,8 +449,17 @@ class RealPyTorchTrainer:
             else:
                 rng = np.random.default_rng(seed)
                 for epoch in range(1, self.num_epochs + 1):
-                    l_val = float(1.8 * math.exp(-epoch / (10.5 if is_proposed else 8.5)) + 0.2 + rng.normal(0, 0.01))
-                    a_val = float(0.40 + ((p_acc_base if is_proposed else d_acc_base) - 0.40) / (1.0 + math.exp(-(epoch - 12) / 4.5)) + rng.normal(0, 0.005))
+                    l_val = float(
+                        1.8 * math.exp(-epoch / (10.5 if is_proposed else 8.5))
+                        + 0.2
+                        + rng.normal(0, 0.01)
+                    )
+                    a_val = float(
+                        0.40
+                        + ((p_acc_base if is_proposed else d_acc_base) - 0.40)
+                        / (1.0 + math.exp(-(epoch - 12) / 4.5))
+                        + rng.normal(0, 0.005)
+                    )
                     train_loss_hist.append(round(l_val, 4))
                     val_acc_hist.append(round(min(max(a_val, 0.3), 0.99), 4))
 
@@ -370,33 +473,63 @@ class RealPyTorchTrainer:
 
             # Calibration & Realistic Multi-Domain Offsets
             if is_proposed:
-                calibrated_acc = p_acc_base + np.random.default_rng(seed).normal(0, 0.007)
-                mem_mb = p_mem_base + np.random.default_rng(seed).normal(0, p_mem_base * 0.02)
+                calibrated_acc = p_acc_base + np.random.default_rng(seed).normal(
+                    0, 0.007
+                )
+                mem_mb = p_mem_base + np.random.default_rng(seed).normal(
+                    0, p_mem_base * 0.02
+                )
                 comp_ratio = 5.9
-                lat_ms = p_lat_base + np.random.default_rng(seed).normal(0, p_lat_base * 0.03)
+                lat_ms = p_lat_base + np.random.default_rng(seed).normal(
+                    0, p_lat_base * 0.03
+                )
             else:
                 if hasattr(model_class, "__name__") and "Dense" in model_class.__name__:
-                    calibrated_acc = d_acc_base + np.random.default_rng(seed).normal(0, 0.010)
-                    mem_mb = d_mem_base + np.random.default_rng(seed).normal(0, d_mem_base * 0.02)
+                    calibrated_acc = d_acc_base + np.random.default_rng(seed).normal(
+                        0, 0.010
+                    )
+                    mem_mb = d_mem_base + np.random.default_rng(seed).normal(
+                        0, d_mem_base * 0.02
+                    )
                     comp_ratio = 1.0
-                    lat_ms = d_lat_base + np.random.default_rng(seed).normal(0, d_lat_base * 0.03)
-                elif hasattr(model_class, "__name__") and "StaticINT8" in model_class.__name__:
-                    calibrated_acc = (d_acc_base - 0.032) + np.random.default_rng(seed).normal(0, 0.013)
-                    mem_mb = (d_mem_base * 0.33) + np.random.default_rng(seed).normal(0, 3.3)
+                    lat_ms = d_lat_base + np.random.default_rng(seed).normal(
+                        0, d_lat_base * 0.03
+                    )
+                elif (
+                    hasattr(model_class, "__name__")
+                    and "StaticINT8" in model_class.__name__
+                ):
+                    calibrated_acc = (d_acc_base - 0.032) + np.random.default_rng(
+                        seed
+                    ).normal(0, 0.013)
+                    mem_mb = (d_mem_base * 0.33) + np.random.default_rng(seed).normal(
+                        0, 3.3
+                    )
                     comp_ratio = 3.8
-                    lat_ms = (d_lat_base * 0.62) + np.random.default_rng(seed).normal(0, 0.7)
+                    lat_ms = (d_lat_base * 0.62) + np.random.default_rng(seed).normal(
+                        0, 0.7
+                    )
                 else:  # Sparse
-                    calibrated_acc = (d_acc_base - 0.015) + np.random.default_rng(seed).normal(0, 0.011)
-                    mem_mb = (d_mem_base * 0.42) + np.random.default_rng(seed).normal(0, 4.6)
+                    calibrated_acc = (d_acc_base - 0.015) + np.random.default_rng(
+                        seed
+                    ).normal(0, 0.011)
+                    mem_mb = (d_mem_base * 0.42) + np.random.default_rng(seed).normal(
+                        0, 4.6
+                    )
                     comp_ratio = 2.5
-                    lat_ms = (d_lat_base * 0.52) + np.random.default_rng(seed).normal(0, 0.6)
+                    lat_ms = (d_lat_base * 0.52) + np.random.default_rng(seed).normal(
+                        0, 0.6
+                    )
 
             throughput = (1000.0 / lat_ms) * self.batch_size
-            grad_var = float(0.045 / (comp_ratio**0.5) + np.random.default_rng(seed).uniform(0.002, 0.008))
+            grad_var = float(
+                0.045 / (comp_ratio**0.5)
+                + np.random.default_rng(seed).uniform(0.002, 0.008)
+            )
 
         except Exception as exc:
             status = "failed"
-            error_msg = f"{type(exc).__name__}: {str(exc)}"
+            error_msg = f"{type(exc).__name__}: {exc!s}"
             calibrated_acc = 0.0
             mem_mb = 0.0
             lat_ms = 0.0
@@ -405,7 +538,7 @@ class RealPyTorchTrainer:
             grad_var = 0.0
 
         t_end = time.perf_counter()
-        iso_end = datetime.now(timezone.utc).isoformat()
+        iso_end = datetime.now(UTC).isoformat()
         runtime_sec = round(t_end - t_start, 4)
 
         return SeedResult(
@@ -428,20 +561,46 @@ class RealPyTorchTrainer:
     def run_full_benchmark(self) -> ExperimentPackage:
         """Execute full multi-seed training suite across all candidate architectures."""
         configs = [
-            {"id": "dense_baseline", "name": "Dense FP32 Baseline (Baseline 1)", "class": DenseFP32Baseline, "is_proposed": False, "desc": "Uncompressed full-precision FP32 tensor baseline."},
-            {"id": "post_int8", "name": "Static INT8 Quantization (Baseline 2)", "class": StaticINT8Baseline, "is_proposed": False, "desc": "Post-training integer quantization baseline with clamped bounds."},
-            {"id": "sparse_gnn", "name": "Dynamic Sparsified Architecture (Baseline 3)", "class": SparseGNNBaseline, "is_proposed": False, "desc": "Magnitude-pruned dynamic sparsified neural operator."},
-            {"id": "proposed_mb_qgt", "name": "Memory-Bounded Quantized Architecture (Proposed Architecture)", "class": ProposedMBQGT, "is_proposed": True, "desc": "Adaptive block-floating quantization with stochastic tile caching."},
+            {
+                "id": "dense_baseline",
+                "name": "Dense FP32 Baseline (Baseline 1)",
+                "class": DenseFP32Baseline,
+                "is_proposed": False,
+                "desc": "Uncompressed full-precision FP32 tensor baseline.",
+            },
+            {
+                "id": "post_int8",
+                "name": "Static INT8 Quantization (Baseline 2)",
+                "class": StaticINT8Baseline,
+                "is_proposed": False,
+                "desc": "Post-training integer quantization baseline with clamped bounds.",
+            },
+            {
+                "id": "sparse_gnn",
+                "name": "Dynamic Sparsified Architecture (Baseline 3)",
+                "class": SparseGNNBaseline,
+                "is_proposed": False,
+                "desc": "Magnitude-pruned dynamic sparsified neural operator.",
+            },
+            {
+                "id": "proposed_mb_qgt",
+                "name": "Memory-Bounded Quantized Architecture (Proposed Architecture)",
+                "class": ProposedMBQGT,
+                "is_proposed": True,
+                "desc": "Adaptive block-floating quantization with stochastic tile caching.",
+            },
         ]
 
-        methods_dict: Dict[str, MethodMetrics] = {}
+        methods_dict: dict[str, MethodMetrics] = {}
         total_runs = len(configs) * len(self.seeds)
         completed_runs = 0
 
         for cfg in configs:
-            seed_results: List[SeedResult] = []
+            seed_results: list[SeedResult] = []
             for s in self.seeds:
-                res = self.train_seed(cfg["class"], seed=s, is_proposed=cfg["is_proposed"])
+                res = self.train_seed(
+                    cfg["class"], seed=s, is_proposed=cfg["is_proposed"]
+                )
                 seed_results.append(res)
                 completed_runs += 1
                 if self.progress_callback:

@@ -7,9 +7,7 @@ literature evidence, and mathematical treatment decisions.
 
 from __future__ import annotations
 
-import json
-import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.core.dataset_finder import DatasetMetadata
 from backend.core.latex_assembler import AuthorProfile, CompliantLaTeXAssembler
@@ -26,13 +24,13 @@ class DeepJournalAssembler:
 
     def __init__(
         self,
-        metrics_dict: Dict[str, Any],
-        papers: List[PaperMetadata],
-        author: Optional[AuthorProfile] = None,
-        dataset: Optional[DatasetMetadata] = None,
-        contract: Optional[ScientificResearchContract] = None,
-        manuscript_plan: Optional[Any] = None,
-        figures: Optional[List[Any]] = None,
+        metrics_dict: dict[str, Any],
+        papers: list[PaperMetadata],
+        author: AuthorProfile | None = None,
+        dataset: DatasetMetadata | None = None,
+        contract: ScientificResearchContract | None = None,
+        manuscript_plan: Any | None = None,
+        figures: list[Any] | None = None,
     ) -> None:
         self.metrics = metrics_dict
         self.papers = papers
@@ -139,7 +137,19 @@ Let $\mathcal{P}_\parallel$ denote the orthogonal projection operator onto the p
 \end{proposition}"""
 
         elif math_dec == MathematicalTreatmentDecision.DERIVATION_ONLY:
-            if any(k in self.topic.lower() for k in ["vibration", "signal", "bearing", "machinery", "acoustic", "fft", "spectral", "fault"]):
+            if any(
+                k in self.topic.lower()
+                for k in [
+                    "vibration",
+                    "signal",
+                    "bearing",
+                    "machinery",
+                    "acoustic",
+                    "fft",
+                    "spectral",
+                    "fault",
+                ]
+            ):
                 return r"""\subsection{Time-Frequency Continuous Wavelet Problem Formulation}
 Let $x(t) \in \mathcal{L}^2(\mathbb{R})$ represent the continuous high-frequency vibration signal acquired from rotating machinery sensor transducers. To localize non-stationary transient impact signatures induced by localized surface defects, the continuous wavelet transform (CWT) is defined as:
 \begin{equation}
@@ -182,7 +192,18 @@ To derive the closed-form accumulation bound, let $\mathbf{e}_t = \mathbf{x}_t -
 Recursively unrolling this recurrence over $h$ steps and taking the $\ell_1$ norm yields (\ref{eq:horizon_error_prop})."""
 
         elif math_dec == MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE:
-            if any(k in self.topic.lower() for k in ["rag", "retrieval", "question answering", "qa", "factual", "factuality", "hallucination"]):
+            if any(
+                k in self.topic.lower()
+                for k in [
+                    "rag",
+                    "retrieval",
+                    "question answering",
+                    "qa",
+                    "factual",
+                    "factuality",
+                    "hallucination",
+                ]
+            ):
                 return r"""\subsection{Retrieval-Augmented Generation Problem Formulation}
 Let $q \in \mathcal{Q}$ denote a domain-specific question query and let $\mathcal{D} = \{d_1, \dots, d_M\}$ represent an external document passage corpus. The retrieval system maps query $q$ to a top-$k$ ranked subset $\mathcal{Z}_k(q) \subset \mathcal{D}$ parameterized by dense bi-encoder scoring:
 \begin{equation}
@@ -208,7 +229,10 @@ By applying the log-derivative identity, the gradient with respect to retrieval 
 \nabla_\eta \mathcal{L}_{\text{RAG}} = \sum_{z \in \mathcal{Z}_k(q)} \gamma(z) \nabla_\eta \log P_\eta(z \mid q), \quad \gamma(z) \triangleq \frac{P_\eta(z \mid q) P_\theta(\mathbf{y} \mid q, z)}{\sum_{z'} P_\eta(z' \mid q) P_\theta(\mathbf{y} \mid q, z')}
 \end{equation}
 where $\gamma(z)$ represents the posterior passage responsibility score, reinforcing passages that provide truthful evidence."""
-            elif any(k in self.topic.lower() for k in ["peft", "lora", "adapter", "parameter-efficient"]):
+            elif any(
+                k in self.topic.lower()
+                for k in ["peft", "lora", "adapter", "parameter-efficient"]
+            ):
                 return r"""\subsection{Parameter-Efficient Low-Rank Optimization Objective}
 Let $\mathbf{W}_0 \in \mathbb{R}^{d \times k}$ represent frozen pre-trained base model weights. Parameter-efficient adaptation parameterizes the weight update as a low-rank decomposition $\Delta \mathbf{W} = \mathbf{B}\mathbf{A}$, where $\mathbf{B} \in \mathbb{R}^{d \times r}$ and $\mathbf{A} \in \mathbb{R}^{r \times k}$ with rank $r \ll \min(d, k)$.
 
@@ -260,9 +284,14 @@ The optimization objective is defined as minimizing empirical loss:
 \end{equation}
 evaluated across $K=5$ independent deterministic random seeds to ensure statistical significance and reproducibility."""
 
-    def _get_appendix_math_content(self, math_dec: MathematicalTreatmentDecision) -> str:
+    def _get_appendix_math_content(
+        self, math_dec: MathematicalTreatmentDecision
+    ) -> str:
         """Derive appendix proofs/formulations strictly adhering to the mathematical treatment decision."""
-        if not self.contract or math_dec in (MathematicalTreatmentDecision.FORMAL_THEOREM, MathematicalTreatmentDecision.FORMAL_PROPOSITION):
+        if not self.contract or math_dec in (
+            MathematicalTreatmentDecision.FORMAL_THEOREM,
+            MathematicalTreatmentDecision.FORMAL_PROPOSITION,
+        ):
             return r"""\subsection{Extended Proof of Lemma 1 and Gradient Bounds}
 We provide the step-by-step unrolling of the second-order Lagrange remainder expansion for stochastic gradient descent under $L$-smooth non-convex functionals. Let $\mathbf{e}_t = \mathbf{g}_t - \nabla \mathcal{J}(\theta_t)$ be the zero-mean stochastic noise. Under step size $\eta_t \le \frac{1}{2L}$, the expected progress is lower-bounded by $\eta_t (1 - \frac{L\eta_t}{2}) \|\nabla \mathcal{J}(\theta_t)\|^2 \ge \frac{\eta_t}{2}\|\nabla \mathcal{J}(\theta_t)\|^2$, establishing guaranteed descent outside the noise ball of radius $\sqrt{L \eta_t \sigma^2}$."""
         elif math_dec == MathematicalTreatmentDecision.DERIVATION_ONLY:
@@ -277,52 +306,99 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
 
     def generate_journal_latex(self) -> str:
         """Construct an exhaustive, publication-ready 8-12 page IEEE Transactions LaTeX document."""
-        def clean_tex(s: Any) -> str:
-            return str(s).replace("&", r"\&").replace("%", r"\%").replace("_", r"\_").replace("#", r"\#")
 
-        topic_latex = clean_tex(CompliantLaTeXAssembler.format_academic_title(self.topic))
+        def clean_tex(s: Any) -> str:
+            return (
+                str(s)
+                .replace("&", r"\&")
+                .replace("%", r"\%")
+                .replace("_", r"\_")
+                .replace("#", r"\#")
+            )
+
+        topic_latex = clean_tex(
+            CompliantLaTeXAssembler.format_academic_title(self.topic)
+        )
         contract = self.contract
 
         # Method and metric naming
         if contract and contract.selected_method:
             m_name = contract.selected_method
-        elif "Physics-Informed Surrogates" in self.topic or "Aerodynamics" in self.topic:
+        elif (
+            "Physics-Informed Surrogates" in self.topic or "Aerodynamics" in self.topic
+        ):
             m_name = "Ham-QNO"
         else:
             m_name = "Proposed Adaptive Framework"
 
         m_name_latex = clean_tex(m_name)
-        m_acronym = "".join([w[0] for w in m_name.split() if w[0].isupper()])[:8] or "PAF"
+        m_acronym = (
+            "".join([w[0] for w in m_name.split() if w[0].isupper()])[:8] or "PAF"
+        )
 
         if contract and contract.primary_metrics:
             prim_metric = clean_tex(contract.primary_metrics[0])
-            sec_metric = clean_tex(contract.primary_metrics[1] if len(contract.primary_metrics) > 1 else (
-                contract.secondary_metrics[0] if contract.secondary_metrics else "Secondary Metric Score (%)"
-            ))
-        elif "Physics-Informed Surrogates" in self.topic or "Aerodynamics" in self.topic:
+            sec_metric = clean_tex(
+                contract.primary_metrics[1]
+                if len(contract.primary_metrics) > 1
+                else (
+                    contract.secondary_metrics[0]
+                    if contract.secondary_metrics
+                    else "Secondary Metric Score (%)"
+                )
+            )
+        elif (
+            "Physics-Informed Surrogates" in self.topic or "Aerodynamics" in self.topic
+        ):
             prim_metric = "Fidelity Index (\\%)"
             sec_metric = "L2 Error Norm"
         else:
             prim_metric = "Primary Metric Score (\\%)"
             sec_metric = "Secondary Metric Score (\\%)"
 
-        dataset_name = contract.selected_dataset if contract and contract.selected_dataset else (
-            self.dataset.name if self.dataset else "Canonical Benchmark Dataset"
+        dataset_name = (
+            contract.selected_dataset
+            if contract and contract.selected_dataset
+            else (self.dataset.name if self.dataset else "Canonical Benchmark Dataset")
         )
         dataset_name_latex = clean_tex(dataset_name)
-        dataset_cite = self.dataset.bibtex_key if self.dataset and self.dataset.bibtex_key else "dataset_canonical"
+        dataset_cite = (
+            self.dataset.bibtex_key
+            if self.dataset and self.dataset.bibtex_key
+            else "dataset_canonical"
+        )
 
-        baselines_raw = contract.selected_baselines if contract and contract.selected_baselines else [
-            "Standard Baseline Architecture", "Canonical Comparative Model", "Ablated Reference Variant"
-        ]
+        baselines_raw = (
+            contract.selected_baselines
+            if contract and contract.selected_baselines
+            else [
+                "Standard Baseline Architecture",
+                "Canonical Comparative Model",
+                "Ablated Reference Variant",
+            ]
+        )
         baselines = [clean_tex(b) for b in baselines_raw]
-        b0_name = baselines[0] if len(baselines) > 0 else "Standard Baseline Architecture"
+        b0_name = (
+            baselines[0] if len(baselines) > 0 else "Standard Baseline Architecture"
+        )
         b1_name = baselines[1] if len(baselines) > 1 else "Canonical Comparative Model"
         b2_name = baselines[2] if len(baselines) > 2 else "Ablated Reference Variant"
 
-        domain_latex = clean_tex(contract.domain if contract and contract.domain else 'Computational Intelligence')
-        subdomain_latex = clean_tex(contract.subdomain if contract and contract.subdomain else 'Machine Learning')
-        task_type_latex = clean_tex(contract.task_type if contract and contract.task_type else 'computational evaluation')
+        domain_latex = clean_tex(
+            contract.domain
+            if contract and contract.domain
+            else "Computational Intelligence"
+        )
+        subdomain_latex = clean_tex(
+            contract.subdomain
+            if contract and contract.subdomain
+            else "Machine Learning"
+        )
+        task_type_latex = clean_tex(
+            contract.task_type
+            if contract and contract.task_type
+            else "computational evaluation"
+        )
 
         # Telemetry metrics extraction
         prop_dict = self.methods.get("proposed_mb_qgt", {})
@@ -355,13 +431,38 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
         cite_p3 = cite_keys[2] if len(cite_keys) > 2 else cite_p2
 
         # Statistical analysis conditioning
-        stat_req = contract.statistical_requirement if contract else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
-        math_dec = contract.mathematical_requirement if contract else MathematicalTreatmentDecision.EMPIRICAL_ONLY
+        stat_req = (
+            contract.statistical_requirement
+            if contract
+            else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
+        )
+        math_dec = (
+            contract.mathematical_requirement
+            if contract
+            else MathematicalTreatmentDecision.EMPIRICAL_ONLY
+        )
 
-        contract_has_hardware = any(
-            k in (contract.research_question if contract else "").lower() or k in " ".join(contract.required_experiments if contract else []).lower()
-            for k in ["hardware", "quantization", "int8", "cache", "block-floating", "fp32", "throughput", "latency", "memory", "efficiency"]
-        ) if contract else True
+        contract_has_hardware = (
+            any(
+                k in (contract.research_question if contract else "").lower()
+                or k
+                in " ".join(contract.required_experiments if contract else []).lower()
+                for k in [
+                    "hardware",
+                    "quantization",
+                    "int8",
+                    "cache",
+                    "block-floating",
+                    "fp32",
+                    "throughput",
+                    "latency",
+                    "memory",
+                    "efficiency",
+                ]
+            )
+            if contract
+            else True
+        )
 
         # 1. Abstract statistical reporting
         if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
@@ -369,16 +470,19 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
             keywords_stat_text = "DerSimonian-Laird Meta-Analysis"
             contrib_stat_text = rf"\item \textbf{{Meta-Analytic Statistical Verification:}} We evaluate statistical significance via multi-seed hypothesis testing and DerSimonian-Laird meta-analysis, establishing pooled effect size gains of \textbf{{+{pooled_es:.2f}\%}} ($Z = {z_stat:.2f}, p < 10^{{-4}}$) with zero observed heterogeneity ($I^2 = {i_sq:.1f}\%$)."
             validity_stat_text = "Grounded in standardized IEEE metric definitions and DerSimonian-Laird random-effects meta-analysis."
-        elif stat_req in (StatisticalAnalysisType.PAIRED_T_TEST, StatisticalAnalysisType.EFFECT_SIZE_COHENS_D):
+        elif stat_req in (
+            StatisticalAnalysisType.PAIRED_T_TEST,
+            StatisticalAnalysisType.EFFECT_SIZE_COHENS_D,
+        ):
             cohen_d = abs(p_acc - d_acc) / max(p_acc_std, 0.01)
             abstract_stat_text = rf"Two-tailed paired Student's $t$-testing and Cohen's $d$ effect size estimation confirm a statistically significant gain of \textbf{{+{p_acc - d_acc:.2f}\%}} ($t(4) = {z_stat:.2f}, p < 0.001, d = {cohen_d:.2f}$) with tight confidence bounds across deterministic evaluation seeds."
             keywords_stat_text = "Paired Student's t-Test, Cohen's d Effect Size"
-            contrib_stat_text = rf"\item \textbf{{Rigorous Statistical Hypothesis Testing:}} We evaluate significance via two-tailed paired Student's $t$-tests and Cohen's $d$ effect sizes across $K=5$ seeds, demonstrating decisive empirical gains ($p < 0.001, d > 2.0$) over canonical baselines."
+            contrib_stat_text = r"\item \textbf{Rigorous Statistical Hypothesis Testing:} We evaluate significance via two-tailed paired Student's $t$-tests and Cohen's $d$ effect sizes across $K=5$ seeds, demonstrating decisive empirical gains ($p < 0.001, d > 2.0$) over canonical baselines."
             validity_stat_text = "Grounded in standardized metric definitions and paired Student's $t$-test validation."
         elif stat_req == StatisticalAnalysisType.WILCOXON_SIGNED_RANK:
-            abstract_stat_text = rf"Non-parametric Wilcoxon signed-rank verification establishes statistically significant median superiority ($W = 15.0, p = 0.0312$) with zero negative rank deviations across evaluation folds."
+            abstract_stat_text = r"Non-parametric Wilcoxon signed-rank verification establishes statistically significant median superiority ($W = 15.0, p = 0.0312$) with zero negative rank deviations across evaluation folds."
             keywords_stat_text = "Wilcoxon Signed-Rank Testing"
-            contrib_stat_text = rf"\item \textbf{{Non-Parametric Statistical Verification:}} We verify treatment superiority via Wilcoxon signed-rank tests across evaluation folds without imposing Gaussian distribution assumptions ($W = 15.0, p < 0.05$)."
+            contrib_stat_text = r"\item \textbf{Non-Parametric Statistical Verification:} We verify treatment superiority via Wilcoxon signed-rank tests across evaluation folds without imposing Gaussian distribution assumptions ($W = 15.0, p < 0.05$)."
             validity_stat_text = "Grounded in standardized metric definitions and non-parametric Wilcoxon signed-rank verification."
         elif stat_req == StatisticalAnalysisType.BOOTSTRAP_CONFIDENCE_INTERVAL:
             abstract_stat_text = rf"Non-parametric bootstrap resampling ($B=1000$ iterations) confirms an empirical $95\%$ confidence interval of [{ci_lo:.2f}\%, {ci_hi:.2f}\%] for the primary performance gain ($p < 0.001$)."
@@ -386,14 +490,14 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
             contrib_stat_text = rf"\item \textbf{{Bootstrap Resampling Confidence Bounds:}} We construct non-parametric 95\% confidence intervals via $B=1000$ bootstrap resamples, confirming robust lower-bound gains ([{ci_lo:.2f}\%, {ci_hi:.2f}\%])."
             validity_stat_text = "Grounded in standardized metric definitions and non-parametric bootstrap resampling."
         elif stat_req == StatisticalAnalysisType.ONE_WAY_ANOVA:
-            abstract_stat_text = rf"One-way ANOVA with Tukey HSD post-hoc testing confirms significant treatment variance separation ($F(3, 16) = 28.4, p < 10^{{-4}}$) between proposed and baseline groups."
+            abstract_stat_text = r"One-way ANOVA with Tukey HSD post-hoc testing confirms significant treatment variance separation ($F(3, 16) = 28.4, p < 10^{-4}$) between proposed and baseline groups."
             keywords_stat_text = "ANOVA Post-Hoc Analysis"
-            contrib_stat_text = rf"\item \textbf{{ANOVA Variance and Post-Hoc Testing:}} We establish statistically significant variance separation across candidate models via one-way ANOVA with Tukey HSD multiple-comparison adjustments ($F = 28.4, p < 10^{{-4}}$)."
+            contrib_stat_text = r"\item \textbf{ANOVA Variance and Post-Hoc Testing:} We establish statistically significant variance separation across candidate models via one-way ANOVA with Tukey HSD multiple-comparison adjustments ($F = 28.4, p < 10^{-4}$)."
             validity_stat_text = "Grounded in standardized metric definitions and ANOVA post-hoc analysis."
         else:
             abstract_stat_text = rf"Empirical multi-seed evaluation confirms a primary performance gain of \textbf{{+{p_acc - d_acc:.2f}\%}} across deterministic random seeds with standard deviation bounded by $\pm {p_acc_std:.2f}\%$."
             keywords_stat_text = "Statistical Hypothesis Testing"
-            contrib_stat_text = rf"\item \textbf{{Multi-Seed Statistical Validation:}} We quantify performance stability across deterministic seeds, demonstrating bounded variance and reproducible gains."
+            contrib_stat_text = r"\item \textbf{Multi-Seed Statistical Validation:} We quantify performance stability across deterministic seeds, demonstrating bounded variance and reproducible gains."
             validity_stat_text = "Grounded in standardized metric definitions and multi-seed statistical validation."
 
         math_latex_content = self._get_math_content(m_name_latex, m_acronym)
@@ -404,13 +508,21 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
         if self.figures:
             for idx, f_item in enumerate(self.figures, start=1):
                 if hasattr(f_item, "output_filename") and f_item.output_filename:
-                    f_base = f_item.output_filename.replace(".pdf", "").replace(".png", "")
-                    f_cap = clean_tex(getattr(f_item, "caption", f"Evaluation Figure {idx}"))
+                    f_base = f_item.output_filename.replace(".pdf", "").replace(
+                        ".png", ""
+                    )
+                    f_cap = clean_tex(
+                        getattr(f_item, "caption", f"Evaluation Figure {idx}")
+                    )
                 elif isinstance(f_item, str):
                     f_base = f_item.replace(".pdf", "").replace(".png", "")
                     f_cap = f"Evaluation Figure {idx}"
                 elif isinstance(f_item, dict) and "output_filename" in f_item:
-                    f_base = f_item["output_filename"].replace(".pdf", "").replace(".png", "")
+                    f_base = (
+                        f_item["output_filename"]
+                        .replace(".pdf", "")
+                        .replace(".png", "")
+                    )
                     f_cap = clean_tex(f_item.get("caption", f"Evaluation Figure {idx}"))
                 else:
                     f_base = f"fig{idx}"
@@ -440,28 +552,28 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
                     fig_cap = f"System architecture and modular computational dataflow of \\textbf{{{m_name_latex}}} ({m_acronym}) illustrating the multi-stage pipeline, adaptive transformation tensors, and loss regularization topology."
                 elif "retrieval_depth" in f_low or "depth" in f_low:
                     fig_name = f"fig{idx}_retrieval_depth"
-                    fig_cap = f"Retrieval depth parametric sweep evaluating factual consistency and exact match fidelity as a function of retrieved document count $k$."
+                    fig_cap = "Retrieval depth parametric sweep evaluating factual consistency and exact match fidelity as a function of retrieved document count $k$."
                 elif "context_density" in f_low or "density" in f_low:
                     fig_name = f"fig{idx}_context_density"
-                    fig_cap = f"Context density versus hallucination rate response surface, illustrating grounding retention across varying passage lengths."
+                    fig_cap = "Context density versus hallucination rate response surface, illustrating grounding retention across varying passage lengths."
                 elif "peft" in f_low or "adapter" in f_low:
                     fig_name = f"fig{idx}_peft_efficiency"
-                    fig_cap = f"Parameter efficiency trade-off comparing trainable parameter ratio (\\%) versus downstream classification accuracy."
+                    fig_cap = "Parameter efficiency trade-off comparing trainable parameter ratio (\\%) versus downstream classification accuracy."
                 elif "forecast" in f_low or "trajectory" in f_low:
                     fig_name = f"fig{idx}_forecast"
                     fig_cap = f"Multi-horizon forecast trajectories and empirical error degradation curves across sequential lookback horizons comparing {m_acronym} to comparative baselines."
                 elif "horizon" in f_low or "degradation" in f_low:
                     fig_name = f"fig{idx}_horizon_error"
-                    fig_cap = f"Horizon-wise error degradation trajectories illustrating error compounding dynamics across lookback steps."
+                    fig_cap = "Horizon-wise error degradation trajectories illustrating error compounding dynamics across lookback steps."
                 elif "calibration" in f_low or "reliability" in f_low:
                     fig_name = f"fig{idx}_reliability_calibration"
-                    fig_cap = f"Uncertainty calibration reliability diagram and quantile coverage probability curves across evaluated predictive intervals."
+                    fig_cap = "Uncertainty calibration reliability diagram and quantile coverage probability curves across evaluated predictive intervals."
                 elif "spectrogram" in f_low or "wavelet" in f_low:
                     fig_name = f"fig{idx}_spectrogram"
-                    fig_cap = f"Continuous wavelet transform spectrogram illustrating transient impact energy localization across resonance frequency bands."
+                    fig_cap = "Continuous wavelet transform spectrogram illustrating transient impact energy localization across resonance frequency bands."
                 elif "roc" in f_low or "precision" in f_low or "pr" in f_low:
                     fig_name = f"fig{idx}_roc_pr"
-                    fig_cap = f"Precision-Recall and Receiver Operating Characteristic (AUROC) curves evaluating classification discrimination under severe class imbalance."
+                    fig_cap = "Precision-Recall and Receiver Operating Characteristic (AUROC) curves evaluating classification discrimination under severe class imbalance."
                 elif "convergence" in f_low or "variance" in f_low:
                     fig_name = f"fig{idx}_convergence"
                     fig_cap = f"Multi-seed optimization convergence trajectories with empirical $\\pm 1\\sigma$ variance bands comparing {m_acronym} against canonical baseline architectures across 50 training epochs."
@@ -470,10 +582,10 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
                     fig_cap = f"Multi-objective Pareto efficiency frontier illustrating predictive fidelity ({prim_metric}) versus peak resident memory footprint (MB) and per-sample latency."
                 elif "ablation" in f_low:
                     fig_name = f"fig{idx}_ablation"
-                    fig_cap = f"Architectural submodule ablation analysis illustrating component-wise performance contributions upon selective submodule deactivation."
+                    fig_cap = "Architectural submodule ablation analysis illustrating component-wise performance contributions upon selective submodule deactivation."
                 else:
                     fig_name = f"fig{idx}_sensitivity"
-                    fig_cap = f"Hyperparameter sensitivity response surface and 2D parameter sweep across evaluated learning rates and regularization weights."
+                    fig_cap = "Hyperparameter sensitivity response surface and 2D parameter sweep across evaluated learning rates and regularization weights."
 
                 fig_includes.append(rf"""\begin{{figure}}[htbp]
 \centering
@@ -498,7 +610,11 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
 \label{{fig:fig_{idx:02d}}}
 \end{{figure}}""")
 
-        figures_latex_block = "\n\n".join(fig_includes) if fig_includes else "% Zero figures planned per research contract."
+        figures_latex_block = (
+            "\n\n".join(fig_includes)
+            if fig_includes
+            else "% Zero figures planned per research contract."
+        )
 
         seed_set_tex = r"\{s_1, \dots, s_K\}"
         seeds_42_tex = r"\{42, 43, 44, 45, 46\}"
@@ -514,10 +630,13 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
 Applying the DerSimonian-Laird random-effects meta-analysis framework across all evaluated seed trials yields:
 \begin{{itemize}}
     \item \textbf{{Pooled Summary Effect:}} $\theta_{{\mathrm{{DSL}}}} = \mathbf{{+{pooled_es:.2f}\%}}$ [$95\%$ CI: {ci_lo:.2f}\% to {ci_hi:.2f}\%].
-    \item \textbf{{Heterogeneity Statistics:}} Cochran's $Q = {self.meta.get('cochran_q', 0.23):.2f}$ ($p = {self.meta.get('p_value_q', 0.9939):.4f}$), $I^2 = \mathbf{{{i_sq:.1f}\%}}$, $\tau^2 = {self.meta.get('tau_squared', 0.0):.6f}$.
-    \item \textbf{{Statistical Power:}} Two-tailed test statistic $Z = \mathbf{{{z_stat:.2f}}}$ ($p = {self.meta.get('p_value_z', 0.0):.2e}$), confirming rejection of the null hypothesis at $\alpha = 0.01$.
+    \item \textbf{{Heterogeneity Statistics:}} Cochran's $Q = {self.meta.get("cochran_q", 0.23):.2f}$ ($p = {self.meta.get("p_value_q", 0.9939):.4f}$), $I^2 = \mathbf{{{i_sq:.1f}\%}}$, $\tau^2 = {self.meta.get("tau_squared", 0.0):.6f}$.
+    \item \textbf{{Statistical Power:}} Two-tailed test statistic $Z = \mathbf{{{z_stat:.2f}}}$ ($p = {self.meta.get("p_value_z", 0.0):.2e}$), confirming rejection of the null hypothesis at $\alpha = 0.01$.
 \end{{itemize}}"""
-        elif stat_req in (StatisticalAnalysisType.PAIRED_T_TEST, StatisticalAnalysisType.EFFECT_SIZE_COHENS_D):
+        elif stat_req in (
+            StatisticalAnalysisType.PAIRED_T_TEST,
+            StatisticalAnalysisType.EFFECT_SIZE_COHENS_D,
+        ):
             cohen_d = abs(p_acc - d_acc) / max(p_acc_std, 0.01)
             stat_section_body = rf"""\subsection{{Paired Hypothesis Testing and Effect Size Verification}}
 To evaluate whether the empirical performance gains of \textbf{{{m_name_latex}}} are statistically robust against stochastic seed variance, we perform paired two-tailed Student's $t$-testing and Cohen's $d$ effect size estimation across $K=5$ deterministic seeds:
@@ -559,8 +678,17 @@ We quantify empirical variance and reproducibility metrics across all evaluation
 \end{{itemize}}"""
 
         # Section 5 & 6 Title adaptivity
-        sec5_title = "Experimental Setup and Hardware Profiling" if not contract or contract_has_hardware else "Experimental Setup and Benchmark Protocol"
-        sec6_title = "Empirical Results and Meta-Analytic Synthesis" if not contract or stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS else "Empirical Results and Statistical Analysis"
+        sec5_title = (
+            "Experimental Setup and Hardware Profiling"
+            if not contract or contract_has_hardware
+            else "Experimental Setup and Benchmark Protocol"
+        )
+        sec6_title = (
+            "Empirical Results and Meta-Analytic Synthesis"
+            if not contract
+            or stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
+            else "Empirical Results and Statistical Analysis"
+        )
 
         # Table 2 Column headers adapting to domain
         t_low = self.topic.lower()
@@ -570,7 +698,9 @@ We quantify empirical variance and reproducibility metrics across all evaluation
         elif any(k in t_low for k in ["peft", "lora", "adapter"]):
             col1, col2, col3 = "Rank $r=4$", "Rank $r=8$", "Rank $r=16$"
             tab2_caption = "Parameter-Efficient Low-Rank Scaling Performance Breakdown"
-        elif any(k in t_low for k in ["forecast", "time-series", "temporal", "lag", "drift"]):
+        elif any(
+            k in t_low for k in ["forecast", "time-series", "temporal", "lag", "drift"]
+        ):
             col1, col2, col3 = "Horizon $H=12$", "Horizon $H=24$", "Horizon $H=48$"
             tab2_caption = "Multi-Step Forecasting Horizon Error Breakdown"
         elif any(k in t_low for k in ["graph", "fraud", "network"]):
@@ -580,8 +710,14 @@ We quantify empirical variance and reproducibility metrics across all evaluation
             col1, col2, col3 = "Load Regime A", "Load Regime B", "Load Regime C"
             tab2_caption = "Cross-Operating Load Regime Performance Breakdown"
         else:
-            col1, col2, col3 = "Stratum 1 (Low)", "Stratum 2 (Medium)", "Stratum 3 (High)"
-            tab2_caption = "Fine-Grained Sub-Task Performance Breakdown Across Evaluation Strata"
+            col1, col2, col3 = (
+                "Stratum 1 (Low)",
+                "Stratum 2 (Medium)",
+                "Stratum 3 (High)",
+            )
+            tab2_caption = (
+                "Fine-Grained Sub-Task Performance Breakdown Across Evaluation Strata"
+            )
 
         # Table 1: Main comparative results (hardware vs non-hardware columns)
         if contract_has_hardware:

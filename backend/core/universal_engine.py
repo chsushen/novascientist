@@ -9,7 +9,6 @@ Dynamically adjusts model architectures, metric definitions, and empirical telem
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 import os
 import platform
@@ -17,39 +16,44 @@ import re
 import resource
 import subprocess
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
-import scipy.stats as stats
+
 from backend.core.surrogate_engine import (
     DerSimonianLairdEstimator,
     ExperimentPackage,
-    MetaAnalysisResult,
     MethodMetrics,
     SeedResult,
 )
 
 
-def get_physical_hardware_info() -> Dict[str, Any]:
+def get_physical_hardware_info() -> dict[str, Any]:
     """Extract physical CPU processor model, core count, architecture, and RAM."""
     cpu_model = "Multi-Core Processor"
     if platform.system() == "Darwin":
         try:
-            brand = subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"]).decode().strip()
+            brand = (
+                subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"])
+                .decode()
+                .strip()
+            )
             if brand:
                 cpu_model = brand
         except Exception:
             cpu_model = platform.processor() or "Apple Silicon ARM64"
         try:
-            mem_bytes = int(subprocess.check_output(["sysctl", "-n", "hw.memsize"]).decode().strip())
+            mem_bytes = int(
+                subprocess.check_output(["sysctl", "-n", "hw.memsize"]).decode().strip()
+            )
             total_ram_gb = round(mem_bytes / (1024**3), 1)
         except Exception:
             total_ram_gb = 16.0
     else:
         try:
-            with open("/proc/cpuinfo", "r", encoding="utf-8") as f:
+            with open("/proc/cpuinfo", encoding="utf-8") as f:
                 for line in f:
                     if "model name" in line:
                         cpu_model = line.split(":", 1)[1].strip()
@@ -73,6 +77,7 @@ def get_physical_hardware_info() -> Dict[str, Any]:
 
 class ComputationalDomain(str, Enum):
     """Supported computational evaluation domains."""
+
     PHYSICS_SURROGATE = "physics_surrogate"
     GRAPH = "graph"
     VISION = "vision"
@@ -88,9 +93,10 @@ class ComputationalDomain(str, Enum):
 @dataclass
 class DomainClassification:
     """Domain classification result with confidence and matched keywords."""
+
     domain: ComputationalDomain
     confidence: float
-    matched_keywords: List[str]
+    matched_keywords: list[str]
     domain_display_name: str
     model_acronym: str
     model_full_name: str
@@ -102,47 +108,164 @@ class UniversalDomainDispatcher:
 
     KEYWORD_MAP = {
         ComputationalDomain.PHYSICS_SURROGATE: [
-            "physics", "pde", "pinn", "surrogate", "differential", "hydrodynamic",
-            "navier", "fluid", "mechanics", "burgers", "helmholtz", "conservation",
-            "saint-venant", "boundary condition", "dynamic neural surrogate", "hamiltonian", "operator"
+            "physics",
+            "pde",
+            "pinn",
+            "surrogate",
+            "differential",
+            "hydrodynamic",
+            "navier",
+            "fluid",
+            "mechanics",
+            "burgers",
+            "helmholtz",
+            "conservation",
+            "saint-venant",
+            "boundary condition",
+            "dynamic neural surrogate",
+            "hamiltonian",
+            "operator",
         ],
         ComputationalDomain.GRAPH: [
-            "graph", "gnn", "relational", "topology", "network", "node", "edge",
-            "adjacency", "spectral graph", "message passing", "traffic", "transport",
-            "evacuation", "disaster", "sensor network", "resilience", "spatial-temporal"
+            "graph",
+            "gnn",
+            "relational",
+            "topology",
+            "network",
+            "node",
+            "edge",
+            "adjacency",
+            "spectral graph",
+            "message passing",
+            "traffic",
+            "transport",
+            "evacuation",
+            "disaster",
+            "sensor network",
+            "resilience",
+            "spatial-temporal",
         ],
         ComputationalDomain.VISION: [
-            "vision", "image", "visual", "segmentation", "medical", "multimodal",
-            "convolutional", "cnn", "vit", "patch", "mri", "ct", "radiology", "dicom",
-            "federated", "multiview", "multi-view", "detection", "classification"
+            "vision",
+            "image",
+            "visual",
+            "segmentation",
+            "medical",
+            "multimodal",
+            "convolutional",
+            "cnn",
+            "vit",
+            "patch",
+            "mri",
+            "ct",
+            "radiology",
+            "dicom",
+            "federated",
+            "multiview",
+            "multi-view",
+            "detection",
+            "classification",
         ],
         ComputationalDomain.NLP: [
-            "nlp", "language", "transformer", "llm", "attention", "token", "sub-linear",
-            "embedding", "text", "translation", "bert", "kv cache", "prompt", "syntactic",
-            "retrieval", "augmented generation", "rag", "question answering", "qa",
-            "factual", "factuality", "consistency", "hallucination", "reading comprehension",
-            "peft", "adapter", "lora"
+            "nlp",
+            "language",
+            "transformer",
+            "llm",
+            "attention",
+            "token",
+            "sub-linear",
+            "embedding",
+            "text",
+            "translation",
+            "bert",
+            "kv cache",
+            "prompt",
+            "syntactic",
+            "retrieval",
+            "augmented generation",
+            "rag",
+            "question answering",
+            "qa",
+            "factual",
+            "factuality",
+            "consistency",
+            "hallucination",
+            "reading comprehension",
+            "peft",
+            "adapter",
+            "lora",
         ],
         ComputationalDomain.SIGNAL_PROCESSING: [
-            "signal", "vibration", "machinery", "rotating", "bearing", "fault detection",
-            "sensor anomaly", "acoustic", "waveform", "spectral", "fft", "wavelet",
-            "industrial diagnostics", "condition monitoring", "accelerometer"
+            "signal",
+            "vibration",
+            "machinery",
+            "rotating",
+            "bearing",
+            "fault detection",
+            "sensor anomaly",
+            "acoustic",
+            "waveform",
+            "spectral",
+            "fft",
+            "wavelet",
+            "industrial diagnostics",
+            "condition monitoring",
+            "accelerometer",
         ],
         ComputationalDomain.TIMESERIES: [
-            "time-series", "timeseries", "forecasting", "temporal", "autoregressive",
-            "arima", "seasonality", "trend", "multivariate", "lag", "weather", "sensor"
+            "time-series",
+            "timeseries",
+            "forecasting",
+            "temporal",
+            "autoregressive",
+            "arima",
+            "seasonality",
+            "trend",
+            "multivariate",
+            "lag",
+            "weather",
+            "sensor",
         ],
         ComputationalDomain.TABULAR: [
-            "tabular", "heterogeneous", "xgboost", "tree", "structured", "categorical",
-            "random forest", "tabular benchmark", "clinical table"
+            "tabular",
+            "heterogeneous",
+            "xgboost",
+            "tree",
+            "structured",
+            "categorical",
+            "random forest",
+            "tabular benchmark",
+            "clinical table",
         ],
         ComputationalDomain.BIOINFORMATICS: [
-            "metagenomic", "binning", "taxonomic", "genomic", "long-read", "sequencing",
-            "microbiome", "alignment", "dna", "rna", "k-mer", "contig", "phylogenetic", "assembly graph"
+            "metagenomic",
+            "binning",
+            "taxonomic",
+            "genomic",
+            "long-read",
+            "sequencing",
+            "microbiome",
+            "alignment",
+            "dna",
+            "rna",
+            "k-mer",
+            "contig",
+            "phylogenetic",
+            "assembly graph",
         ],
         ComputationalDomain.QUANTUM: [
-            "quantum", "tensor network", "variational", "molecular", "ground-state",
-            "qubit", "entanglement", "eigensolver", "hamiltonian", "vqe", "circuit", "pauli"
+            "quantum",
+            "tensor network",
+            "variational",
+            "molecular",
+            "ground-state",
+            "qubit",
+            "entanglement",
+            "eigensolver",
+            "hamiltonian",
+            "vqe",
+            "circuit",
+            "pauli",
         ],
     }
 
@@ -212,8 +335,26 @@ class UniversalDomainDispatcher:
     @classmethod
     def generate_zero_shot_domain(cls, topic: str) -> DomainClassification:
         """Dynamically synthesize acronym, full name, display name, and metrics for unmapped topics."""
-        words = [w for w in re.findall(r"[A-Za-z]+", topic) if w.lower() not in {"and", "of", "the", "for", "in", "with", "under", "using", "on", "a", "an", "to"}]
-        
+        words = [
+            w
+            for w in re.findall(r"[A-Za-z]+", topic)
+            if w.lower()
+            not in {
+                "and",
+                "of",
+                "the",
+                "for",
+                "in",
+                "with",
+                "under",
+                "using",
+                "on",
+                "a",
+                "an",
+                "to",
+            }
+        ]
+
         if len(words) >= 3:
             prefix = "".join([w[0].upper() for w in words[:3]])
             acronym = f"{prefix}-Net"
@@ -225,17 +366,35 @@ class UniversalDomainDispatcher:
             acronym = f"{prefix}-Net"
         else:
             acronym = "Ada-Net"
-            
+
         topic_title = " ".join([w.capitalize() for w in words[:4]])
-        display_name = f"Scientific Machine Learning: {topic_title}" if topic_title else "Universal Scientific Learning"
+        display_name = (
+            f"Scientific Machine Learning: {topic_title}"
+            if topic_title
+            else "Universal Scientific Learning"
+        )
         full_name = f"Adaptive {topic_title} Framework"
         primary_metric = "Task Accuracy & Solution Fidelity (%)"
 
         # Check for modality hints
         t_low = topic.lower()
-        if any(k in t_low for k in ["text", "language", "qa", "question", "retriev", "generat"]):
+        if any(
+            k in t_low
+            for k in ["text", "language", "qa", "question", "retriev", "generat"]
+        ):
             dom = ComputationalDomain.NLP
-        elif any(k in t_low for k in ["vibrat", "signal", "sensor", "acoustic", "machin", "rotat", "fault"]):
+        elif any(
+            k in t_low
+            for k in [
+                "vibrat",
+                "signal",
+                "sensor",
+                "acoustic",
+                "machin",
+                "rotat",
+                "fault",
+            ]
+        ):
             dom = ComputationalDomain.SIGNAL_PROCESSING
         elif any(k in t_low for k in ["time", "forecast", "temporal", "series"]):
             dom = ComputationalDomain.TIMESERIES
@@ -256,8 +415,8 @@ class UniversalDomainDispatcher:
     def classify_topic(cls, topic: str) -> DomainClassification:
         """Score keyword matches against domain registries and return top match."""
         topic_lower = topic.lower()
-        scores: Dict[ComputationalDomain, int] = {}
-        matched: Dict[ComputationalDomain, List[str]] = {}
+        scores: dict[ComputationalDomain, int] = {}
+        matched: dict[ComputationalDomain, list[str]] = {}
 
         for dom, keywords in cls.KEYWORD_MAP.items():
             matched[dom] = []
@@ -278,7 +437,9 @@ class UniversalDomainDispatcher:
             return cls.generate_zero_shot_domain(topic)
 
         total = sum(scores.values()) or 1
-        confidence = min(1.0, max(0.65, scores[best_domain] / total if total > 0 else 0.85))
+        confidence = min(
+            1.0, max(0.65, scores[best_domain] / total if total > 0 else 0.85)
+        )
 
         info = cls.DOMAIN_INFO[best_domain]
         return DomainClassification(
@@ -292,12 +453,16 @@ class UniversalDomainDispatcher:
         )
 
 
-
-
 class UniversalBenchmarkEngine:
     """Executes deterministic multi-seed CPU micro-benchmarks customized per research domain."""
 
-    def __init__(self, topic: str, num_seeds: int = 5, batch_size: int = 64, contract: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        topic: str,
+        num_seeds: int = 5,
+        batch_size: int = 64,
+        contract: Any | None = None,
+    ) -> None:
         self.topic = topic
         self.num_seeds = num_seeds
         self.batch_size = batch_size
@@ -305,11 +470,13 @@ class UniversalBenchmarkEngine:
         self.seeds = [42, 179, 316, 453, 590, 727, 864, 1001, 1138, 1275][:num_seeds]
         self.classification = UniversalDomainDispatcher.classify_topic(topic)
         self.domain = self.classification.domain
-        
-        # Topic hash to produce deterministic, topic-unique variation
-        self.topic_hash = int(hashlib.sha256(topic.lower().strip().encode("utf-8")).hexdigest()[:8], 16)
 
-    def _get_domain_method_configs(self) -> List[Dict[str, Any]]:
+        # Topic hash to produce deterministic, topic-unique variation
+        self.topic_hash = int(
+            hashlib.sha256(topic.lower().strip().encode("utf-8")).hexdigest()[:8], 16
+        )
+
+    def _get_domain_method_configs(self) -> list[dict[str, Any]]:
         """Return candidate method definitions and baseline parameters customized by domain & topic."""
         dom = self.domain
         h_offset = (self.topic_hash % 1000) / 10000.0  # 0.0000 to 0.0999
@@ -409,7 +576,18 @@ class UniversalBenchmarkEngine:
         elif dom == ComputationalDomain.NLP:
             d_acc = 0.685 + h_offset * 0.55
             p_acc = 0.812 + h_offset * 0.52
-            is_rag = any(k in self.topic.lower() for k in ["rag", "retrieval", "question answering", "qa", "factual", "factuality", "hallucination"])
+            is_rag = any(
+                k in self.topic.lower()
+                for k in [
+                    "rag",
+                    "retrieval",
+                    "question answering",
+                    "qa",
+                    "factual",
+                    "factuality",
+                    "hallucination",
+                ]
+            )
             if is_rag:
                 return [
                     {
@@ -812,10 +990,13 @@ class UniversalBenchmarkEngine:
                 },
             ]
 
-    def _run_physical_cpu_micro_benchmark(self, seed: int, dim: int = 256, iters: int = 80) -> Tuple[float, float]:
+    def _run_physical_cpu_micro_benchmark(
+        self, seed: int, dim: int = 256, iters: int = 80
+    ) -> tuple[float, float]:
         """Execute physical CPU linear matrix operations to profile true hardware performance."""
         try:
             import torch
+
             torch.manual_seed(seed)
             A = torch.randn(dim, dim, dtype=torch.float32)
             B = torch.randn(dim, dim, dtype=torch.float32)
@@ -859,11 +1040,19 @@ class UniversalBenchmarkEngine:
         train_loss_hist = []
         val_acc_hist = []
         num_epochs = 40
-        is_prop = (comp_ratio > 4.0)
+        is_prop = comp_ratio > 4.0
 
         for ep in range(1, num_epochs + 1):
-            l_val = 1.8 * math.exp(-ep / (10.5 if is_prop else 8.5)) + 0.2 + float(rng.normal(0, 0.01))
-            a_val = 0.40 + (base_acc - 0.40) / (1.0 + math.exp(-(ep - 12) / 4.5)) + float(rng.normal(0, 0.005))
+            l_val = (
+                1.8 * math.exp(-ep / (10.5 if is_prop else 8.5))
+                + 0.2
+                + float(rng.normal(0, 0.01))
+            )
+            a_val = (
+                0.40
+                + (base_acc - 0.40) / (1.0 + math.exp(-(ep - 12) / 4.5))
+                + float(rng.normal(0, 0.005))
+            )
             train_loss_hist.append(round(max(0.01, l_val), 4))
             val_acc_hist.append(round(min(max(a_val, 0.3), 0.99), 4))
 
@@ -890,25 +1079,35 @@ class UniversalBenchmarkEngine:
 
     def run_experiments(self) -> ExperimentPackage:
         """Run multi-seed benchmark evaluations and compute meta-analysis."""
-        methods: Dict[str, MethodMetrics] = {}
+        methods: dict[str, MethodMetrics] = {}
         configs = self._get_domain_method_configs()
 
-        if self.contract and getattr(self.contract, "selected_baselines", None) and getattr(self.contract, "selected_method", None):
+        if (
+            self.contract
+            and getattr(self.contract, "selected_baselines", None)
+            and getattr(self.contract, "selected_method", None)
+        ):
             baselines = self.contract.selected_baselines
             for idx, b_name in enumerate(baselines[:3]):
                 if idx < len(configs) - 1:
                     configs[idx]["name"] = b_name
-                    configs[idx]["desc"] = f"Contracted comparative baseline ({b_name})."
-                    configs[idx]["id"] = f"baseline_{idx+1}_{re.sub(r'[^a-zA-Z0-9_]', '_', b_name.lower())[:24].strip('_')}"
+                    configs[idx]["desc"] = (
+                        f"Contracted comparative baseline ({b_name})."
+                    )
+                    configs[idx]["id"] = (
+                        f"baseline_{idx + 1}_{re.sub(r'[^a-zA-Z0-9_]', '_', b_name.lower())[:24].strip('_')}"
+                    )
             if len(configs) > 0 and self.contract.selected_method:
                 m_name = self.contract.selected_method
                 configs[-1]["name"] = m_name
                 configs[-1]["desc"] = f"Contracted proposed method ({m_name})."
-                configs[-1]["id"] = f"proposed_{re.sub(r'[^a-zA-Z0-9_]', '_', m_name.lower())[:24].strip('_')}"
+                configs[-1]["id"] = (
+                    f"proposed_{re.sub(r'[^a-zA-Z0-9_]', '_', m_name.lower())[:24].strip('_')}"
+                )
 
         for cfg in configs:
             m_id = cfg["id"]
-            seed_results: List[SeedResult] = []
+            seed_results: list[SeedResult] = []
             for seed in self.seeds:
                 res = self._simulate_seed(
                     seed=seed,

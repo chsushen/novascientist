@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from backend.core.doi_verifier import (
     DOIVerificationResult,
@@ -19,11 +19,12 @@ from backend.core.doi_verifier import (
     calculate_verified_doi_rate,
 )
 from backend.core.literature import LiteratureService, PaperMetadata
-from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher
+from backend.core.universal_engine import UniversalDomainDispatcher
 
 
 class EvidenceScope(str, Enum):
     """Scope of accessible scholarly text for an evidence source."""
+
     FULL_TEXT = "full_text"
     ABSTRACT = "abstract"
     METADATA_ONLY = "metadata_only"
@@ -37,6 +38,7 @@ class VerificationStatus(str, Enum):
     and excerpted from an accessible text passage in retrieved scholarly literature.
     It does NOT certify or claim independent absolute external scientific truth.
     """
+
     GROUNDED = "grounded"
     VERIFIED = "grounded"  # Compatibility alias for exact passage-grounded assertions
     PARTIALLY_SUPPORTED = "partially_supported"
@@ -47,18 +49,21 @@ class VerificationStatus(str, Enum):
 @dataclass
 class ClaimRecord:
     """Evidence-grounded scientific claim directly linked to a source text passage."""
+
     claim_id: str
     claim_text: str
     source_id: str
     supporting_text: str = ""
     supporting_location: str = "abstract"
     evidence_scope: EvidenceScope = EvidenceScope.ABSTRACT
-    category: str = "empirical"  # 'theoretical', 'empirical', 'methodology', 'limitation'
+    category: str = (
+        "empirical"  # 'theoretical', 'empirical', 'methodology', 'limitation'
+    )
     polarity: str = "supports"  # 'supports', 'contradicts', 'neutral'
-    confidence: Optional[float] = None
+    confidence: float | None = None
     extraction_method: str = "passage_extraction"
     verification_status: VerificationStatus = VerificationStatus.GROUNDED
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if isinstance(self.evidence_scope, str):
@@ -67,7 +72,10 @@ class ClaimRecord:
             self.verification_status = VerificationStatus(self.verification_status)
 
         # Enforce strict supporting passage requirement for grounded claims
-        if self.verification_status in (VerificationStatus.GROUNDED, VerificationStatus.VERIFIED):
+        if self.verification_status in (
+            VerificationStatus.GROUNDED,
+            VerificationStatus.VERIFIED,
+        ):
             if not self.supporting_text or not self.supporting_text.strip():
                 raise ValueError(
                     f"Invalid claim {self.claim_id}: Claims marked 'grounded' must have non-empty supporting_text."
@@ -85,19 +93,28 @@ class ClaimRecord:
                     f"Invalid claim {self.claim_id}: Claims cannot be marked 'grounded' when evidence_scope is 'metadata_only'."
                 )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["evidence_scope"] = self.evidence_scope.value if isinstance(self.evidence_scope, EvidenceScope) else str(self.evidence_scope)
-        d["verification_status"] = self.verification_status.value if isinstance(self.verification_status, VerificationStatus) else str(self.verification_status)
+        d["evidence_scope"] = (
+            self.evidence_scope.value
+            if isinstance(self.evidence_scope, EvidenceScope)
+            else str(self.evidence_scope)
+        )
+        d["verification_status"] = (
+            self.verification_status.value
+            if isinstance(self.verification_status, VerificationStatus)
+            else str(self.verification_status)
+        )
         return d
 
 
 @dataclass
 class SourceRecord:
     """Structured scholarly source record with accessible text tracking and associated claims."""
+
     source_id: str
     title: str
-    authors: List[str]
+    authors: list[str]
     year: int
     doi: str
     url: str
@@ -105,28 +122,36 @@ class SourceRecord:
     citation_count: int = 0
     relevance_score: float = 1.0
     evidence_scope: EvidenceScope = EvidenceScope.METADATA_ONLY
-    source_origin: str = "openalex"  # 'crossref', 'openalex', 'open_access_fulltext', 'test_fixture'
+    source_origin: str = (
+        "openalex"  # 'crossref', 'openalex', 'open_access_fulltext', 'test_fixture'
+    )
     text_origin: str = "none"  # 'crossref_abstract', 'openalex_abstract_inverted_index', 'open_access_fulltext', 'test_fixture', 'none'
-    doi_normalized: Optional[str] = None
+    doi_normalized: str | None = None
     doi_syntax_valid: bool = False
     doi_resolved: bool = False
     doi_metadata_match: bool = False
     doi_verification_status: str = "syntax_valid_only"  # 'verified', 'syntax_valid_only', 'metadata_mismatch', 'unresolvable', 'missing'
-    doi_final_url: Optional[str] = None
-    doi_http_status: Optional[int] = None
+    doi_final_url: str | None = None
+    doi_http_status: int | None = None
     retrieved_text_available: bool = False
-    retrieved_text: Optional[str] = None
-    claims: List[ClaimRecord] = field(default_factory=list)
+    retrieved_text: str | None = None
+    claims: list[ClaimRecord] = field(default_factory=list)
     bibkey: str = ""
     retraction_status: str = "active"  # 'active', 'retracted', 'unknown'
 
     def __post_init__(self) -> None:
-        if re.search(r"\b(retracted|retraction|withdrawn)\b", self.title, re.IGNORECASE):
+        if re.search(
+            r"\b(retracted|retraction|withdrawn)\b", self.title, re.IGNORECASE
+        ):
             self.retraction_status = "retracted"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["evidence_scope"] = self.evidence_scope.value if isinstance(self.evidence_scope, EvidenceScope) else str(self.evidence_scope)
+        d["evidence_scope"] = (
+            self.evidence_scope.value
+            if isinstance(self.evidence_scope, EvidenceScope)
+            else str(self.evidence_scope)
+        )
         d["claims"] = [c.to_dict() for c in self.claims]
         return d
 
@@ -134,16 +159,17 @@ class SourceRecord:
 @dataclass
 class EvidenceBundle:
     """Collection of verified sources, extracted claims, and detected conflicts."""
+
     topic: str
     domain: str
-    sources: List[SourceRecord] = field(default_factory=list)
-    claims: List[ClaimRecord] = field(default_factory=list)
-    conflicting_claims: List[Tuple[str, str, str]] = field(default_factory=list)
+    sources: list[SourceRecord] = field(default_factory=list)
+    claims: list[ClaimRecord] = field(default_factory=list)
+    conflicting_claims: list[tuple[str, str, str]] = field(default_factory=list)
     total_sources_retrieved: int = 0
-    verified_doi_rate: Optional[float] = None
-    doi_verification_summary: Dict[str, Any] = field(default_factory=dict)
+    verified_doi_rate: float | None = None
+    doi_verification_summary: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "topic": self.topic,
             "domain": self.domain,
@@ -163,8 +189,8 @@ class LiteratureAgent:
 
     def __init__(
         self,
-        lit_service: Optional[LiteratureService] = None,
-        doi_verifier: Optional[DOIVerifier] = None,
+        lit_service: LiteratureService | None = None,
+        doi_verifier: DOIVerifier | None = None,
     ) -> None:
         self.lit_service = lit_service or LiteratureService()
         self.doi_verifier = doi_verifier or DOIVerifier()
@@ -172,8 +198,10 @@ class LiteratureAgent:
     async def gather_evidence(self, topic: str, limit: int = 8) -> EvidenceBundle:
         """Retrieve verified literature, perform real DOI resolution, and extract evidence-grounded claims."""
         classification = UniversalDomainDispatcher.classify_topic(topic)
-        papers: List[PaperMetadata] = await self.lit_service.search_literature(topic, limit=limit)
-        
+        papers: list[PaperMetadata] = await self.lit_service.search_literature(
+            topic, limit=limit
+        )
+
         if not papers:
             # Safe Fallback: When no external scholarly sources are accessible, return empty evidence bundle
             return EvidenceBundle(
@@ -184,29 +212,32 @@ class LiteratureAgent:
                 conflicting_claims=[],
                 total_sources_retrieved=0,
                 verified_doi_rate=None,
-                doi_verification_summary={"total_doi_bearing_sources": 0, "verified_count": 0},
+                doi_verification_summary={
+                    "total_doi_bearing_sources": 0,
+                    "verified_count": 0,
+                },
             )
 
-        sources: List[SourceRecord] = []
-        all_claims: List[ClaimRecord] = []
+        sources: list[SourceRecord] = []
+        all_claims: list[ClaimRecord] = []
         claim_counter = 1
 
         for idx, paper in enumerate(papers, 1):
             source_id = f"src_{idx:03d}"
             rel_score = round(max(0.70, 1.0 - (idx - 1) * 0.04), 2)
-            
+
             accessible_text = paper.accessible_text
             has_text = bool(
                 accessible_text
                 and len(accessible_text.strip()) > 20
                 and paper.text_origin != "none"
             )
-            
+
             scope = EvidenceScope.ABSTRACT if has_text else EvidenceScope.METADATA_ONLY
             if paper.full_text and len(paper.full_text.strip()) > 100:
                 scope = EvidenceScope.FULL_TEXT
 
-            p_claims: List[ClaimRecord] = []
+            p_claims: list[ClaimRecord] = []
             if has_text and accessible_text is not None:
                 p_claims = self._extract_claims_from_text(
                     text=accessible_text,
@@ -278,12 +309,40 @@ class LiteratureAgent:
         doi_summary = {
             "total_sources": len(sources),
             "doi_bearing_sources": sum(1 for s in sources if s.doi and s.doi.strip()),
-            "verified_dois": sum(1 for s in sources if s.doi_verification_status in ("verified", DOIVerificationStatus.VERIFIED.value)),
-            "syntax_valid_only": sum(1 for s in sources if s.doi_verification_status == DOIVerificationStatus.SYNTAX_VALID_ONLY.value),
-            "resolved_metadata_unavailable": sum(1 for s in sources if s.doi_verification_status == DOIVerificationStatus.RESOLVED_METADATA_UNAVAILABLE.value),
-            "metadata_mismatch": sum(1 for s in sources if s.doi_verification_status == DOIVerificationStatus.METADATA_MISMATCH.value),
-            "unresolvable": sum(1 for s in sources if s.doi_verification_status == DOIVerificationStatus.UNRESOLVABLE.value),
-            "missing": sum(1 for s in sources if s.doi_verification_status == DOIVerificationStatus.MISSING.value),
+            "verified_dois": sum(
+                1
+                for s in sources
+                if s.doi_verification_status
+                in ("verified", DOIVerificationStatus.VERIFIED.value)
+            ),
+            "syntax_valid_only": sum(
+                1
+                for s in sources
+                if s.doi_verification_status
+                == DOIVerificationStatus.SYNTAX_VALID_ONLY.value
+            ),
+            "resolved_metadata_unavailable": sum(
+                1
+                for s in sources
+                if s.doi_verification_status
+                == DOIVerificationStatus.RESOLVED_METADATA_UNAVAILABLE.value
+            ),
+            "metadata_mismatch": sum(
+                1
+                for s in sources
+                if s.doi_verification_status
+                == DOIVerificationStatus.METADATA_MISMATCH.value
+            ),
+            "unresolvable": sum(
+                1
+                for s in sources
+                if s.doi_verification_status == DOIVerificationStatus.UNRESOLVABLE.value
+            ),
+            "missing": sum(
+                1
+                for s in sources
+                if s.doi_verification_status == DOIVerificationStatus.MISSING.value
+            ),
             "verified_doi_rate": v_rate,
         }
 
@@ -304,10 +363,10 @@ class LiteratureAgent:
         source_id: str,
         scope: EvidenceScope,
         start_idx: int,
-    ) -> List[ClaimRecord]:
+    ) -> list[ClaimRecord]:
         """Extract concrete scientific claims directly grounded in retrieved text passages."""
-        claims: List[ClaimRecord] = []
-        
+        claims: list[ClaimRecord] = []
+
         # Split text into candidate sentences
         raw_sentences = re.split(r"(?<=[.!?])\s+", text.strip())
         sentences = [s.strip() for s in raw_sentences if len(s.strip()) > 25]
@@ -315,22 +374,46 @@ class LiteratureAgent:
         idx = start_idx
         for s in sentences:
             # Detect substantive assertion keywords (findings, metrics, methods, constraints)
-            is_empirical = bool(re.search(r"\b(achieve|achieves|achieved|improves|reduces|reduction|outperform|accuracy|speedup|latency|memory|bound|bounds|error|convergence|proves|demonstrate|variance)\b", s, re.IGNORECASE))
-            is_method = bool(re.search(r"\b(propose|formulate|investigate|introduce|develop|algorithm|architecture|quantization|transformer|neural|operator|framework)\b", s, re.IGNORECASE))
-            is_limitation = bool(re.search(r"\b(bottleneck|constrained|limitation|degradation|trade-off|overhead|saturation|expensive)\b", s, re.IGNORECASE))
+            is_empirical = bool(
+                re.search(
+                    r"\b(achieve|achieves|achieved|improves|reduces|reduction|outperform|accuracy|speedup|latency|memory|bound|bounds|error|convergence|proves|demonstrate|variance)\b",
+                    s,
+                    re.IGNORECASE,
+                )
+            )
+            is_method = bool(
+                re.search(
+                    r"\b(propose|formulate|investigate|introduce|develop|algorithm|architecture|quantization|transformer|neural|operator|framework)\b",
+                    s,
+                    re.IGNORECASE,
+                )
+            )
+            is_limitation = bool(
+                re.search(
+                    r"\b(bottleneck|constrained|limitation|degradation|trade-off|overhead|saturation|expensive)\b",
+                    s,
+                    re.IGNORECASE,
+                )
+            )
 
             if is_empirical or is_method or is_limitation:
-                cat = "limitation" if is_limitation else ("empirical" if is_empirical else "methodology")
-                
+                cat = (
+                    "limitation"
+                    if is_limitation
+                    else ("empirical" if is_empirical else "methodology")
+                )
+
                 # Claim text preserves exact statement without synthetic exaggeration
                 claim_text = s
-                
+
                 claim = ClaimRecord(
                     claim_id=f"claim_{idx:03d}",
                     claim_text=claim_text,
                     source_id=source_id,
                     supporting_text=s,
-                    supporting_location="abstract" if scope == EvidenceScope.ABSTRACT else "full_text",
+                    supporting_location="abstract"
+                    if scope == EvidenceScope.ABSTRACT
+                    else "full_text",
                     evidence_scope=scope,
                     category=cat,
                     polarity="supports",
@@ -341,26 +424,32 @@ class LiteratureAgent:
                 )
                 claims.append(claim)
                 idx += 1
-                
+
                 # Cap at 2 salient claims per source to maintain high relevance density
                 if len(claims) >= 2:
                     break
 
         return claims
 
-    def _detect_conflicts(self, claims: List[ClaimRecord]) -> List[Tuple[str, str, str]]:
+    def _detect_conflicts(
+        self, claims: list[ClaimRecord]
+    ) -> list[tuple[str, str, str]]:
         """Detect contrasting scientific paradigms across literature claims with explicit evidence."""
-        conflicts: List[Tuple[str, str, str]] = []
+        conflicts: list[tuple[str, str, str]] = []
         for i in range(len(claims)):
             for j in range(i + 1, len(claims)):
                 c1, c2 = claims[i], claims[j]
                 if c1.polarity == "supports" and c2.polarity == "contradicts":
                     # Shared topic tags
-                    shared_tags = set(t.lower() for t in c1.tags) & set(t.lower() for t in c2.tags)
+                    shared_tags = set(t.lower() for t in c1.tags) & set(
+                        t.lower() for t in c2.tags
+                    )
                     if shared_tags:
-                        conflicts.append((
-                            c1.claim_id,
-                            c2.claim_id,
-                            f"Contrasting findings regarding {list(shared_tags)[0]} between {c1.source_id} and {c2.source_id}."
-                        ))
+                        conflicts.append(
+                            (
+                                c1.claim_id,
+                                c2.claim_id,
+                                f"Contrasting findings regarding {list(shared_tags)[0]} between {c1.source_id} and {c2.source_id}.",
+                            )
+                        )
         return conflicts

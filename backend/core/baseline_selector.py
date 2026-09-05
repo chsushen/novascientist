@@ -6,9 +6,8 @@ ExperimentMethodSpecs dynamically from research profiles and literature evidence
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.core.literature_advisor import LiteratureSynthesisReport
 from backend.core.topic_profile import DataModality, TaskType, TopicResearchProfile
@@ -17,6 +16,7 @@ from backend.core.topic_profile import DataModality, TaskType, TopicResearchProf
 @dataclass
 class ExperimentMethodSpec:
     """Rigorous execution specification for the proposed scientific method."""
+
     method_id: str
     method_name: str
     task_type: TaskType
@@ -24,25 +24,40 @@ class ExperimentMethodSpec:
     input_modality: DataModality
     training_procedure: str
     inference_procedure: str
-    hyperparameters: Dict[str, Any] = field(default_factory=dict)
+    hyperparameters: dict[str, Any] = field(default_factory=dict)
     loss_objective: str = ""
-    resource_requirements: Dict[str, Any] = field(default_factory=dict)
-    telemetry_schema: List[str] = field(default_factory=lambda: [
-        "accuracy", "memory_mb", "latency_ms", "throughput", "compression_ratio"
-    ])
-    compatible_dataset_schema: Dict[str, Any] = field(default_factory=dict)
+    resource_requirements: dict[str, Any] = field(default_factory=dict)
+    telemetry_schema: list[str] = field(
+        default_factory=lambda: [
+            "accuracy",
+            "memory_mb",
+            "latency_ms",
+            "throughput",
+            "compression_ratio",
+        ]
+    )
+    compatible_dataset_schema: dict[str, Any] = field(default_factory=dict)
     execution_key: str = "proposed_mb_qgt"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["task_type"] = self.task_type.value if isinstance(self.task_type, TaskType) else str(self.task_type)
-        d["input_modality"] = self.input_modality.value if isinstance(self.input_modality, DataModality) else str(self.input_modality)
+        d["task_type"] = (
+            self.task_type.value
+            if isinstance(self.task_type, TaskType)
+            else str(self.task_type)
+        )
+        d["input_modality"] = (
+            self.input_modality.value
+            if isinstance(self.input_modality, DataModality)
+            else str(self.input_modality)
+        )
         return d
 
 
 @dataclass
 class BaselineSpecification:
     """Detailed specification for a single comparative baseline."""
+
     baseline_id: str
     name: str
     display_name: str
@@ -53,15 +68,16 @@ class BaselineSpecification:
     execution_key: str  # Key mapping to empirical metrics dict
     is_corpus_grounded: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class BaselineComparisonSuite:
     """Complete structured comparative baseline suite for experimental execution."""
+
     proposed_method_spec: ExperimentMethodSpec
-    baselines: List[BaselineSpecification] = field(default_factory=list)
+    baselines: list[BaselineSpecification] = field(default_factory=list)
     suite_rationale: str = ""
 
     @property
@@ -72,7 +88,7 @@ class BaselineComparisonSuite:
     def proposed_execution_key(self) -> str:
         return self.proposed_method_spec.execution_key
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["proposed_method_spec"] = self.proposed_method_spec.to_dict()
         d["baselines"] = [b.to_dict() for b in self.baselines]
@@ -91,34 +107,66 @@ class DynamicBaselineSelector:
         profile: TopicResearchProfile,
     ) -> ExperimentMethodSpec:
         """Construct a structured, task-grounded experiment specification for the proposed method."""
-        m_name = profile.model_full_name_suggestion or f"Proposed {profile.model_acronym_suggestion}"
+        m_name = (
+            profile.model_full_name_suggestion
+            or f"Proposed {profile.model_acronym_suggestion}"
+        )
         task = profile.task_type
         modality = profile.data_modality
 
-        if task in (TaskType.LANGUAGE_MODELING, TaskType.SEQUENCE_GENERATION, TaskType.GENERATION):
+        if task in (
+            TaskType.LANGUAGE_MODELING,
+            TaskType.SEQUENCE_GENERATION,
+            TaskType.GENERATION,
+        ):
             arch_def = f"Autoregressive Transformer with {profile.model_acronym_suggestion} Low-Rank Projection Adaptation"
             train_proc = "AdamW optimizer (lr=2e-4, weight_decay=0.01) with linear warmup and cosine decay over causal token batches."
             infer_proc = "Autoregressive generation with KV-cache optimization and parameterized low-rank weight projections."
             loss_obj = r"\mathcal{L} = -\sum_t \log P(x_t \mid x_{<t}; \theta_0 + \Delta\theta)"
-            hparams = {"rank": 8, "alpha": 16, "dropout": 0.05, "batch_size": 32, "max_seq_len": 512}
+            hparams = {
+                "rank": 8,
+                "alpha": 16,
+                "dropout": 0.05,
+                "batch_size": 32,
+                "max_seq_len": 512,
+            }
         elif task == TaskType.TIMESERIES_FORECASTING:
             arch_def = f"Channel-Independent Multi-Horizon Temporal Forecaster with {profile.model_acronym_suggestion} Lag Modules"
             train_proc = "Lookback windowed mini-batch optimization (MSE loss) across rolling validation partitions."
             infer_proc = "Direct multi-step forecast rollout with residual autoregressive correction."
             loss_obj = r"\mathcal{L} = \frac{1}{H} \sum_{h=1}^H \| X_{t+h} - \hat{X}_{t+h} \|_2^2"
-            hparams = {"lookback_window": 96, "forecast_horizon": 24, "patch_len": 16, "stride": 8}
+            hparams = {
+                "lookback_window": 96,
+                "forecast_horizon": 24,
+                "patch_len": 16,
+                "stride": 8,
+            }
         elif task == TaskType.GRAPH_REASONING:
             arch_def = f"Relational Graph Neural Architecture with {profile.model_acronym_suggestion} Spatial Message Passing"
             train_proc = "Neighborhood-sampled mini-batch cross-entropy optimization across inductive split folds."
-            infer_proc = "Layer-wise cached message passing over graph adjacency buffers."
+            infer_proc = (
+                "Layer-wise cached message passing over graph adjacency buffers."
+            )
             loss_obj = r"\mathcal{L} = -\sum_{v \in \mathcal{V}_{\text{train}}} y_v \log \hat{y}_v + \lambda \|\Theta\|_F^2"
-            hparams = {"hidden_dim": 128, "num_layers": 3, "dropout": 0.2, "neighbor_samples": [15, 10, 5]}
+            hparams = {
+                "hidden_dim": 128,
+                "num_layers": 3,
+                "dropout": 0.2,
+                "neighbor_samples": [15, 10, 5],
+            }
         elif task == TaskType.FEDERATED_COORDINATION:
             arch_def = f"Decentralized Federated Optimization Model with {profile.model_acronym_suggestion} Consensus Operator"
             train_proc = "Local client stochastic gradient steps (E=5 epochs) with server-side proximal aggregation."
             infer_proc = "Client-side evaluation over private non-IID test partitions."
-            loss_obj = r"\min_w \frac{1}{K} \sum_{k=1}^K f_k(w) + \frac{\mu}{2} \|w - w^t\|^2"
-            hparams = {"num_clients": 100, "client_sample_rate": 0.1, "local_epochs": 5, "mu_prox": 0.01}
+            loss_obj = (
+                r"\min_w \frac{1}{K} \sum_{k=1}^K f_k(w) + \frac{\mu}{2} \|w - w^t\|^2"
+            )
+            hparams = {
+                "num_clients": 100,
+                "client_sample_rate": 0.1,
+                "local_epochs": 5,
+                "mu_prox": 0.01,
+            }
         elif task == TaskType.PDE_OPERATOR_LEARNING:
             arch_def = f"Continuous Physics Operator with {profile.model_acronym_suggestion} Residual Discretization"
             train_proc = "Collocation point physics residual minimization combined with data-driven boundary matching."
@@ -127,7 +175,9 @@ class DynamicBaselineSelector:
             hparams = {"modes": 16, "width": 64, "collocation_points": 10000}
         else:
             arch_def = f"Adaptive Neural Classifier with {profile.model_acronym_suggestion} Representation Discretization"
-            train_proc = "Cross-entropy loss optimization with multi-seed data fold isolation."
+            train_proc = (
+                "Cross-entropy loss optimization with multi-seed data fold isolation."
+            )
             infer_proc = "Batched forward pass over scaled evaluation partitions."
             loss_obj = r"\mathcal{L} = -\sum_i y_i \log \hat{y}_i"
             hparams = {"hidden_dim": 128, "batch_size": 64, "learning_rate": 1e-3}
@@ -142,7 +192,10 @@ class DynamicBaselineSelector:
             inference_procedure=infer_proc,
             hyperparameters=hparams,
             loss_objective=loss_obj,
-            resource_requirements={"max_memory_mb": 128.0, "device_target": "commodity_workstation"},
+            resource_requirements={
+                "max_memory_mb": 128.0,
+                "device_target": "commodity_workstation",
+            },
             compatible_dataset_schema={"modality": modality.value, "task": task.value},
             execution_key="proposed_mb_qgt",
         )
@@ -151,15 +204,23 @@ class DynamicBaselineSelector:
     def select_baselines(
         cls,
         profile: TopicResearchProfile,
-        literature_report: Optional[LiteratureSynthesisReport] = None,
+        literature_report: LiteratureSynthesisReport | None = None,
     ) -> BaselineComparisonSuite:
         """Select a domain- and task-appropriate baseline suite and proposed method spec."""
         task = profile.task_type
         proposed_spec = cls.create_method_spec(profile)
 
-        baselines: List[BaselineSpecification] = []
+        baselines: list[BaselineSpecification] = []
 
-        if task in (TaskType.LANGUAGE_MODELING, TaskType.SEQUENCE_GENERATION, TaskType.GENERATION) or "nlp" in profile.domain.lower():
+        if (
+            task
+            in (
+                TaskType.LANGUAGE_MODELING,
+                TaskType.SEQUENCE_GENERATION,
+                TaskType.GENERATION,
+            )
+            or "nlp" in profile.domain.lower()
+        ):
             baselines = [
                 BaselineSpecification(
                     baseline_id="base_01",
@@ -192,7 +253,9 @@ class DynamicBaselineSelector:
                     execution_key="sparse_gnn",
                 ),
             ]
-        elif task == TaskType.TIMESERIES_FORECASTING or "time" in profile.domain.lower():
+        elif (
+            task == TaskType.TIMESERIES_FORECASTING or "time" in profile.domain.lower()
+        ):
             baselines = [
                 BaselineSpecification(
                     baseline_id="base_01",
@@ -225,7 +288,10 @@ class DynamicBaselineSelector:
                     execution_key="sparse_gnn",
                 ),
             ]
-        elif task == TaskType.FEDERATED_COORDINATION or "federat" in profile.domain.lower():
+        elif (
+            task == TaskType.FEDERATED_COORDINATION
+            or "federat" in profile.domain.lower()
+        ):
             baselines = [
                 BaselineSpecification(
                     baseline_id="base_01",

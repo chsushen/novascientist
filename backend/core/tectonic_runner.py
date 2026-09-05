@@ -10,12 +10,9 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
 
 # Minimal canonical IEEEtran.cls wrapper / fallback if full class is not in current path
 MINIMAL_IEEETRAN_CLS = r"""%%
@@ -46,11 +43,12 @@ MINIMAL_IEEETRAN_CLS = r"""%%
 @dataclass
 class CompilationResult:
     """Outcome of LaTeX compilation."""
+
     success: bool
     engine: str
-    output_pdf: Optional[str] = None
+    output_pdf: str | None = None
     log_messages: str = ""
-    warnings: List[str] = None
+    warnings: list[str] = None
 
     def __post_init__(self) -> None:
         if self.warnings is None:
@@ -69,7 +67,7 @@ class TectonicRunner:
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def find_tectonic(cls) -> Optional[str]:
+    def find_tectonic(cls) -> str | None:
         """Locate Tectonic binary installed via apt (Debian/Ubuntu), homebrew, or PATH."""
         candidate_paths = [
             "/usr/bin/tectonic",
@@ -103,7 +101,7 @@ class TectonicRunner:
         latex_content: str,
         bibtex_content: str,
         metrics_path: str,
-        figure_files: Dict[str, Dict[str, str]],
+        figure_files: dict[str, dict[str, str]],
     ) -> None:
         """Stage all required files into the project work directory."""
         # 1. Write main.tex
@@ -171,7 +169,13 @@ This research manuscript package is 100% self-contained and pre-configured for *
                 work_dir_res = self.work_dir.resolve()
                 main_tex_res = main_tex.resolve()
                 proc = subprocess.run(
-                    [tectonic_cmd, str(main_tex_res), "--outdir", str(work_dir_res), "--chatter=minimal"],
+                    [
+                        tectonic_cmd,
+                        str(main_tex_res),
+                        "--outdir",
+                        str(work_dir_res),
+                        "--chatter=minimal",
+                    ],
                     cwd=str(work_dir_res),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -191,13 +195,23 @@ This research manuscript package is 100% self-contained and pre-configured for *
 
         # 2. Check for TeXLive pdflatex / xelatex fallback
         for tex_engine in ["pdflatex", "xelatex"]:
-            engine_cmd = shutil.which(tex_engine) or (f"/usr/bin/{tex_engine}" if os.path.exists(f"/usr/bin/{tex_engine}") else None)
+            engine_cmd = shutil.which(tex_engine) or (
+                f"/usr/bin/{tex_engine}"
+                if os.path.exists(f"/usr/bin/{tex_engine}")
+                else None
+            )
             if engine_cmd:
                 try:
                     work_dir_res = self.work_dir.resolve()
                     # Run twice for bibliography cross-references
                     subprocess.run(
-                        [engine_cmd, "-interaction=nonstopmode", "-output-directory", str(work_dir_res), "main.tex"],
+                        [
+                            engine_cmd,
+                            "-interaction=nonstopmode",
+                            "-output-directory",
+                            str(work_dir_res),
+                            "main.tex",
+                        ],
                         cwd=str(work_dir_res),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -205,7 +219,13 @@ This research manuscript package is 100% self-contained and pre-configured for *
                         timeout=45,
                     )
                     subprocess.run(
-                        [engine_cmd, "-interaction=nonstopmode", "-output-directory", str(work_dir_res), "main.tex"],
+                        [
+                            engine_cmd,
+                            "-interaction=nonstopmode",
+                            "-output-directory",
+                            str(work_dir_res),
+                            "main.tex",
+                        ],
                         cwd=str(work_dir_res),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -246,6 +266,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
         """Render a publication manuscript PDF using matplotlib PdfPages backend meeting 6-8 and 8-12 page budgets."""
         try:
             import matplotlib
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
             from matplotlib.backends.backend_pdf import PdfPages
@@ -253,32 +274,67 @@ This research manuscript package is 100% self-contained and pre-configured for *
             tex_content = ""
             main_tex = self.work_dir / "main.tex"
             if main_tex.exists():
-                with open(main_tex, "r", encoding="utf-8") as f:
+                with open(main_tex, encoding="utf-8") as f:
                     tex_content = f.read()
 
             title_m = re.search(r"\\title\{([^}]+)\}", tex_content)
-            title = title_m.group(1).replace(r"\_", "_").replace(r"\&", "&").replace(r"\%", "%") if title_m else "NovaScientist Research Publication"
-            
+            title = (
+                title_m.group(1)
+                .replace(r"\_", "_")
+                .replace(r"\&", "&")
+                .replace(r"\%", "%")
+                if title_m
+                else "NovaScientist Research Publication"
+            )
+
             author_m = re.search(r"\\author\{([^}]+)\}", tex_content)
-            author = author_m.group(1).split("~")[0].split("\\thanks")[0].strip() if author_m else "Anonymous Author(s), IEEE Member"
+            author = (
+                author_m.group(1).split("~")[0].split("\\thanks")[0].strip()
+                if author_m
+                else "Anonymous Author(s), IEEE Member"
+            )
             author = author.replace(r"\_", "_").replace(r"\&", "&")
 
-            abstract_m = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", tex_content, re.DOTALL)
-            abstract_text = abstract_m.group(1).strip().replace("\n", " ") if abstract_m else "Autonomous empirical research manuscript generated with hardware telemetry."
-            abstract_text = re.sub(r"\\[a-zA-Z]+(\{[^}]*\})?", "", abstract_text).replace("{", "").replace("}", "")
+            abstract_m = re.search(
+                r"\\begin\{abstract\}(.*?)\\end\{abstract\}", tex_content, re.DOTALL
+            )
+            abstract_text = (
+                abstract_m.group(1).strip().replace("\n", " ")
+                if abstract_m
+                else "Autonomous empirical research manuscript generated with hardware telemetry."
+            )
+            abstract_text = (
+                re.sub(r"\\[a-zA-Z]+(\{[^}]*\})?", "", abstract_text)
+                .replace("{", "")
+                .replace("}", "")
+            )
 
-            is_journal = ("appendix" in tex_content.lower() or "8_12" in tex_content or "extended journal" in tex_content.lower())
+            is_journal = (
+                "appendix" in tex_content.lower()
+                or "8_12" in tex_content
+                or "extended journal" in tex_content.lower()
+            )
             total_pages = 10 if is_journal else 7
 
             # Discover available figures dynamically (PNG only for matplotlib renderer)
             discovered_figures = sorted(list(self.figures_dir.glob("*.png")))
 
             # Extract sections from main.tex
-            raw_sections = re.findall(r"\\section\{([^}]+)\}(.*?)(?=\\section\{|\\bibliographystyle|\\end\{document\}|$)", tex_content, re.DOTALL)
+            raw_sections = re.findall(
+                r"\\section\{([^}]+)\}(.*?)(?=\\section\{|\\bibliographystyle|\\end\{document\}|$)",
+                tex_content,
+                re.DOTALL,
+            )
             sections_dict = {}
             for s_title, s_body in raw_sections:
                 clean_body = re.sub(r"\\[a-zA-Z]+(\[[^\]]*\])?(\{[^}]*\})?", "", s_body)
-                clean_body = clean_body.replace("{", "").replace("}", "").replace(r"\%", "%").replace(r"\_", "_").replace(r"\&", "&")
+                clean_body = (
+                    clean_body.replace("{", "")
+                    .replace("}", "")
+                    .replace(r"\%", "%")
+                    .replace(r"\_", "_")
+                    .replace(r"\&", "&")
+                )
                 clean_body = " ".join(clean_body.split())
                 sections_dict[s_title.strip()] = clean_body
 
@@ -286,38 +342,127 @@ This research manuscript package is 100% self-contained and pre-configured for *
                 # Page 1: Header, Title, Authors, Abstract, Section I: Introduction
                 fig1 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig1.text(0.5, 0.96, "IEEE TRANSACTIONS ON NEURAL NETWORKS AND LEARNING SYSTEMS, 2026", ha="center", fontsize=8, color="#475569", style="italic")
-                fig1.text(0.5, 0.915, title, ha="center", fontsize=12, weight="bold", wrap=True)
-                fig1.text(0.5, 0.875, f"{author} • Published in IEEE Transactions", ha="center", fontsize=8.5, color="#1E293B")
-                
+                fig1.text(
+                    0.5,
+                    0.96,
+                    "IEEE TRANSACTIONS ON NEURAL NETWORKS AND LEARNING SYSTEMS, 2026",
+                    ha="center",
+                    fontsize=8,
+                    color="#475569",
+                    style="italic",
+                )
+                fig1.text(
+                    0.5,
+                    0.915,
+                    title,
+                    ha="center",
+                    fontsize=12,
+                    weight="bold",
+                    wrap=True,
+                )
+                fig1.text(
+                    0.5,
+                    0.875,
+                    f"{author} • Published in IEEE Transactions",
+                    ha="center",
+                    fontsize=8.5,
+                    color="#1E293B",
+                )
+
                 # Abstract & Index Terms
                 ab_box = plt.axes([0.08, 0.64, 0.84, 0.21])
                 ab_box.axis("off")
                 ab_box.text(0.0, 0.95, "Abstract", fontsize=9.5, weight="bold")
-                ab_box.text(0.0, 0.82, abstract_text[:750] + ("..." if len(abstract_text) > 750 else ""), fontsize=7.5, color="#1F2937", wrap=True, va="top")
-                ab_box.text(0.0, 0.08, "Index Terms — Topic-Adaptive Machine Learning, Autonomous Research Engine, IEEE Compliant.", fontsize=7.2, weight="bold", color="#334155")
+                ab_box.text(
+                    0.0,
+                    0.82,
+                    abstract_text[:750] + ("..." if len(abstract_text) > 750 else ""),
+                    fontsize=7.5,
+                    color="#1F2937",
+                    wrap=True,
+                    va="top",
+                )
+                ab_box.text(
+                    0.0,
+                    0.08,
+                    "Index Terms — Topic-Adaptive Machine Learning, Autonomous Research Engine, IEEE Compliant.",
+                    fontsize=7.2,
+                    weight="bold",
+                    color="#334155",
+                )
 
                 # Section I: Introduction
-                intro_text = sections_dict.get("Introduction", "Recent advances in automated scientific discovery have transformed empirical machine learning. In this work, we present an evidence-first, mathematically rigorous investigation into the research question.")
+                intro_text = sections_dict.get(
+                    "Introduction",
+                    "Recent advances in automated scientific discovery have transformed empirical machine learning. In this work, we present an evidence-first, mathematically rigorous investigation into the research question.",
+                )
                 s1_box = plt.axes([0.08, 0.08, 0.84, 0.52])
                 s1_box.axis("off")
-                s1_box.text(0.0, 0.98, "I. INTRODUCTION & PROBLEM CONTEXT", fontsize=9.5, weight="bold")
-                s1_box.text(0.0, 0.92, intro_text[:1400] + ("..." if len(intro_text) > 1400 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s1_box.text(
+                    0.0,
+                    0.98,
+                    "I. INTRODUCTION & PROBLEM CONTEXT",
+                    fontsize=9.5,
+                    weight="bold",
+                )
+                s1_box.text(
+                    0.0,
+                    0.92,
+                    intro_text[:1400] + ("..." if len(intro_text) > 1400 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
-                fig1.text(0.5, 0.03, f"Page 1 of {total_pages} — IEEE Transactions Publication Artifact (NovaScientist v2.3.0)", ha="center", fontsize=7.5, color="#64748B")
+                fig1.text(
+                    0.5,
+                    0.03,
+                    f"Page 1 of {total_pages} — IEEE Transactions Publication Artifact (NovaScientist v2.3.0)",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig1, bbox_inches="tight")
                 plt.close(fig1)
 
                 # Page 2: Section II: Related Work & Literature Synthesis, Figure 1
                 fig2 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig2.text(0.5, 0.96, "II. RELATED WORK & EMPIRICAL EVIDENCE SYNTHESIS", ha="center", fontsize=11, weight="bold")
-                
-                rw_text = sections_dict.get("Related Work", sections_dict.get("Related Work & Literature Synthesis", "We contextualize our contributions within canonical literature. Prior studies established preliminary empirical results but left fundamental gaps in variance stabilization and rigorous generalization."))
+                fig2.text(
+                    0.5,
+                    0.96,
+                    "II. RELATED WORK & EMPIRICAL EVIDENCE SYNTHESIS",
+                    ha="center",
+                    fontsize=11,
+                    weight="bold",
+                )
+
+                rw_text = sections_dict.get(
+                    "Related Work",
+                    sections_dict.get(
+                        "Related Work & Literature Synthesis",
+                        "We contextualize our contributions within canonical literature. Prior studies established preliminary empirical results but left fundamental gaps in variance stabilization and rigorous generalization.",
+                    ),
+                )
                 s2_box = plt.axes([0.08, 0.52, 0.84, 0.40])
                 s2_box.axis("off")
-                s2_box.text(0.0, 0.98, "A. Literature Taxonomy & Evidence Landscape", fontsize=9, weight="bold")
-                s2_box.text(0.0, 0.90, rw_text[:1000] + ("..." if len(rw_text) > 1000 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s2_box.text(
+                    0.0,
+                    0.98,
+                    "A. Literature Taxonomy & Evidence Landscape",
+                    fontsize=9,
+                    weight="bold",
+                )
+                s2_box.text(
+                    0.0,
+                    0.90,
+                    rw_text[:1000] + ("..." if len(rw_text) > 1000 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
                 if discovered_figures:
                     try:
@@ -325,44 +470,119 @@ This research manuscript package is 100% self-contained and pre-configured for *
                         ax_im1 = plt.axes([0.08, 0.10, 0.84, 0.38])
                         ax_im1.imshow(im1)
                         ax_im1.axis("off")
-                        ax_im1.set_title(f"Figure 1: {discovered_figures[0].stem.replace('_', ' ').title()}", fontsize=8.5, y=-0.08)
+                        ax_im1.set_title(
+                            f"Figure 1: {discovered_figures[0].stem.replace('_', ' ').title()}",
+                            fontsize=8.5,
+                            y=-0.08,
+                        )
                     except Exception:
                         pass
 
-                fig2.text(0.5, 0.03, f"Page 2 of {total_pages} — Related Work & Architectural Foundations", ha="center", fontsize=7.5, color="#64748B")
+                fig2.text(
+                    0.5,
+                    0.03,
+                    f"Page 2 of {total_pages} — Related Work & Architectural Foundations",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig2, bbox_inches="tight")
                 plt.close(fig2)
 
                 # Page 3: Section III: Mathematical Formulation & Theoretical Framework
                 fig3 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig3.text(0.5, 0.96, "III. MATHEMATICAL FORMULATION & THEORETICAL FOUNDATIONS", ha="center", fontsize=11, weight="bold")
-                
-                math_text = sections_dict.get("Methodology", sections_dict.get("Mathematical Formulation", "We formalize the mathematical optimization objective over the compact measurable feature manifold equipped with empirical probability measure."))
+                fig3.text(
+                    0.5,
+                    0.96,
+                    "III. MATHEMATICAL FORMULATION & THEORETICAL FOUNDATIONS",
+                    ha="center",
+                    fontsize=11,
+                    weight="bold",
+                )
+
+                math_text = sections_dict.get(
+                    "Methodology",
+                    sections_dict.get(
+                        "Mathematical Formulation",
+                        "We formalize the mathematical optimization objective over the compact measurable feature manifold equipped with empirical probability measure.",
+                    ),
+                )
                 s3_box = plt.axes([0.08, 0.12, 0.84, 0.80])
                 s3_box.axis("off")
-                s3_box.text(0.0, 0.98, "A. Formal Problem Formulation & Objective Specification", fontsize=9, weight="bold")
-                s3_box.text(0.0, 0.92, math_text[:1800] + ("..." if len(math_text) > 1800 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s3_box.text(
+                    0.0,
+                    0.98,
+                    "A. Formal Problem Formulation & Objective Specification",
+                    fontsize=9,
+                    weight="bold",
+                )
+                s3_box.text(
+                    0.0,
+                    0.92,
+                    math_text[:1800] + ("..." if len(math_text) > 1800 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
-                fig3.text(0.5, 0.03, f"Page 3 of {total_pages} — Theoretical & Mathematical Foundations", ha="center", fontsize=7.5, color="#64748B")
+                fig3.text(
+                    0.5,
+                    0.03,
+                    f"Page 3 of {total_pages} — Theoretical & Mathematical Foundations",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig3, bbox_inches="tight")
                 plt.close(fig3)
 
                 # Page 4: Section IV: Benchmark Dataset & Baseline Architectures
                 fig4 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig4.text(0.5, 0.96, "IV. BENCHMARK PROTOCOL & EXPERIMENTAL SETUP", ha="center", fontsize=11, weight="bold")
+                fig4.text(
+                    0.5,
+                    0.96,
+                    "IV. BENCHMARK PROTOCOL & EXPERIMENTAL SETUP",
+                    ha="center",
+                    fontsize=11,
+                    weight="bold",
+                )
 
-                exp_text = sections_dict.get("Experimental Setup", "Multi-seed deterministic benchmarking across independent evaluation folds. All experiments were conducted under identical execution environments with certified seed controls.")
+                exp_text = sections_dict.get(
+                    "Experimental Setup",
+                    "Multi-seed deterministic benchmarking across independent evaluation folds. All experiments were conducted under identical execution environments with certified seed controls.",
+                )
                 s4_box = plt.axes([0.08, 0.52, 0.84, 0.40])
                 s4_box.axis("off")
-                s4_box.text(0.0, 0.98, "A. Dataset Cardinality, Splits & Evaluation Controls", fontsize=9, weight="bold")
-                s4_box.text(0.0, 0.90, exp_text[:1000] + ("..." if len(exp_text) > 1000 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s4_box.text(
+                    0.0,
+                    0.98,
+                    "A. Dataset Cardinality, Splits & Evaluation Controls",
+                    fontsize=9,
+                    weight="bold",
+                )
+                s4_box.text(
+                    0.0,
+                    0.90,
+                    exp_text[:1000] + ("..." if len(exp_text) > 1000 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
                 # Table representation
                 t_box = plt.axes([0.08, 0.10, 0.84, 0.38])
                 t_box.axis("off")
-                t_box.text(0.0, 0.98, "TABLE I: Quantitative Multi-Seed Benchmark Evaluation Summary", fontsize=8.5, weight="bold")
+                t_box.text(
+                    0.0,
+                    0.98,
+                    "TABLE I: Quantitative Multi-Seed Benchmark Evaluation Summary",
+                    fontsize=8.5,
+                    weight="bold",
+                )
                 table_lines = [
                     "---------------------------------------------------------------------------------------------------------",
                     f"{'Model Architecture':<35} | {'Primary Score':<18} | {'Variance (±)':<15} | {'Significance (p)':<15}",
@@ -373,22 +593,64 @@ This research manuscript package is 100% self-contained and pre-configured for *
                     f"{'Proposed Adaptive Architecture':<35} | {'89.40%':<18} | {'±0.48%':<15} | {'p < 0.0001 (Decisive)':<15}",
                     "---------------------------------------------------------------------------------------------------------",
                 ]
-                t_box.text(0.0, 0.88, "\n".join(table_lines), fontfamily="monospace", fontsize=7.2, color="#0F172A", va="top")
+                t_box.text(
+                    0.0,
+                    0.88,
+                    "\n".join(table_lines),
+                    fontfamily="monospace",
+                    fontsize=7.2,
+                    color="#0F172A",
+                    va="top",
+                )
 
-                fig4.text(0.5, 0.03, f"Page 4 of {total_pages} — Experimental Protocol & Benchmark Configuration", ha="center", fontsize=7.5, color="#64748B")
+                fig4.text(
+                    0.5,
+                    0.03,
+                    f"Page 4 of {total_pages} — Experimental Protocol & Benchmark Configuration",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig4, bbox_inches="tight")
                 plt.close(fig4)
 
                 # Page 5: Section V: Empirical Results & Figure 2
                 fig5 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig5.text(0.5, 0.96, "V. EMPIRICAL QUANTITATIVE EVALUATION", ha="center", fontsize=11, weight="bold")
+                fig5.text(
+                    0.5,
+                    0.96,
+                    "V. EMPIRICAL QUANTITATIVE EVALUATION",
+                    ha="center",
+                    fontsize=11,
+                    weight="bold",
+                )
 
-                res_text = sections_dict.get("Results & Empirical Evaluation", sections_dict.get("Quantitative Benchmark Results", "The empirical findings demonstrate consistent treatment superiority across all evaluation folds."))
+                res_text = sections_dict.get(
+                    "Results & Empirical Evaluation",
+                    sections_dict.get(
+                        "Quantitative Benchmark Results",
+                        "The empirical findings demonstrate consistent treatment superiority across all evaluation folds.",
+                    ),
+                )
                 s5_box = plt.axes([0.08, 0.52, 0.84, 0.40])
                 s5_box.axis("off")
-                s5_box.text(0.0, 0.98, "A. Quantitative Superiority & Variance Stabilization", fontsize=9, weight="bold")
-                s5_box.text(0.0, 0.90, res_text[:1000] + ("..." if len(res_text) > 1000 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s5_box.text(
+                    0.0,
+                    0.98,
+                    "A. Quantitative Superiority & Variance Stabilization",
+                    fontsize=9,
+                    weight="bold",
+                )
+                s5_box.text(
+                    0.0,
+                    0.90,
+                    res_text[:1000] + ("..." if len(res_text) > 1000 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
                 fig_idx = 1 if len(discovered_figures) > 1 else 0
                 if discovered_figures:
@@ -397,55 +659,149 @@ This research manuscript package is 100% self-contained and pre-configured for *
                         ax_im2 = plt.axes([0.08, 0.10, 0.84, 0.38])
                         ax_im2.imshow(im2)
                         ax_im2.axis("off")
-                        ax_im2.set_title(f"Figure 2: {discovered_figures[fig_idx].stem.replace('_', ' ').title()}", fontsize=8.5, y=-0.08)
+                        ax_im2.set_title(
+                            f"Figure 2: {discovered_figures[fig_idx].stem.replace('_', ' ').title()}",
+                            fontsize=8.5,
+                            y=-0.08,
+                        )
                     except Exception:
                         pass
 
-                fig5.text(0.5, 0.03, f"Page 5 of {total_pages} — Empirical Evaluation & Multi-Seed Analysis", ha="center", fontsize=7.5, color="#64748B")
+                fig5.text(
+                    0.5,
+                    0.03,
+                    f"Page 5 of {total_pages} — Empirical Evaluation & Multi-Seed Analysis",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig5, bbox_inches="tight")
                 plt.close(fig5)
 
                 # Page 6: Section VI: Statistical Significance & Power Audit, Figure 3
                 fig6 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig6.text(0.5, 0.96, "VI. STATISTICAL SIGNIFICANCE & HYPOTHESIS VERIFICATION", ha="center", fontsize=11, weight="bold")
+                fig6.text(
+                    0.5,
+                    0.96,
+                    "VI. STATISTICAL SIGNIFICANCE & HYPOTHESIS VERIFICATION",
+                    ha="center",
+                    fontsize=11,
+                    weight="bold",
+                )
 
-                stat_text = sections_dict.get("Statistical Significance and Hypothesis Verification", sections_dict.get("DerSimonian-Laird Meta-Analysis", "Formal statistical testing was conducted following the approved statistical plan."))
+                stat_text = sections_dict.get(
+                    "Statistical Significance and Hypothesis Verification",
+                    sections_dict.get(
+                        "DerSimonian-Laird Meta-Analysis",
+                        "Formal statistical testing was conducted following the approved statistical plan.",
+                    ),
+                )
                 s6_box = plt.axes([0.08, 0.52, 0.84, 0.40])
                 s6_box.axis("off")
-                s6_box.text(0.0, 0.98, "A. Hypothesis Testing & Confidence Interval Estimation", fontsize=9, weight="bold")
-                s6_box.text(0.0, 0.90, stat_text[:1000] + ("..." if len(stat_text) > 1000 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s6_box.text(
+                    0.0,
+                    0.98,
+                    "A. Hypothesis Testing & Confidence Interval Estimation",
+                    fontsize=9,
+                    weight="bold",
+                )
+                s6_box.text(
+                    0.0,
+                    0.90,
+                    stat_text[:1000] + ("..." if len(stat_text) > 1000 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
-                fig_idx3 = 2 if len(discovered_figures) > 2 else (1 if len(discovered_figures) > 1 else 0)
+                fig_idx3 = (
+                    2
+                    if len(discovered_figures) > 2
+                    else (1 if len(discovered_figures) > 1 else 0)
+                )
                 if discovered_figures:
                     try:
                         im3 = plt.imread(str(discovered_figures[fig_idx3]))
                         ax_im3 = plt.axes([0.08, 0.10, 0.84, 0.38])
                         ax_im3.imshow(im3)
                         ax_im3.axis("off")
-                        ax_im3.set_title(f"Figure 3: {discovered_figures[fig_idx3].stem.replace('_', ' ').title()}", fontsize=8.5, y=-0.08)
+                        ax_im3.set_title(
+                            f"Figure 3: {discovered_figures[fig_idx3].stem.replace('_', ' ').title()}",
+                            fontsize=8.5,
+                            y=-0.08,
+                        )
                     except Exception:
                         pass
 
-                fig6.text(0.5, 0.03, f"Page 6 of {total_pages} — Statistical Significance & Hypothesis Verification", ha="center", fontsize=7.5, color="#64748B")
+                fig6.text(
+                    0.5,
+                    0.03,
+                    f"Page 6 of {total_pages} — Statistical Significance & Hypothesis Verification",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig6, bbox_inches="tight")
                 plt.close(fig6)
 
                 # Page 7: Section VII: Discussion, Ethics, Reproducibility & References
                 fig7 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig7.text(0.5, 0.96, "VII. DISCUSSION, ETHICAL DISCLOSURE & REFERENCES", ha="center", fontsize=11, weight="bold")
+                fig7.text(
+                    0.5,
+                    0.96,
+                    "VII. DISCUSSION, ETHICAL DISCLOSURE & REFERENCES",
+                    ha="center",
+                    fontsize=11,
+                    weight="bold",
+                )
 
-                disc_text = sections_dict.get("Discussion & Limitations", sections_dict.get("Discussion", "We discussed threats to validity, computational complexity, and future research trajectories."))
+                disc_text = sections_dict.get(
+                    "Discussion & Limitations",
+                    sections_dict.get(
+                        "Discussion",
+                        "We discussed threats to validity, computational complexity, and future research trajectories.",
+                    ),
+                )
                 s7_box = plt.axes([0.08, 0.58, 0.84, 0.34])
                 s7_box.axis("off")
-                s7_box.text(0.0, 0.98, "A. Limitations & Threats to Validity", fontsize=9, weight="bold")
-                s7_box.text(0.0, 0.90, disc_text[:800] + ("..." if len(disc_text) > 800 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                s7_box.text(
+                    0.0,
+                    0.98,
+                    "A. Limitations & Threats to Validity",
+                    fontsize=9,
+                    weight="bold",
+                )
+                s7_box.text(
+                    0.0,
+                    0.90,
+                    disc_text[:800] + ("..." if len(disc_text) > 800 else ""),
+                    fontsize=7.5,
+                    color="#1E293B",
+                    wrap=True,
+                    va="top",
+                )
 
                 eth_box = plt.axes([0.08, 0.36, 0.84, 0.20])
                 eth_box.axis("off")
-                eth_box.text(0.0, 0.98, "B. Ethical Statement and AI-Assistance Acknowledgment", fontsize=9, weight="bold")
-                eth_box.text(0.0, 0.82, "In compliance with IEEE and ACM 2024+ authorship policies, all generative AI models utilized during this study operated strictly as pair-programming assistants under human researcher supervision. Primary conceptual authorship, mathematical modeling, and validation oversight are verified.", fontsize=7.2, color="#334155", wrap=True, va="top")
+                eth_box.text(
+                    0.0,
+                    0.98,
+                    "B. Ethical Statement and AI-Assistance Acknowledgment",
+                    fontsize=9,
+                    weight="bold",
+                )
+                eth_box.text(
+                    0.0,
+                    0.82,
+                    "In compliance with IEEE and ACM 2024+ authorship policies, all generative AI models utilized during this study operated strictly as pair-programming assistants under human researcher supervision. Primary conceptual authorship, mathematical modeling, and validation oversight are verified.",
+                    fontsize=7.2,
+                    color="#334155",
+                    wrap=True,
+                    va="top",
+                )
 
                 ref_box = plt.axes([0.08, 0.08, 0.84, 0.26])
                 ref_box.axis("off")
@@ -457,9 +813,23 @@ This research manuscript package is 100% self-contained and pre-configured for *
                     "[4] DerSimonian and Laird, 'Meta-analysis in clinical trials,' Controlled Clinical Trials, 1986.",
                     "[5] Open Scientific Benchmark Consortium, 'Standardized empirical evaluations,' IEEE Trans., 2026.",
                 ]
-                ref_box.text(0.0, 0.82, "\n".join(ref_lines), fontsize=7.2, color="#475569", va="top")
+                ref_box.text(
+                    0.0,
+                    0.82,
+                    "\n".join(ref_lines),
+                    fontsize=7.2,
+                    color="#475569",
+                    va="top",
+                )
 
-                fig7.text(0.5, 0.03, f"Page 7 of {total_pages} — IEEE Transactions Publication Artifact", ha="center", fontsize=7.5, color="#64748B")
+                fig7.text(
+                    0.5,
+                    0.03,
+                    f"Page 7 of {total_pages} — IEEE Transactions Publication Artifact",
+                    ha="center",
+                    fontsize=7.5,
+                    color="#64748B",
+                )
                 pdf.savefig(fig7, bbox_inches="tight")
                 plt.close(fig7)
 
@@ -469,25 +839,95 @@ This research manuscript package is 100% self-contained and pre-configured for *
                         fig_ext = plt.figure(figsize=(8.5, 11), dpi=150)
                         plt.axis("off")
                         if p_num == 8:
-                            fig_ext.text(0.5, 0.96, "VIII. EXTENDED ABLATION ANALYSIS & SENSITIVITY PROFILING", ha="center", fontsize=11, weight="bold")
+                            fig_ext.text(
+                                0.5,
+                                0.96,
+                                "VIII. EXTENDED ABLATION ANALYSIS & SENSITIVITY PROFILING",
+                                ha="center",
+                                fontsize=11,
+                                weight="bold",
+                            )
                             ext_box = plt.axes([0.08, 0.12, 0.84, 0.80])
                             ext_box.axis("off")
-                            ext_box.text(0.0, 0.98, "A. Granular Component Contributions & Hyperparameter Grid", fontsize=9, weight="bold")
-                            ext_box.text(0.0, 0.92, "Exhaustive multi-factor ablation sweeps evaluating individual algorithmic components across all seeds. Component stripping confirms each sub-module provides non-redundant variance stabilization and accuracy improvements.", fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                            ext_box.text(
+                                0.0,
+                                0.98,
+                                "A. Granular Component Contributions & Hyperparameter Grid",
+                                fontsize=9,
+                                weight="bold",
+                            )
+                            ext_box.text(
+                                0.0,
+                                0.92,
+                                "Exhaustive multi-factor ablation sweeps evaluating individual algorithmic components across all seeds. Component stripping confirms each sub-module provides non-redundant variance stabilization and accuracy improvements.",
+                                fontsize=7.5,
+                                color="#1E293B",
+                                wrap=True,
+                                va="top",
+                            )
                         elif p_num == 9:
-                            fig_ext.text(0.5, 0.96, "APPENDIX A: ANALYTICAL CONVERGENCE & STABILITY DERIVATIONS", ha="center", fontsize=11, weight="bold")
+                            fig_ext.text(
+                                0.5,
+                                0.96,
+                                "APPENDIX A: ANALYTICAL CONVERGENCE & STABILITY DERIVATIONS",
+                                ha="center",
+                                fontsize=11,
+                                weight="bold",
+                            )
                             ext_box = plt.axes([0.08, 0.12, 0.84, 0.80])
                             ext_box.axis("off")
-                            ext_box.text(0.0, 0.98, "A. Step-by-Step Mathematical Proofs & Invariants", fontsize=9, weight="bold")
-                            ext_box.text(0.0, 0.92, "We provide the complete formal derivation of the analytical error propagation and gradient variance bounds. Expanding the recursive update equation under Lipschitz continuous gradients establishes geometric asymptotic convergence.", fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                            ext_box.text(
+                                0.0,
+                                0.98,
+                                "A. Step-by-Step Mathematical Proofs & Invariants",
+                                fontsize=9,
+                                weight="bold",
+                            )
+                            ext_box.text(
+                                0.0,
+                                0.92,
+                                "We provide the complete formal derivation of the analytical error propagation and gradient variance bounds. Expanding the recursive update equation under Lipschitz continuous gradients establishes geometric asymptotic convergence.",
+                                fontsize=7.5,
+                                color="#1E293B",
+                                wrap=True,
+                                va="top",
+                            )
                         else:
-                            fig_ext.text(0.5, 0.96, "APPENDIX B: COMPLETE HARDWARE TELEMETRY & REPRODUCIBILITY", ha="center", fontsize=11, weight="bold")
+                            fig_ext.text(
+                                0.5,
+                                0.96,
+                                "APPENDIX B: COMPLETE HARDWARE TELEMETRY & REPRODUCIBILITY",
+                                ha="center",
+                                fontsize=11,
+                                weight="bold",
+                            )
                             ext_box = plt.axes([0.08, 0.12, 0.84, 0.80])
                             ext_box.axis("off")
-                            ext_box.text(0.0, 0.98, "A. Reproducibility Manifest & AST Data Leakage Verification", fontsize=9, weight="bold")
-                            ext_box.text(0.0, 0.92, "Complete deterministic seed registry (k=5), AST static code analysis certification logs, SHA-256 data hashes, and Overleaf standalone package manifest. Certified zero train-test partition overlap.", fontsize=7.5, color="#1E293B", wrap=True, va="top")
+                            ext_box.text(
+                                0.0,
+                                0.98,
+                                "A. Reproducibility Manifest & AST Data Leakage Verification",
+                                fontsize=9,
+                                weight="bold",
+                            )
+                            ext_box.text(
+                                0.0,
+                                0.92,
+                                "Complete deterministic seed registry (k=5), AST static code analysis certification logs, SHA-256 data hashes, and Overleaf standalone package manifest. Certified zero train-test partition overlap.",
+                                fontsize=7.5,
+                                color="#1E293B",
+                                wrap=True,
+                                va="top",
+                            )
 
-                        fig_ext.text(0.5, 0.03, f"Page {p_num} of {total_pages} — IEEE Transactions Journal Extended Artifact", ha="center", fontsize=7.5, color="#64748B")
+                        fig_ext.text(
+                            0.5,
+                            0.03,
+                            f"Page {p_num} of {total_pages} — IEEE Transactions Journal Extended Artifact",
+                            ha="center",
+                            fontsize=7.5,
+                            color="#64748B",
+                        )
                         pdf.savefig(fig_ext, bbox_inches="tight")
                         plt.close(fig_ext)
 
@@ -497,10 +937,15 @@ This research manuscript package is 100% self-contained and pre-configured for *
 
     def _verify_latex_syntax(self, tex_file: Path) -> bool:
         """Verify matching begin/end environments and essential LaTeX tags."""
-        with open(tex_file, "r", encoding="utf-8") as f:
+        with open(tex_file, encoding="utf-8") as f:
             content = f.read()
 
-        required_tags = [r"\documentclass", r"\begin{document}", r"\end{document}", r"\maketitle"]
+        required_tags = [
+            r"\documentclass",
+            r"\begin{document}",
+            r"\end{document}",
+            r"\maketitle",
+        ]
         for tag in required_tags:
             if tag not in content:
                 return False
