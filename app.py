@@ -573,7 +573,7 @@ elif st.session_state.current_stage == 4:
                 <div><span style="color: #94A3B8; font-size: 0.82rem;">DOI Verification Rate:</span> <b style="color: #38BDF8;">{doi_rate_str}</b></div>
                 <div><span style="color: #94A3B8; font-size: 0.82rem;">Unsupported Claim Rate:</span> <b style="color: {'#34D399' if unsup_rate == 0 else '#F87171'};">{unsup_rate:.1f}%</b></div>
                 <div><span style="color: #94A3B8; font-size: 0.82rem;">Statistical Power Audit:</span> <b style="color: #34D399;">{stat_status}</b></div>
-                <div><span style="color: #94A3B8; font-size: 0.82rem;">Peer Review Verdict:</span> <b style="color: #A78BFA;">{rev_verdict}</b></div>
+                <div><span style="color: #94A3B8; font-size: 0.82rem;">Automated Review Assessment:</span> <b style="color: #A78BFA;">{rev_verdict} — Human Review Required</b></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -672,7 +672,7 @@ elif st.session_state.current_stage == 4:
                 st.markdown("#### 📊 5. Statistical Critic Findings")
                 st.json(result.stat_critique)
             if hasattr(result, "review_report") and result.review_report:
-                st.markdown("#### 🧐 6. Adversarial Scientific Peer Review")
+                st.markdown("#### 🧐 6. Automated Adversarial Scientific Review")
                 st.json(result.review_report)
             if hasattr(result, "revision_history") and result.revision_history:
                 st.markdown("#### 🔄 7. Bounded Revision Loop History")

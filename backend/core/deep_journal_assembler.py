@@ -1068,7 +1068,7 @@ While {m_acronym} demonstrates consistent gains across evaluated benchmark distr
 
 \section{{Ethical Statement and AI-Assistance Acknowledgment}}
 \label{{sec:ethics}}
-In accordance with IEEE and ACM 2024+ publishing guidelines, we state that NovaScientist was utilized as an autonomous orchestration and synthesis engine under deterministic scientific supervision. No proprietary or non-public datasets were utilized, and the experimental protocol adheres strictly to scientific reproducibility standards.
+Generated research artifact for research automation and infrastructure demonstration. Scientific claims, empirical results, and manuscript content require independent human verification before submission or publication. In accordance with IEEE and ACM 2024+ publishing guidelines, we state that NovaScientist was utilized as an orchestration and synthesis engine under human researcher supervision. No proprietary or non-public datasets were utilized, and the experimental protocol adheres strictly to scientific reproducibility standards.
 
 \section{{Conclusion and Future Trajectories}}
 \label{{sec:conclusion}}
