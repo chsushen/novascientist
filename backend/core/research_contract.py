@@ -222,14 +222,44 @@ class QuestionDecompositionEngine:
         dom_lower = (domain or "").lower()
 
         # Semantic token analysis
-        is_graph = any(k in t_lower for k in ["graph", "gnn", "node", "edge", "topology", "fraud", "imbalance"])
-        is_federated = any(k in t_lower for k in ["federat", "decentralized", "client drift", "non-iid", "privacy"])
-        is_nlp = any(k in t_lower for k in ["text", "language", "nlp", "prompt", "adapter", "lora", "peft", "token", "classification"]) and not is_graph
+        is_rag_qa = any(k in t_lower for k in ["rag", "retrieval-augmented", "retrieval augmented", "factual consistency", "factuality", "hallucination", "question answering"]) or (dom_lower == "nlp" and any(k in t_lower for k in ["retrieval", "qa", "fact", "rag"]))
+        is_signal_vibration = dom_lower in ["signal_processing", "industrial_iot", "vibration"] or any(k in t_lower for k in ["vibration", "machinery", "rotating", "bearing", "fault detection", "sensor anomaly", "acoustic", "accelerometer", "frequency spectrum", "fft", "spectral", "condition monitoring"])
+        is_graph = (dom_lower == "graph" or any(k in t_lower for k in ["graph", "gnn", "node", "edge", "topology", "fraud", "imbalance"])) and not is_rag_qa and not is_signal_vibration
+        is_federated = any(k in t_lower for k in ["federat", "decentralized", "client drift", "non-iid", "privacy"]) and not is_rag_qa
+        is_nlp = any(k in t_lower for k in ["text", "language", "nlp", "prompt", "adapter", "lora", "peft", "token", "classification"]) and not is_graph and not is_rag_qa
         is_probabilistic_ts = any(k in t_lower for k in ["probabilistic", "uncertainty", "calibration", "quantile", "crps"]) and any(k in t_lower for k in ["forecast", "time", "temporal"])
-        is_ts = any(k in t_lower for k in ["forecast", "time-series", "time series", "horizon", "temporal"]) and not is_probabilistic_ts
+        is_ts = any(k in t_lower for k in ["forecast", "time-series", "time series", "horizon", "temporal"]) and not is_probabilistic_ts and not is_signal_vibration
         is_vision = any(k in t_lower for k in ["image", "vision", "segmentation", "medical image", "pixel", "ct", "mri"])
 
-        if is_graph:
+        if is_rag_qa:
+            detected_domain = "nlp"
+            subdomain = "Retrieval-Augmented Generation & Factual Consistency"
+            task = "question_answering"
+            inp = "Domain-specific queries and external retrieved passage corpora"
+            out = "Factually grounded answers with passage attribution"
+            ind_vars = ["Retrieval Top-K Depth", "Passage Relevance Threshold", "Context Density"]
+            dep_vars = ["Factual Consistency Score (%)", "Exact Match (EM %)", "Token F1 Score (%)", "Hallucination Rate (%)"]
+            constraints = ["Parametric generation hallucination risk", "Context length window budget", "Domain vocabulary shift"]
+            comp = "Dense Passage Retrieval (DPR) + LLM, BM25 Keyword Retrieval + Cross-Encoder, Closed-Book Parametric LLM"
+            hyp_type = "Retrieval-augmented grounding significantly increases factual consistency and exact match while reducing hallucination rate over parametric baselines"
+            eval_proto = "Multi-seed question answering evaluation with automated factual consistency verification"
+            evidence = ["Factual consistency vs retrieval depth curves", "Hallucination rate comparison across context densities"]
+
+        elif is_signal_vibration:
+            detected_domain = "signal_processing"
+            subdomain = "Industrial Machinery Diagnostics & Vibration Anomaly Detection"
+            task = "fault_classification"
+            inp = "High-frequency accelerometer and vibration time-series signals"
+            out = "Machinery health status and fault category predictions"
+            ind_vars = ["Rotational speed regime (RPM)", "Load condition", "Signal-to-noise ratio (SNR)"]
+            dep_vars = ["Fault Detection F1-Score (%)", "Area Under ROC Curve (AUROC %)", "Early Anomaly Lead Time (hours)", "False Alarm Rate (%)"]
+            constraints = ["Severe industrial background noise", "Variable operating speeds", "Early incipient fault signatures"]
+            comp = "FFT Spectral Energy Baseline, 1D Convolutional Vibration Net, Wavelet Packet Random Forest"
+            hyp_type = "Robust early fault classification across varying load conditions and noise levels without false alarm inflation"
+            eval_proto = "Multi-regime cross-validation across diverse bearing operational loads"
+            evidence = ["Time-frequency spectrogram activation", "AUROC curves across operational regimes"]
+
+        elif is_graph:
             detected_domain = "graph_ml"
             subdomain = "Topological Graph Representation & Imbalanced Node Classification"
             task = "graph_reasoning"
@@ -420,7 +450,29 @@ class ResearchContractBuilder:
 
         # 5. Decision on Metrics (Strictly task-grounded, zero PPL/ROUGE for text classification)
         metric_pool = []
-        if decomp.task == "text_classification" or ("nlp" in decomp.domain and "classification" in decomp.task):
+        if decomp.task == "question_answering" or "rag" in decomp.subdomain.lower() or "factual" in decomp.subdomain.lower():
+            metric_pool = [
+                "Factual Consistency Score (%)",
+                "Exact Match (EM %)",
+                "Token F1 Score (%)",
+                "Hallucination Rate (%)",
+                "Context Relevance Ratio (%)",
+                "Inference Latency (ms)",
+            ]
+            primary_metrics = ["Factual Consistency Score (%)", "Exact Match (EM %)"]
+            secondary_metrics = ["Token F1 Score (%)", "Hallucination Rate (%)"]
+            metrics_rat = "Selected Factual Consistency Score and Exact Match as primary factual verification metrics, with Token F1 and Hallucination Rate to evaluate grounded response quality."
+        elif decomp.domain == "signal_processing" or "vibration" in decomp.subdomain.lower():
+            metric_pool = [
+                "Fault Detection F1-Score (%)",
+                "Area Under ROC Curve (AUROC %)",
+                "Early Anomaly Lead Time (hours)",
+                "False Alarm Rate (%)",
+            ]
+            primary_metrics = ["Fault Detection F1-Score (%)", "Area Under ROC Curve (AUROC %)"]
+            secondary_metrics = ["Early Anomaly Lead Time (hours)", "False Alarm Rate (%)"]
+            metrics_rat = "Selected Fault Detection F1-Score and AUROC as canonical diagnostic accuracy metrics across machine operating regimes."
+        elif decomp.task == "text_classification" or ("nlp" in decomp.domain and "classification" in decomp.task):
             metric_pool = [
                 "Macro F1 Score (%)",
                 "Top-1 Accuracy (%)",
@@ -500,6 +552,8 @@ class ResearchContractBuilder:
             req_exp.append("Uncertainty Calibration & Quantile Reliability Audit across Horizons")
         elif "imbalance" in topic.lower() or "fraud" in topic.lower():
             req_exp.append("Class Imbalance Ratio & Minority Precision-Recall Sensitivity Grid")
+        elif "rag" in topic.lower() or "retrieval" in topic.lower() or "question answering" in topic.lower():
+            req_exp.append("Retrieval Depth (Top-k) & Context Density Sensitivity Analysis")
         else:
             req_exp.append("Ablation Analysis of Core Architectural Components")
 
@@ -520,7 +574,7 @@ class ResearchContractBuilder:
         # 7. Decision on Mathematics Treatment (Evidence-Driven, No Domain Shortcuts)
         has_formal_convergence_claim = any(k in topic.lower() for k in ["convergence guarantee", "theoretical bound", "asymptotic rate", "expressive power"])
         has_analytical_derivation = any(k in topic.lower() for k in ["error propagation", "lookback", "horizon", "bound", "drift bound"])
-        has_optimization_formulation = any(k in topic.lower() for k in ["parameter-efficient", "peft", "adaptation", "low-rank", "loss objective", "regularization"])
+        has_optimization_formulation = any(k in topic.lower() for k in ["parameter-efficient", "peft", "adaptation", "low-rank", "loss objective", "regularization", "retrieval", "rag", "question answering", "factual"])
 
         if has_formal_convergence_claim:
             math_req = MathematicalTreatmentDecision.FORMAL_THEOREM
@@ -528,6 +582,9 @@ class ResearchContractBuilder:
         elif has_analytical_derivation:
             math_req = MathematicalTreatmentDecision.DERIVATION_ONLY
             math_rat = "Analytical error propagation equations derived without generating unverified synthetic theorems."
+        elif "rag" in topic.lower() or "retrieval" in topic.lower() or "factual" in topic.lower():
+            math_req = MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE
+            math_rat = "Mathematical marginal sequence log-likelihood with retrieval scoring and factual consistency regularization specified; formal theorem omitted as study is empirical."
         elif has_optimization_formulation:
             math_req = MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE
             math_rat = "Mathematical parameter-efficient projection and objective formulation specified; formal theorem omitted as not central to empirical study."

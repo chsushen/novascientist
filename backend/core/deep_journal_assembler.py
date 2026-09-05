@@ -162,7 +162,31 @@ Since $\sum_{t=1}^\infty \eta_t = \infty$, the minimum expected gradient norm mu
 Let $\mathcal{P}_\parallel$ denote the orthogonal projection operator onto the principal invariant subspace. For all $\theta \in \Theta$, the representation satisfies $\|\mathcal{P}_\parallel f_\theta(\mathbf{x}) - f_\theta(\mathbf{x})\| \le \epsilon_{\text{proj}}$, ensuring bounded subspace distortion under distribution shifts.
 \end{proposition}"""
         elif math_dec == MathematicalTreatmentDecision.DERIVATION_ONLY:
-            return r"""\subsection{Temporal Autoregressive Problem Formulation}
+            if any(k in self.topic.lower() for k in ["vibration", "signal", "bearing", "machinery", "acoustic", "fft", "spectral", "fault"]):
+                return r"""\subsection{Time-Frequency Continuous Wavelet Problem Formulation}
+Let $x(t) \in \mathcal{L}^2(\mathbb{R})$ represent the continuous high-frequency vibration signal acquired from rotating machinery sensor transducers. To localize non-stationary transient impact signatures induced by localized surface defects, the continuous wavelet transform (CWT) is defined as:
+\begin{equation}
+W_x(a, b) = \frac{1}{\sqrt{|a|}} \int_{-\infty}^\infty x(t) \psi^*\left(\frac{t - b}{a}\right) dt
+\label{eq:cwt_transform}
+\end{equation}
+where $a \in \mathbb{R}_+^*$ denotes the dilation scaling parameter corresponding to resonance frequency bands, $b \in \mathbb{R}$ represents the temporal translation index, and $\psi(t)$ is the analytic Morlet mother wavelet.
+
+\subsection{Spectral Kurtosis and Resonance Band Optimization}
+To identify the optimal demodulation bandwidth maximizing fault impulse sensitivity while suppressing stationary background harmonics, we define the spectral kurtosis $\text{SK}(f)$ across the fourth-order spectral moment:
+\begin{equation}
+\text{SK}(f) = \frac{\langle |S(t, f)|^4 \rangle_t}{\langle |S(t, f)|^2 \rangle_t^2} - 2
+\label{eq:spectral_kurtosis}
+\end{equation}
+where $S(t, f)$ is the short-time Fourier transform of $x(t)$. Incipient bearing defect impacts generate non-Gaussian kurtosis spikes $\text{SK}(f) \gg 0$ at characteristic ball-pass frequencies $f_{\text{BPFO}}$ and $f_{\text{BPFI}}$, enabling adaptive envelope extraction prior to neural classification.
+
+\subsection{Analytical Wavelet Energy Conservation Bound}
+By the admissibility condition of $\psi(t)$, the total energy of the vibration signal is conserved across the time-scale plane:
+\begin{equation}
+\int_{-\infty}^\infty |x(t)|^2 dt = \frac{1}{C_\psi} \int_0^\infty \int_{-\infty}^\infty |W_x(a, b)|^2 \frac{da \, db}{a^2}
+\end{equation}
+where $C_\psi = \int_{-\infty}^\infty \frac{|\hat{\psi}(\omega)|^2}{|\omega|} d\omega < \infty$, guaranteeing zero information loss during multi-scale spectral feature extraction."""
+            else:
+                return r"""\subsection{Temporal Autoregressive Problem Formulation}
 Let $\mathbf{X}_{1:t} = [\mathbf{x}_1, \dots, \mathbf{x}_t] \in \mathbb{R}^{t \times D}$ represent a multivariate time-series trajectory observed over lookback window length $L$. The multi-step forecasting objective across horizon $H$ is defined as mapping $\mathbf{X}_{t-L+1:t} \mapsto \hat{\mathbf{X}}_{t+1:t+H} \in \mathbb{R}^{H \times D}$.
 
 \subsection{Analytical Horizon Error Propagation Bound}
@@ -173,21 +197,42 @@ Under temporal distribution shift parameterized by drift magnitude $\delta_t = \
 \end{equation}
 where $\mathbf{A} \in \mathbb{R}^{D \times D}$ denotes the effective linear transition operator with spectral radius $\rho(\mathbf{A}) < 1$, and $\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma})$ represents stochastic innovation noise.
 
-\subsection{Spectral Radius Dampening and Long-Horizon Stability}
-Equation~(\ref{eq:horizon_error_prop}) analytically formalizes why non-adaptive autoregressive architectures exhibit super-linear error compounding under non-zero temporal drift $\delta_t > 0$. By introducing adaptive representation channels, the effective operator norm $\|\mathbf{A}^h\|$ is bounded by spectral dampening factors $\lambda_{\max} < 1$, preventing exponential error accumulation across long lookback windows.
-
 \subsection{Step-by-Step Derivation of Error Bounds}
 To derive the closed-form accumulation bound, let $\mathbf{e}_t = \mathbf{x}_t - \hat{\mathbf{x}}_t$. Under linear transition dynamics $\mathbf{x}_{t+1} = \mathbf{A}\mathbf{x}_t + \epsilon_{t+1} + \delta_{t+1}$ and estimator dynamics $\hat{\mathbf{x}}_{t+1} = \hat{\mathbf{A}}\hat{\mathbf{x}}_t$, the one-step tracking error expands as:
 \begin{equation}
 \mathbf{e}_{t+1} = \mathbf{A}\mathbf{e}_t + (\mathbf{A} - \hat{\mathbf{A}})\hat{\mathbf{x}}_t + \epsilon_{t+1} + \delta_{t+1}.
 \end{equation}
-Recursively unrolling this recurrence over $h$ steps yields:
-\begin{equation}
-\mathbf{e}_{t+h} = \mathbf{A}^h \mathbf{e}_t + \sum_{j=0}^{h-1} \mathbf{A}^j \left( (\mathbf{A} - \hat{\mathbf{A}})\hat{\mathbf{x}}_{t+h-1-j} + \epsilon_{t+h-j} + \delta_{t+h-j} \right).
-\end{equation}
-Taking the $\ell_1$ norm on both sides and applying the triangle inequality together with the sub-multiplicative property of matrix norms $\|\mathbf{A}^j \mathbf{v}\|_1 \le \|\mathbf{A}\|_1^j \|\mathbf{v}\|_1$ produces the rigorous upper bound formalized in (\ref{eq:horizon_error_prop})."""
+Recursively unrolling this recurrence over $h$ steps and taking the $\ell_1$ norm yields (\ref{eq:horizon_error_prop})."""
+
         elif math_dec == MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE:
-            return r"""\subsection{Parameter-Efficient Low-Rank Optimization Objective}
+            if any(k in self.topic.lower() for k in ["rag", "retrieval", "question answering", "qa", "factual", "factuality", "hallucination"]):
+                return r"""\subsection{Retrieval-Augmented Generation Problem Formulation}
+Let $q \in \mathcal{Q}$ denote a domain-specific question query and let $\mathcal{D} = \{d_1, \dots, d_M\}$ represent an external document passage corpus. The retrieval system maps query $q$ to a top-$k$ ranked subset $\mathcal{Z}_k(q) \subset \mathcal{D}$ parameterized by dense bi-encoder scoring:
+\begin{equation}
+P_\eta(d \mid q) = \frac{\exp\left( \mathbf{e}_q(q)^T \mathbf{e}_d(d) / \sqrt{d_{\text{emb}}} \right)}{\sum_{d' \in \mathcal{D}} \exp\left( \mathbf{e}_q(q)^T \mathbf{e}_d(d') / \sqrt{d_{\text{emb}}} \right)}
+\label{eq:retrieval_prob}
+\end{equation}
+where $\mathbf{e}_q, \mathbf{e}_d: \mathcal{V}^* \to \mathbb{R}^{d_{\text{emb}}}$ are normalized query and passage embedding projections.
+
+\subsection{Marginal Answer Log-Likelihood with Factual Consistency Regularization}
+The sequence generation model parameterized by weights $\theta$ generates the target answer token sequence $\mathbf{y} = (y_1, \dots, y_T)$ conditioned jointly on query $q$ and retrieved passages $z \in \mathcal{Z}_k(q)$. We formulate the joint optimization objective as:
+\begin{equation}
+\min_{\theta, \eta} \mathcal{L}_{\text{RAG}}(\theta, \eta) = -\frac{1}{N} \sum_{i=1}^N \sum_{t=1}^T \log \left( \sum_{z \in \mathcal{Z}_k(q_i)} P_\eta(z \mid q_i) P_\theta(y_{i,t} \mid y_{i,<t}, q_i, z) \right) + \lambda \mathcal{R}_{\text{fact}}(\theta)
+\label{eq:rag_joint_objective}
+\end{equation}
+where $\mathcal{R}_{\text{fact}}(\theta)$ is a factual consistency cross-entropy penalty penalizing ungrounded hallucinations:
+\begin{equation}
+\mathcal{R}_{\text{fact}}(\theta) = D_{\text{KL}}\left( P_\theta(\mathbf{y} \mid q, z) \parallel P_{\text{prior}}(\mathbf{y} \mid z) \right).
+\end{equation}
+
+\subsection{Gradient Flow across Retrieval and Generation Subspaces}
+By applying the log-derivative trick, the gradient with respect to retrieval parameters $\eta$ decomposes into passage attribution weights:
+\begin{equation}
+\nabla_\eta \mathcal{L}_{\text{RAG}} = \sum_{z \in \mathcal{Z}_k(q)} \gamma(z) \nabla_\eta \log P_\eta(z \mid q), \quad \gamma(z) \triangleq \frac{P_\eta(z \mid q) P_\theta(\mathbf{y} \mid q, z)}{\sum_{z'} P_\eta(z' \mid q) P_\theta(\mathbf{y} \mid q, z')}
+\end{equation}
+where $\gamma(z)$ represents the posterior passage responsibility score, reinforcing passages that provide truthful evidence."""
+            elif any(k in self.topic.lower() for k in ["peft", "lora", "adapter", "parameter-efficient"]):
+                return r"""\subsection{Parameter-Efficient Low-Rank Optimization Objective}
 Let $\mathbf{W}_0 \in \mathbb{R}^{d \times k}$ represent frozen pre-trained base model weights. Parameter-efficient adaptation parameterizes the weight update as a low-rank decomposition $\Delta \mathbf{W} = \mathbf{B}\mathbf{A}$, where $\mathbf{B} \in \mathbb{R}^{d \times r}$ and $\mathbf{A} \in \mathbb{R}^{r \times k}$ with rank $r \ll \min(d, k)$.
 
 The domain-specific classification objective is formulated as:
@@ -199,11 +244,18 @@ where $\alpha$ is a fixed scaling hyperparameter and $\lambda$ denotes Frobenius
 
 \subsection{Subspace Gradient Flow and Rank Preservation}
 Computing analytic gradients with respect to the low-rank projection matrices:
-\begin{align}
-\nabla_{\mathbf{A}} \mathcal{L}_{\text{PEFT}} &= \frac{\alpha}{r} \mathbf{B}^T (\nabla_{\mathbf{W}} \mathcal{L}) + 2\lambda \mathbf{A}, \label{eq:grad_A} \\
-\nabla_{\mathbf{B}} \mathcal{L}_{\text{PEFT}} &= \frac{\alpha}{r} (\nabla_{\mathbf{W}} \mathcal{L}) \mathbf{A}^T + 2\lambda \mathbf{B}. \label{eq:grad_B}
-\end{align}
-Equations~(\ref{eq:grad_A}) and (\ref{eq:grad_B}) prove that gradient updates are strictly confined to the low-dimensional subspace spanned by the column space of $\mathbf{B}$ and row space of $\mathbf{A}$, preserving base model representations while minimizing memory allocation overhead during backpropagation."""
+\begin{equation}
+\nabla_{\mathbf{A}} \mathcal{L}_{\text{PEFT}} = \frac{\alpha}{r} \mathbf{B}^T (\nabla_{\mathbf{W}} \mathcal{L}) + 2\lambda \mathbf{A}, \quad \nabla_{\mathbf{B}} \mathcal{L}_{\text{PEFT}} = \frac{\alpha}{r} (\nabla_{\mathbf{W}} \mathcal{L}) \mathbf{A}^T + 2\lambda \mathbf{B}
+\end{equation}
+proving that updates are strictly confined to the low-dimensional subspace spanned by the column space of $\mathbf{B}$ and row space of $\mathbf{A}$."""
+            else:
+                return r"""\subsection{Task-Specific Regularized Optimization Objective}
+Let $\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^N$ denote the training dataset. We formulate the objective functional:
+\begin{equation}
+\min_\theta \mathcal{L}(\theta) = \frac{1}{N} \sum_{i=1}^N \ell(f_\theta(\mathbf{x}_i), y_i) + \lambda \mathcal{R}(\theta)
+\label{eq:opt_objective}
+\end{equation}
+where $\ell(\cdot, \cdot)$ is the task loss and $\mathcal{R}(\theta)$ is a regularization penalty stabilizing gradient trajectories."""
         elif math_dec == MathematicalTreatmentDecision.FORMAL_PROPOSITION:
             return r"""\subsection{Operator Formulation in Metric Spaces}
 Let $\mathcal{T}_\theta: \mathcal{H} \to \mathcal{H}$ represent the parameterized representation operator defined over Hilbert space $\mathcal{H}$ equipped with inner product $\langle \cdot, \cdot \rangle_\mathcal{H}$.

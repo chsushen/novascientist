@@ -115,56 +115,26 @@ class ConversationalAgent:
         return self.context.refined_topic
 
     def _derive_automated_gaps_and_novelty(self) -> None:
-        """Derive standard domain gaps and novelty focus points."""
-        dom = self.context.domain
-        if dom == ComputationalDomain.GRAPH:
-            self.context.custom_gaps = [
-                "Quadratic memory growth during multi-hop neighborhood aggregation",
-                "Non-uniform SIMD vector utilization under irregular sparse graph topologies",
-                "Gradient variance degradation in low-bit post-training quantization"
-            ]
-            self.context.novelty_points = [
-                "Memory-Bounded Quantized Graph Transformer (MB-QGT) with sub-linear footprint",
-                "Dynamic block-floating tile quantization with proved variance bounds",
-                "Stochastic L1/L2 cache line alignment for CPU & Apple Silicon SIMD execution"
-            ]
-            self.context.baselines_to_compare = [
-                "Uncompressed FP32 Dense GNN Baseline",
-                "Static Uniform INT8 Quantization",
-                "Magnitude-Pruned Dynamic Sparsified GNN"
-            ]
-        elif dom == ComputationalDomain.PHYSICS_SURROGATE:
-            self.context.custom_gaps = [
-                "Excessive VRAM consumption during high-order automatic differentiation in PINNs",
-                "Severe numerical stiffness near discontinuous shock boundaries",
-                "Collocation grid scaling bottlenecks on edge workstations"
-            ]
-            self.context.novelty_points = [
-                "Physics-Informed Dynamic Neural Operator with bounded integer buffers",
-                "Variance-stabilized differential residual scaling",
-                "Collocation patch caching for CPU/GPU memory invariance"
-            ]
-            self.context.baselines_to_compare = [
-                "Standard FP32 Physics-Informed Neural Network (PINN)",
-                "Post-Training INT8 Quantized Surrogate",
-                "Unstructured Weight Pruned Neural Solver"
-            ]
-        else:
-            self.context.custom_gaps = [
-                "Memory wall bottleneck during high-dimensional tensor evaluation",
-                "Severe cache thrashing on commodity workstations",
-                "Discretization error along steep activation gradients"
-            ]
-            self.context.novelty_points = [
-                "Dynamic block-floating integer tiling with bounded truncation error",
-                "Variance-stabilized gradient updates under 8-bit limits",
-                "Standardized hardware-invariant execution"
-            ]
-            self.context.baselines_to_compare = [
-                "Full Precision FP32 Baseline",
-                "Static Post-Training INT8 Quantization",
-                "Dynamic Sparsified Baseline"
-            ]
+        """Derive dynamic, topic-tailored research gaps, novelty focus points, and baselines."""
+        from backend.core.topic_profile import TopicProfileExtractor
+        from backend.core.research_contract import ResearchContractBuilder
+
+        dom_val = self.context.domain.value if self.context.domain else None
+        profile = TopicProfileExtractor.extract(self.context.refined_topic, domain=dom_val)
+        contract = ResearchContractBuilder.build_contract(self.context.refined_topic, profile)
+
+        # Populate context dynamically
+        self.context.custom_gaps = [
+            f"Lack of robust optimization and evaluation protocols for {profile.subdomain.lower()}",
+            f"Severe performance degradation under non-stationary shifts in {profile.task_type.value.replace('_', ' ')}",
+            f"High resource overhead and latency bottlenecks in canonical baseline architectures",
+        ]
+        self.context.novelty_points = [
+            f"Proposed {profile.model_full_name_suggestion} tailored to {profile.subdomain}",
+            f"Multi-seed deterministic evaluation across canonical {contract.selected_dataset}",
+            f"Grounded empirical analysis evaluating {', '.join(contract.primary_metrics)}",
+        ]
+        self.context.baselines_to_compare = contract.selected_baselines or profile.candidate_baselines
 
     def set_target_length(self, length: TargetPaperLength) -> None:
         """Set target publication length."""

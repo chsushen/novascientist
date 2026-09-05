@@ -1,4 +1,4 @@
-"""NovaScientist v2.0: Interactive Multi-Stage Research-to-Publication Workspace.
+"""NovaScientist v2.2: Autonomous Research-to-Publication Engine.
 
 Stage 1: Guided Chat & Research Scoping
 Stage 2: Human-in-the-Loop Theory & Plan Approval Gate
@@ -33,6 +33,12 @@ from backend.core.conversational_agent import (
 from backend.core.latex_assembler import AuthorProfile
 from backend.core.orchestrator import NovaScientistOrchestrator, OrchestratorResult
 from backend.core.real_trainer import get_torch_device
+from backend.core.research_contract import (
+    MathematicalTreatmentDecision,
+    ResearchContractBuilder,
+    ScientificResearchContract,
+)
+from backend.core.topic_profile import TopicProfileExtractor
 from backend.core.universal_engine import (
     ComputationalDomain,
     UniversalDomainDispatcher,
@@ -42,7 +48,7 @@ from backend.core.venue_matcher import VenueMatcher
 
 # Streamlit Page Setup
 st.set_page_config(
-    page_title="NovaScientist v2.0: Autonomous Research Engine",
+    page_title="NovaScientist v2.2: Autonomous Research Engine",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -121,6 +127,7 @@ st.markdown(
 # Hardware Inspection
 hw = get_physical_hardware_info()
 dev_type, dev_name = get_torch_device()
+git_rev = get_git_revision()
 
 # Initialize Session State
 if "current_stage" not in st.session_state:
@@ -133,12 +140,13 @@ if "result" not in st.session_state:
     st.session_state.result = None
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        {"role": "assistant", "content": "Welcome to **NovaScientist v2.0**! Enter any research topic or problem hypothesis below to begin our interactive scoping pass."}
+        {"role": "assistant", "content": "Welcome to **NovaScientist v2.2**! Enter any research topic or problem hypothesis below to begin our interactive scoping pass."}
     ]
 
 # Sidebar
 with st.sidebar:
-    st.image("https://img.shields.io/badge/NovaScientist-v2.0_Multi--Agent-8B5CF6?style=for-the-badge&logo=openai", use_container_width=True)
+    st.image("https://img.shields.io/badge/NovaScientist-v2.2_Evidence_First-8B5CF6?style=for-the-badge&logo=openai", use_container_width=True)
+    st.markdown(f"**Runtime Engine:** `v2.2 (Build {git_rev})`")
     st.markdown("### 🧭 Workspace Navigation")
     
     stage_names = {
@@ -148,105 +156,85 @@ with st.sidebar:
         4: "4. Publication & Vector Suite",
     }
     for s_idx, s_name in stage_names.items():
-        is_active = (st.session_state.current_stage == s_idx)
-        btn_label = f"👉 **{s_name}**" if is_active else s_name
-        if st.button(btn_label, key=f"nav_stage_{s_idx}", use_container_width=True):
-            st.session_state.current_stage = s_idx
-            st.rerun()
+        if s_idx == st.session_state.current_stage:
+            st.markdown(f"👉 **{s_name}** *(Active)*")
+        elif s_idx < st.session_state.current_stage:
+            st.markdown(f"✅ {s_name}")
+        else:
+            st.markdown(f"⚪ {s_name}")
 
     st.markdown("---")
-    st.markdown("### 🖥️ Hardware Telemetry")
-    st.caption(f"**Acceleration:** `{dev_type.upper()}` ({dev_name})")
-    st.caption(f"**CPU Core Architecture:** {hw['cpu_model']} ({hw['cpu_cores']} Cores)")
+    st.markdown("### ⚙️ Physical Hardware Status")
+    st.markdown(f"<span class='metric-badge'>Host: {hw['system']}</span><span class='metric-badge-green'>{dev_type.upper()} Active</span>", unsafe_allow_html=True)
+    st.caption(f"**Device:** {dev_name}")
+    st.caption(f"**Host CPU:** {hw['cpu_model']} ({hw['cpu_cores']} Cores)")
     st.caption(f"**System RAM:** {hw['total_ram_gb']} GB")
-    st.caption(f"**Deployment Revision:** `{get_git_revision()}` (main)")
-
-    st.markdown("---")
-    if st.button("🔄 Reset Workspace", use_container_width=True):
-        st.session_state.current_stage = 1
-        st.session_state.execution_plan = None
-        st.session_state.result = None
-        st.session_state.chat_history = [
-            {"role": "assistant", "content": "Workspace reset. Enter any research topic to begin scoping."}
-        ]
-        st.rerun()
-
-# Main Header
-st.markdown('<div class="main-header">NovaScientist v2.0 🔬</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="sub-header">Interactive Conversational Research Agent & Real-Hardware PyTorch Suite for IEEE Publications</div>',
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    f'<span class="metric-badge">Device: {dev_type.upper()}</span>'
-    f'<span class="metric-badge-green">CPU: {hw["cpu_model"]} ({hw["cpu_cores"]} cores)</span>'
-    f'<span class="metric-badge-purple">Stage {st.session_state.current_stage}/4: {stage_names[st.session_state.current_stage]}</span>',
-    unsafe_allow_html=True,
-)
-st.markdown("")
 
 
-# ==========================================
+# Top Header
+st.markdown("<div class='main-header'>🔬 NovaScientist v2.2</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-header'>Evidence-First Autonomous Scientific Research & IEEE Publication Engine</div>", unsafe_allow_html=True)
+
+
+# ========================================================
 # STAGE 1: GUIDED CHAT & RESEARCH SCOPING
-# ==========================================
+# ========================================================
 if st.session_state.current_stage == 1:
-    st.subheader("Stage 1: Guided Research Chat & Scoping")
-    
-    col_chat, col_params = st.columns([1.1, 0.9])
+    st.subheader("Stage 1: Interactive Research Scoping & Intent Capture")
+    st.write("Collaborate with the Autonomous Research Agent to configure your topic, hypotheses, baselines, and target publication format.")
 
-    with col_chat:
-        st.markdown("**💬 Conversational Scoping Assistant**")
-        for msg in st.session_state.chat_history:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-        user_input = st.text_area(
-            "Enter research topic, question, or problem hypothesis:",
-            value="Low-Rank Dynamic Graph Attention for Smart Disaster Resilience and Evacuation Forecasting",
-            height=85,
-        )
-
-    with col_params:
-        st.markdown("**⚙️ Publication & Execution Configuration**")
-        
-        target_len_choice = st.selectbox(
-            "Target Manuscript Format:",
-            ["8–12 Pages (Full IEEE Transactions Journal)", "4–6 Pages (IEEE Conference Paper)"],
+    col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
+    with col_cfg1:
+        target_fmt = st.selectbox(
+            "Target Publication Format:",
+            options=[TargetPaperLength.FULL_JOURNAL, TargetPaperLength.SHORT_CONFERENCE],
+            format_func=lambda x: "8–12 Pages (Full IEEE Transactions Journal)" if x == TargetPaperLength.FULL_JOURNAL else "4–6 Pages (IEEE Conference Paper)",
             index=0,
         )
-        
-        exec_mode_choice = st.selectbox(
-            "Hardware Execution Mode:",
-            ["Real PyTorch Training (GPU / MPS / CPU)", "Fast Deterministic Micro-Benchmark"],
+    with col_cfg2:
+        exec_mode = st.selectbox(
+            "Execution Mode:",
+            options=[ExecutionMode.REAL_PYTORCH_TRAINING, ExecutionMode.FAST_MICROBENCHMARK],
+            format_func=lambda x: "Real PyTorch Multi-Seed Hardware Training" if x == ExecutionMode.REAL_PYTORCH_TRAINING else "Fast CPU Microbenchmarking",
             index=0,
         )
-        
-        seeds_count = st.slider("Deterministic Seed Evaluation Budget (k):", min_value=3, max_value=10, value=5)
-        epochs_count = st.slider("PyTorch Training Epoch Budget:", min_value=10, max_value=80, value=40, step=5)
+    with col_cfg3:
+        num_seeds_val = st.slider("Deterministic Seeds (k):", min_value=1, max_value=10, value=5, step=1)
 
-        with st.expander("👤 Authorship & Institutional Profile", expanded=False):
-            is_anon = st.checkbox("Enforce IEEE Double-Blind Review (Anonymous)", value=True)
-            author_name = st.text_input("Author Name:", value="Anonymous Author(s)" if is_anon else "Dr. Researcher")
-            author_affil = st.text_input("Affiliation:", value="Affiliation Withheld for Double-Blind Review" if is_anon else "Department of Computer Science, University")
-            author_email = st.text_input("Email:", value="anonymous@conference-review.org" if is_anon else "researcher@university.edu")
+    epochs_val = st.slider("Training Epochs per Architecture:", min_value=5, max_value=100, value=40, step=5)
+    st.session_state.epochs_count = epochs_val
 
-        if st.button("🧠 Analyze Topic & Proceed to Theory Gate (Stage 2)", type="primary", use_container_width=True):
-            if not user_input or not user_input.strip():
-                st.warning("Please enter a research topic, question, or hypothesis to proceed.")
-            else:
+    user_input = st.chat_input("Enter research question or problem hypothesis...")
+    if user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing research topic, identifying candidate datasets, and extracting research gaps..."):
                 agent: ConversationalAgent = st.session_state.agent
-                refined_title = agent.refine_topic(user_input)
-                agent.set_target_length(TargetPaperLength.FULL_JOURNAL if "8–12" in target_len_choice else TargetPaperLength.SHORT_CONFERENCE)
-                agent.set_execution_mode(ExecutionMode.REAL_PYTORCH_TRAINING if "Real" in exec_mode_choice else ExecutionMode.FAST_MICROBENCHMARK)
-                agent.set_authorship(author_name, author_affil, author_email, is_anonymous=is_anon)
-                agent.context.num_seeds = seeds_count
+                refined = agent.refine_topic(user_input)
+                agent.set_target_length(target_fmt)
+                agent.set_execution_mode(exec_mode)
+                agent.context.num_seeds = num_seeds_val
 
                 plan = agent.generate_execution_plan()
                 st.session_state.execution_plan = plan
-                st.session_state.epochs_count = epochs_count
-                
-                st.session_state.chat_history.append({"role": "user", "content": user_input})
+
+                response_text = (
+                    f"✨ **Topic Scoped:** *{refined}*\n\n"
+                    f"- **Computational Domain:** `{agent.context.domain_display_name}`\n"
+                    f"- **Canonical Benchmark Dataset:** `{plan.dataset_name}` ({plan.dataset_samples:,} samples)\n"
+                    f"- **Comparative Baseline Suite:** {', '.join(agent.context.baselines_to_compare)}\n"
+                    f"- **Target Primary Venue:** {plan.target_venue_name}\n"
+                    f"- **Hardware Execution:** {dev_name} across $k={num_seeds_val}$ seeds\n\n"
+                    f"Proceeding to **Stage 2: Human-in-the-Loop Theory & Plan Approval Gate**."
+                )
+                st.markdown(response_text)
                 st.session_state.chat_history.append({
                     "role": "assistant",
                     "content": f"Analyzed topic! Classified as **{agent.context.domain_display_name}** with canonical dataset **{agent.context.selected_dataset.name if agent.context.selected_dataset else 'Canonical'}**. Ready for Theory & Plan Gate approval."
@@ -260,7 +248,7 @@ if st.session_state.current_stage == 1:
 # ========================================================
 elif st.session_state.current_stage == 2:
     st.subheader("Stage 2: Human-in-the-Loop Theory & Execution Plan Approval Gate")
-    st.info("🛡️ **Compliance & Rigor Gate:** Review the mathematical formulations, theorems, and execution schedule below before launching hardware training.")
+    st.info("🛡️ **Compliance & Rigor Gate:** Review the topic-adaptive mathematical formulations, evaluation protocol, and execution schedule below before launching hardware training.")
 
     plan: Optional[ExecutionPlan] = st.session_state.execution_plan
     if plan is None:
@@ -269,38 +257,66 @@ elif st.session_state.current_stage == 2:
         st.session_state.execution_plan = plan
 
     summary = plan.to_summary_dict()
+    topic_str = summary['topic']
+
+    # Dynamically derive scientific contract for Stage 2
+    profile = TopicProfileExtractor.extract(topic_str)
+    contract = ResearchContractBuilder.build_contract(topic_str, profile)
 
     col_meta1, col_meta2 = st.columns(2)
     with col_meta1:
         st.markdown(f"**Refined Academic Title:**\n*{summary['topic']}*")
-        st.markdown(f"**Computational Domain:** `{summary['domain']}`")
+        st.markdown(f"**Computational Domain:** `{profile.domain.replace('_', ' ').title()}`")
+        st.markdown(f"**Scientific Subdomain:** `{profile.subdomain}`")
         st.markdown(f"**Target Format:** `{summary['target_length']}`")
         st.markdown(f"**Execution Hardware:** `{summary['hardware']}`")
     with col_meta2:
         st.markdown(f"**Canonical Benchmark Dataset:** `{summary['dataset']}`")
         st.markdown(f"**Target Primary Venue:** `{summary['primary_venue']}`")
         st.markdown(f"**Deterministic Seeds:** `k = {summary['seeds']}`")
+        st.markdown(f"**Mathematical Treatment:** `{contract.mathematical_requirement.value}`")
         st.markdown(f"**Authorship Profile:** `{summary['authorship']}`")
 
     st.markdown("---")
-    st.markdown("### 📐 Formal Theoretical Formulation & Invariant Proofs")
+    st.markdown("### 📐 Topic-Adaptive Problem Formulation & Mathematical Rigor")
 
-    with st.expander("🔍 Mathematical Problem Formulation & Operator Definitions", expanded=True):
-        st.latex(r"\min_{\theta \in \mathbb{R}^d} \mathcal{L}_{\text{total}}(\theta) = \mathbb{E}_{(\mathbf{x}, y) \sim \mathcal{D}}\left[ \ell(f_\theta(\mathbf{x}), y) \right] + \lambda_1 \mathcal{R}_{\text{spectral}}(\mathbf{W}) + \lambda_2 \mathcal{R}_{\text{memory}}(\theta)")
-        st.markdown("Where $\mathcal{R}_{\text{memory}}(\theta)$ enforces dynamic block-floating integer scale factors across 64-byte L1 cache tiles.")
+    math_dec = contract.mathematical_requirement
 
-    with st.expander("📜 Lemma 1: Dynamic Block-Floating Discretization Bounds", expanded=True):
-        st.markdown("**Statement:** For any continuous weight matrix $\\mathbf{W} \\in \\mathbb{R}^{d_1 \\times d_2}$ partitioned into contiguous blocks $\\mathcal{B}_k$ of size $B$, the dynamic quantization operator satisfies:")
-        st.latex(r"| w_{ij} - \mathcal{Q}(w_{ij}) | \le \frac{\Delta_k}{2} = \frac{\max_{u \in \mathcal{B}_k} |u|}{2^b - 1}")
-        st.caption("Proof: Direct consequence of uniform mid-tread quantization with straight-through gradient estimation (STE).")
+    if math_dec == MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE:
+        with st.expander("🔍 Mathematical Formulation & Optimization Objective", expanded=True):
+            if "rag" in topic_str.lower() or "retrieval" in topic_str.lower() or "question answering" in topic_str.lower() or "factual" in topic_str.lower():
+                st.latex(r"\min_{\theta, \eta} \mathcal{L}_{\text{RAG}}(\theta, \eta) = -\frac{1}{N} \sum_{i=1}^N \log \sum_{z \in \mathcal{Z}_k} P_\eta(z \mid x_i) P_\theta(y_i \mid x_i, z) + \lambda \mathcal{R}_{\text{fact}}(\theta)")
+                st.markdown("**Formulation:** Joint retrieval-generation objective optimizing marginal answer log-likelihood over top-$k$ retrieved passages with factual consistency regularization.")
+            elif "peft" in topic_str.lower() or "lora" in topic_str.lower() or "adapter" in topic_str.lower():
+                st.latex(r"\min_{\mathbf{A}, \mathbf{B}} \mathcal{L}_{\text{PEFT}}(\mathbf{A}, \mathbf{B}) = -\frac{1}{N} \sum_{i=1}^N \log P\left(y_i \mid (\mathbf{W}_0 + \frac{\alpha}{r}\mathbf{B}\mathbf{A})\mathbf{x}_i\right) + \lambda (\|\mathbf{A}\|_F^2 + \|\mathbf{B}\|_F^2)")
+                st.markdown("**Formulation:** Low-rank subspace parameter adaptation constraining trainable updates to rank $r \ll d$.")
+            else:
+                st.latex(r"\min_{\theta} \mathcal{L}(\theta) = \mathbb{E}_{(\mathbf{x}, y) \sim \mathcal{D}}\left[ \ell(f_\theta(\mathbf{x}), y) \right] + \lambda \mathcal{R}(\theta)")
+                st.markdown(f"**Formulation:** Empirical loss minimization tailored to {profile.subdomain}.")
 
-    with st.expander("📜 Theorem 1: Bounded Discretization Variance", expanded=True):
-        st.markdown("**Statement:** Under continuous weight perturbation, the variance between full-precision and quantized gradient trajectories is bounded by:")
-        st.latex(r"\mathbb{E}\left[ \| \nabla_\theta \mathcal{L}_{\text{total}} - \nabla_\theta \mathcal{L}_{\text{quantized}} \|_2^2 \right] \le \frac{D \Delta^2}{12} \| \mathbf{W} \|_{\text{op}}^2")
+    elif math_dec == MathematicalTreatmentDecision.DERIVATION_ONLY:
+        with st.expander("🔍 Analytical Error Propagation & Stability Derivations", expanded=True):
+            if "vibration" in topic_str.lower() or "signal" in topic_str.lower():
+                st.latex(r"W_x(a, b) = \frac{1}{\sqrt{|a|}} \int_{-\infty}^\infty x(t) \psi^*\left(\frac{t - b}{a}\right) dt, \quad \text{SK}(f) = \frac{\langle |S(t, f)|^4 \rangle}{\langle |S(t, f)|^2 \rangle^2} - 2")
+                st.markdown("**Formulation:** Continuous wavelet transform and spectral kurtosis resonance extraction under non-stationary rotational vibration regimes.")
+            else:
+                st.latex(r"\mathcal{E}(H) = \frac{1}{H} \sum_{h=1}^H \left( \|\mathbf{A}^h (\mathbf{x}_t - \hat{\mathbf{x}}_t)\|_1 + \sum_{j=0}^{h-1} \|\mathbf{A}^j \epsilon_{t+h-j}\|_1 + h \delta_t \right)")
+                st.markdown("**Formulation:** Analytical cumulative multi-horizon error propagation under non-stationary temporal drift $\delta_t$.")
 
-    with st.expander("📜 Theorem 2: Stochastic Gradient Convergence", expanded=True):
-        st.markdown("**Statement:** Under diminishing step sizes $\\eta_t = \\frac{\\eta_0}{\\sqrt{t}}$ and bounded gradient variance, parameter trajectories converge asymptotically:")
-        st.latex(r"\min_{t \le T} \mathbb{E}\left[ \| \nabla \mathcal{L}(\theta_t) \|^2 \right] \le \mathcal{O}\left( \frac{1}{\sqrt{T}} \right) + \mathcal{O}(\Delta^2)")
+    elif math_dec == MathematicalTreatmentDecision.FORMAL_THEOREM:
+        with st.expander("📜 Formal Theoretical Convergence Theorems", expanded=True):
+            st.latex(r"\lim_{T \to \infty} \min_{1 \le t \le T} \mathbb{E}\left[ \|\nabla \mathcal{J}(\theta_t)\|^2 \right] = 0")
+            st.markdown("**Theorem:** Asymptotic first-order stationary point convergence under $L$-smooth objective and bounded stochastic gradient dispersion.")
+
+    else:
+        with st.expander("📊 Empirical Evaluation Protocol & Benchmark Rigor", expanded=True):
+            st.latex(r"\min_{\theta} \mathcal{L}_{\text{emp}}(\theta) = \frac{1}{N} \sum_{i=1}^N \ell(f_\theta(\mathbf{x}_i), y_i) + \lambda \|\theta\|_2^2")
+            st.markdown(f"**Protocol:** Multi-seed empirical benchmarking across canonical `{contract.selected_dataset}` evaluating `{', '.join(contract.primary_metrics)}`. Formal synthetic theorems are omitted to maintain strict scientific veracity.")
+
+    with st.expander("🎯 Scientific Hypotheses & Primary Objective", expanded=True):
+        st.markdown(f"**Primary Objective:** {contract.primary_objective}")
+        for idx, hyp in enumerate(contract.hypotheses, 1):
+            st.markdown(f"**Hypothesis {idx}:** {hyp}")
 
     st.markdown("---")
     c_btn1, c_btn2 = st.columns([1.2, 0.8])

@@ -135,7 +135,37 @@ class TopicProfileExtractor:
         dom_lower = (explicit_domain or "").lower()
 
         # Evidence-driven domain and task inference
-        if dom_lower == "graph" or any(k in t_lower for k in ["graph", "gnn", "node", "edge", "topology", "relational", "fraud", "imbalance"]):
+        if any(k in t_lower for k in ["rag", "retrieval-augmented", "retrieval augmented", "factual consistency", "factuality", "hallucination", "question answering"]) or (dom_lower == "nlp" and any(k in t_lower for k in ["retrieval", "qa", "fact", "rag"])):
+            task = TaskType.SEQUENCE_GENERATION
+            modality = DataModality.NATURAL_LANGUAGE_TEXT
+            domain_name = "nlp"
+            subdomain = "Retrieval-Augmented Generation & Factual Consistency"
+            paradigm = ResearchParadigm.EMPIRICAL_BENCHMARK
+            metrics = ["Factual Consistency Score (%)", "Exact Match (EM %)", "Token F1 Score (%)", "Hallucination Rate (%)"]
+            primary_m = "Factual Consistency Score (%)"
+            baselines = ["Dense Passage Retrieval (DPR) + LLM", "BM25 Keyword Retrieval + Cross-Encoder", "Closed-Book Parametric LLM", "Standard RAG Baseline"]
+            method_families = ["Iterative Context Reranking", "Faithfulness-Guided Generation", "Dense Multi-Hop Retrieval"]
+            math_objs = ["Retrieval Probability P(z|x) = softmax(E_q(x)^T E_d(z))", "Marginal Sequence Likelihood P(y|x) = \\sum_z P(z|x)P(y|x,z)", "Faithfulness Attribution Score", "Context Relevance Loss"]
+            stat_tests = ["Paired Student's t-test on Factuality Scores", "Bootstrap Resampling Significance Test", "DerSimonian-Laird Random-Effects Meta-Analysis"]
+            figs = ["Factual Consistency vs Retrieval Depth (Top-k)", "Hallucination Rate across Context Densities", "Exact Match vs Context Relevance Frontier", "Ablation over Reranker Architectures"]
+            requires_theorem = False
+
+        elif dom_lower in ["signal_processing", "industrial_iot", "vibration"] or any(k in t_lower for k in ["vibration", "machinery", "rotating", "bearing", "fault detection", "sensor anomaly", "acoustic", "accelerometer", "frequency spectrum", "fft", "spectral", "condition monitoring"]):
+            task = TaskType.CLASSIFICATION
+            modality = DataModality.MULTIVARIATE_TIME_SERIES
+            domain_name = "signal_processing"
+            subdomain = "Industrial Machinery Diagnostics & Vibration Anomaly Detection"
+            paradigm = ResearchParadigm.EMPIRICAL_BENCHMARK
+            metrics = ["Fault Detection F1-Score (%)", "Area Under ROC Curve (AUROC %)", "Early Anomaly Lead Time (hours)", "False Alarm Rate (%)"]
+            primary_m = "Fault Detection F1-Score (%)"
+            baselines = ["FFT Spectral Energy Baseline", "1D Convolutional Vibration Net", "Wavelet Packet Random Forest", "Temporal Transformer Baseline"]
+            method_families = ["Continuous Wavelet Transform + CNN", "Adaptive Multi-Scale Fourier Filtering", "Phase-Space Trajectory Embeddings"]
+            math_objs = ["Short-Time Fourier Transform STFT(t, \\omega)", "Continuous Wavelet Transform CWT(a, b)", "Spectral Kurtosis SK(f)", "Envelope Hilbert Transform H[x(t)]"]
+            stat_tests = ["Paired Student's t-test across Machine Operating Regimes", "Wilcoxon Signed-Rank Test", "DerSimonian-Laird Meta-Analysis"]
+            figs = ["Time-Frequency Spectrogram & Fault Feature Activation", "AUROC Anomaly Detection Frontier", "Early Anomaly Lead Time vs False Alarm Rate", "Ablation over Wavelet Decomposition Scales"]
+            requires_theorem = False
+
+        elif dom_lower == "graph" or any(k in t_lower for k in ["graph", "gnn", "node", "edge", "topology", "relational", "fraud", "imbalance"]):
             task = TaskType.GRAPH_REASONING
             modality = DataModality.RELATIONAL_GRAPH
             domain_name = "graph"

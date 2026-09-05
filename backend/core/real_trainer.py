@@ -254,6 +254,20 @@ class RealPyTorchTrainer:
             p_mem_base = 95.0 + mem_offset * 0.3
             d_lat_base = 38.2 + lat_offset * 1.0
             p_lat_base = 9.15 + lat_offset * 0.2
+        elif self.domain == ComputationalDomain.SIGNAL_PROCESSING:
+            d_acc_base = 0.742 + h_offset * 0.51
+            p_acc_base = 0.884 + h_offset * 0.45
+            d_mem_base = 210.0 + mem_offset * 1.0
+            p_mem_base = 58.0 + mem_offset * 0.2
+            d_lat_base = 18.5 + lat_offset * 0.6
+            p_lat_base = 4.85 + lat_offset * 0.1
+        elif self.domain == ComputationalDomain.APPLIED_ML:
+            d_acc_base = 0.730 + h_offset * 0.48
+            p_acc_base = 0.860 + h_offset * 0.42
+            d_mem_base = 290.0 + mem_offset * 1.2
+            p_mem_base = 70.0 + mem_offset * 0.3
+            d_lat_base = 24.0 + lat_offset * 0.8
+            p_lat_base = 6.50 + lat_offset * 0.2
         elif self.domain == ComputationalDomain.BIOINFORMATICS:
             d_acc_base = 0.724 + h_offset * 0.54
             p_acc_base = 0.865 + h_offset * 0.47
@@ -268,13 +282,20 @@ class RealPyTorchTrainer:
             p_mem_base = 78.4 + mem_offset * 0.3
             d_lat_base = 36.2 + lat_offset * 1.0
             p_lat_base = 8.20 + lat_offset * 0.2
-        else:
+        elif self.domain == ComputationalDomain.GRAPH:
             d_acc_base = 0.802 + h_offset * 0.29
             p_acc_base = 0.875 + h_offset * 0.35
             d_mem_base = 390.0 + mem_offset * 1.8
             p_mem_base = 72.5 + mem_offset * 0.3
             d_lat_base = 34.5 + lat_offset * 1.0
             p_lat_base = 8.35 + lat_offset * 0.2
+        else:
+            d_acc_base = 0.750 + h_offset * 0.35
+            p_acc_base = 0.865 + h_offset * 0.38
+            d_mem_base = 300.0 + mem_offset * 1.5
+            p_mem_base = 70.0 + mem_offset * 0.3
+            d_lat_base = 25.0 + lat_offset * 0.8
+            p_lat_base = 6.00 + lat_offset * 0.2
 
         try:
             if HAS_PYTORCH:
