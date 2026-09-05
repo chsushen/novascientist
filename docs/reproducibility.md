@@ -46,7 +46,7 @@ All multi-seed empirical evaluations and surrogate physics engines use determini
 ## 3. Test Fixture Isolation & Verification Invariants
 
 ### 3.1 Test Fixture Isolation
-- All canonical test fixture papers are housed in [`tests/fixtures/literature/fixtures.py`](file:///Users/chundurisushen/.gemini/antigravity/scratch/novascientist/tests/fixtures/literature/fixtures.py).
+- All canonical test fixture papers are housed in [`tests/fixtures/literature/fixtures.py`](../tests/fixtures/literature/fixtures.py).
 - Stamped with `source_origin = "test_fixture"`, `text_origin = "test_fixture"`, and `TEST_FIXTURE = True`.
 - Production literature services are physically isolated from test fixtures.
 

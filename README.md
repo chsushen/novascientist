@@ -1,18 +1,18 @@
-# NovaScientist v2.0 🔬
+# NovaScientist v2.2 🔬
 
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/chsushen/novascientist?color=blue&logo=github)](https://github.com/chsushen/novascientist/releases/latest)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://novascientist-cqhrr8wptwmrzjksbr8pyw.streamlit.app/)
 [![GitHub stars](https://img.shields.io/github/stars/chsushen/novascientist?style=social)](https://github.com/chsushen/novascientist)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20MPS%20%7C%20CPU-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
-[![Tests](https://img.shields.io/badge/pytest-129%20passed%20(100%25)-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-174%20passed%20(100%25)-brightgreen.svg)](tests/)
 [![Format](https://img.shields.io/badge/Format-8--12%20Page%20IEEE%20Transactions-8B5CF6.svg)]()
-[![Figures](https://img.shields.io/badge/Figures-5%20Publication%20Vectors%20(PDF%2FPNG)-059669.svg)]()
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Figures](https://img.shields.io/badge/Figures-Evidence--Ranked%20Vector%20Panels-059669.svg)]()
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**Autonomous Multi-Agent Research-to-Publication Engine & Empirical Hardware Benchmarking Suite for IEEE Transactions**
+**Evidence-First Autonomous Scientific Intelligence & Empirical Research Engine for IEEE Transactions**
 
-NovaScientist v2.0 is an autonomous, peer-review-driven agentic research platform that transforms scientific research questions into rigorously evaluated, empirically grounded, and typeset 8–12 page IEEE Transactions journal papers.
+NovaScientist v2.2 is an autonomous, evidence-first agentic research platform that transforms scientific research questions into rigorously evaluated, empirically grounded, and typeset 8–12 page IEEE Transactions journal papers.
 
 ---
 

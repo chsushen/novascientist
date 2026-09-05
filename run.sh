@@ -15,10 +15,10 @@ echo "======================================================================"
 
 # 1. Resolve Python Interpreter (prefer local virtualenv if available)
 PYTHON_CMD="python3"
-if [ -f "/Users/chundurisushen/.gemini/antigravity/scratch/research-mind-ai/.venv/bin/python3" ]; then
-    PYTHON_CMD="/Users/chundurisushen/.gemini/antigravity/scratch/research-mind-ai/.venv/bin/python3"
-elif [ -d ".venv" ]; then
+if [ -d ".venv" ] && [ -f ".venv/bin/python3" ]; then
     PYTHON_CMD=".venv/bin/python3"
+elif [ -d "venv" ] && [ -f "venv/bin/python3" ]; then
+    PYTHON_CMD="venv/bin/python3"
 fi
 
 # 2. Verify Python Version >= 3.10

@@ -57,7 +57,7 @@ graph TD
 - **Responsibilities**:
   - Live query resolution via CrossRef and OpenAlex APIs with environment-configurable timeouts.
   - Exact text passage extraction (`source_origin`, `text_origin`).
-  - Active DOI verification and title/year fuzzy cross-checking via [`DOIVerifier`](file:///Users/chundurisushen/.gemini/antigravity/scratch/novascientist/backend/core/doi_verifier.py).
+  - Active DOI verification and title/year fuzzy cross-checking via [`DOIVerifier`](../backend/core/doi_verifier.py).
   - Zero-synthetic fallback invariant: if external scholarly APIs fail, returns clean empty evidence sets without fabricating citations.
 
 ### 2.3 Methodology Agent (`backend/core/methodology_agent.py`)
