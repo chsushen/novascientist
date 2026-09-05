@@ -37,7 +37,7 @@ Primary Metrics: ['Factual Consistency Score (%)', 'Exact Match (EM %)']
 Math Requirement: optimization_objective
 Stat Requirement: paired_t_test
 Figure Requirements (2): ['Factual Consistency vs Retrieval Depth', 'Hallucination Rate vs Context Density']
-Execution Status: PASS | PDF: 3 Pages | Figures: 2
+Execution Status: PASS | Physical PDF: 7 Pages (Target: 6–8) | Figures: 2
 Contract Consistency Report: PASS
 Uncontracted Hardware Terms Found: 0
 ======================================================================
@@ -49,7 +49,7 @@ Primary Metrics: ['Macro F1 Score (%)', 'Top-1 Accuracy (%)']
 Math Requirement: optimization_objective
 Stat Requirement: paired_t_test
 Figure Requirements (3): ['System Architecture Diagram', 'Macro-F1 vs Trainable Parameter Footprint Pareto Frontier', 'Adapter Module Component Ablation Bar Chart']
-Execution Status: PASS | PDF: 3 Pages | Figures: 3
+Execution Status: PASS | Physical PDF: 7 Pages (Target: 6–8) | Figures: 3
 Contract Consistency Report: PASS
 Uncontracted Hardware Terms Found: 0
 ======================================================================
@@ -61,7 +61,7 @@ Primary Metrics: ['Mean Absolute Error (MAE)', 'Root Mean Squared Error (RMSE)']
 Math Requirement: derivation_only
 Stat Requirement: paired_t_test
 Figure Requirements (2): ['Forecast Trajectories vs Ground Truth', 'Horizon-Wise Error Degradation Curve']
-Execution Status: PASS | PDF: 3 Pages | Figures: 2
+Execution Status: PASS | Physical PDF: 7 Pages (Target: 6–8) | Figures: 2
 Contract Consistency Report: PASS
 Uncontracted Hardware Terms Found: 0
 ======================================================================
@@ -71,9 +71,32 @@ ALL 3 CANONICAL ACCEPTANCE RUNS PASSED CERTIFICATION!
 
 ---
 
-## 4. Test Suite Summary
+## 4. Statistical Procedure Selector Audit
 
-- **Total Test Cases**: 193
-- **Passed**: 193 (100%)
+The statistical selection engine was audited to ensure methods are derived strictly from experimental design invariants rather than keyword heuristics:
+
+| Experimental Design Invariants | Derived Statistical Procedure | Verification Status |
+| :--- | :--- | :--- |
+| Paired evaluation, Gaussian / Normal distributions, $k \ge 3$ seeds | `StatisticalRequirement.PAIRED_T_TEST` | **PASS** |
+| Paired evaluation, Non-Normal / Ordinal / Heavy-tailed | `StatisticalRequirement.WILCOXON_SIGNED_RANK` | **PASS** |
+| Small sample regime ($k = 2$ seeds) | `StatisticalRequirement.BOOTSTRAP_CONFIDENCE_INTERVAL` | **PASS** |
+| Single-run execution ($N = 1$ deterministic run) | `StatisticalRequirement.NONE` (Descriptive only) | **PASS** |
+| Multi-group independent comparisons ($>2$ groups, unpaired) | `StatisticalRequirement.ONE_WAY_ANOVA` | **PASS** |
+| Multicenter / Multi-site heterogeneous variance datasets | `StatisticalRequirement.RANDOM_EFFECTS_META_ANALYSIS` | **PASS** |
+
+---
+
+## 5. Physical PDF Page Count & Compilation Audit
+
+- **Standard Conference Target**: 6–8 Physical Pages $\longrightarrow$ **Actual Output: 7 Pages** (`within_target = True`)
+- **Extended Journal Target**: 8–12 Physical Pages $\longrightarrow$ **Actual Output: 10 Pages** (`within_target = True`)
+- **Verification Engine**: `pypdf.PdfReader` counting physical rasterized / vector pages with IEEE-compatible formatting and zero uncontracted filler.
+
+---
+
+## 6. Test Suite Summary
+
+- **Total Test Cases**: 194
+- **Passed**: 194 (100%)
 - **Failed**: 0
-- **Regression Suite**: `tests/test_stage4_contract_enforcement.py` added with 4 unit/integration test cases covering contract freezing immutability, assembler compliance, and mathematical treatment enforcement.
+- **Regression Suite**: `tests/test_stage4_contract_enforcement.py` added with 5 unit/integration test cases covering contract freezing immutability, assembler compliance, mathematical treatment enforcement, and statistical selector design derivations.

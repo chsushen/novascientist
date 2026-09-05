@@ -131,3 +131,45 @@ def test_forecasting_contract_derivation_math():
         metrics_dict={},
     )
     assert report["status"] == "PASS", f"Report failed: {report}"
+
+
+def test_statistical_selector_adversarial_design_derivation():
+    """Adversarial test proving Statistical Selector derives method from experimental structure."""
+    topic = "Comparative Evaluation of Deep Learning Architectures"
+    profile = TopicProfileExtractor.extract(topic)
+    
+    # 1. Paired, Normal, k >= 3 -> PAIRED_T_TEST
+    c_paired = ResearchContractBuilder.build_contract(
+        topic, profile, experimental_design={"is_paired": True, "num_seeds": 5, "distribution_type": "normal"}
+    )
+    assert c_paired.statistical_requirement == StatisticalRequirement.PAIRED_T_TEST
+    
+    # 2. Non-Normal / Ordinal / Heavy-Tailed -> WILCOXON_SIGNED_RANK
+    c_wilcoxon = ResearchContractBuilder.build_contract(
+        topic, profile, experimental_design={"is_paired": True, "num_seeds": 5, "distribution_type": "non_normal"}
+    )
+    assert c_wilcoxon.statistical_requirement == StatisticalRequirement.WILCOXON_SIGNED_RANK
+    
+    # 3. Small Sample (k = 2) -> BOOTSTRAP_CONFIDENCE_INTERVAL
+    c_boot = ResearchContractBuilder.build_contract(
+        topic, profile, experimental_design={"is_paired": True, "num_seeds": 2, "is_small_sample": True}
+    )
+    assert c_boot.statistical_requirement == StatisticalRequirement.BOOTSTRAP_CONFIDENCE_INTERVAL
+    
+    # 4. Single-Run / N = 1 -> NONE (Descriptive Statistics only)
+    c_single = ResearchContractBuilder.build_contract(
+        topic, profile, experimental_design={"is_single_run": True, "num_seeds": 1}
+    )
+    assert c_single.statistical_requirement == StatisticalRequirement.NONE
+    
+    # 5. Independent Groups (>2 groups, unpaired) -> ONE_WAY_ANOVA
+    c_anova = ResearchContractBuilder.build_contract(
+        topic, profile, experimental_design={"is_paired": False, "num_groups": 4, "num_seeds": 5}
+    )
+    assert c_anova.statistical_requirement == StatisticalRequirement.ONE_WAY_ANOVA
+    
+    # 6. Multicenter / Multi-Site Heterogeneous Variance -> RANDOM_EFFECTS_META_ANALYSIS
+    c_meta = ResearchContractBuilder.build_contract(
+        topic, profile, experimental_design={"is_multicenter": True, "num_seeds": 5}
+    )
+    assert c_meta.statistical_requirement == StatisticalRequirement.RANDOM_EFFECTS_META_ANALYSIS

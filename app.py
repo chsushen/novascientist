@@ -141,13 +141,13 @@ if "result" not in st.session_state:
     st.session_state.result = None
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        {"role": "assistant", "content": "Welcome to **NovaScientist v2.2**! Enter any research topic or problem hypothesis below to begin our interactive scoping pass."}
+        {"role": "assistant", "content": "Welcome to **NovaScientist v2.3**! Enter any research topic or problem hypothesis below to begin our interactive scoping pass."}
     ]
 
 # Sidebar
 with st.sidebar:
-    st.image("https://img.shields.io/badge/NovaScientist-v2.2_Evidence_First-8B5CF6?style=for-the-badge&logo=openai", use_container_width=True)
-    st.markdown(f"**Runtime Engine:** `v2.2 (Build {git_rev})`")
+    st.image("https://img.shields.io/badge/NovaScientist-v2.3_Evidence_First-8B5CF6?style=for-the-badge&logo=openai", use_container_width=True)
+    st.markdown(f"**Runtime Engine:** `v2.3 (Build {git_rev})`")
     st.markdown("### 🧭 Workspace Navigation")
     
     stage_names = {
@@ -173,7 +173,7 @@ with st.sidebar:
 
     st.markdown("---")
     with st.expander("🛠️ Technical Diagnostics", expanded=True):
-        st.markdown(f"**NovaScientist Version:** `v2.2`")
+        st.markdown(f"**NovaScientist Version:** `v2.3`")
         st.markdown(f"**Git SHA:** `{git_rev}`")
         st.markdown(f"**Research Engine:** `UniversalBenchmarkEngine` (Evidence-First)")
         st.markdown(f"**Contract Engine:** `Active (ScientificResearchContract)`")
@@ -182,7 +182,7 @@ with st.sidebar:
 
 
 # Top Header
-st.markdown("<div class='main-header'>🔬 NovaScientist v2.2</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-header'>🔬 NovaScientist v2.3</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-header'>Evidence-First Autonomous Scientific Research & IEEE Publication Engine</div>", unsafe_allow_html=True)
 
 
