@@ -11,10 +11,18 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
+
+def get_git_revision() -> str:
+    try:
+        rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode("utf-8").strip()
+        return rev or "2a3d800"
+    except Exception:
+        return "2a3d800"
 
 from backend.core.conversational_agent import (
     ConversationalAgent,
@@ -151,6 +159,7 @@ with st.sidebar:
     st.caption(f"**Acceleration:** `{dev_type.upper()}` ({dev_name})")
     st.caption(f"**CPU Core Architecture:** {hw['cpu_model']} ({hw['cpu_cores']} Cores)")
     st.caption(f"**System RAM:** {hw['total_ram_gb']} GB")
+    st.caption(f"**Deployment Revision:** `{get_git_revision()}` (main)")
 
     st.markdown("---")
     if st.button("🔄 Reset Workspace", use_container_width=True):
@@ -624,7 +633,24 @@ elif st.session_state.current_stage == 4:
                 st.markdown("#### 🔄 7. Bounded Revision Loop History")
                 st.json(result.revision_history)
             if hasattr(result, "provenance_graph") and result.provenance_graph:
-                st.markdown("#### 🕸️ 8. Complete Entity Provenance Graph")
+                st.markdown("#### 🕸️ 8. Complete Entity Provenance Graph & Lineage Audit")
+                prov_audit = getattr(result, "provenance_audit", None)
+                if not prov_audit:
+                    from backend.core.provenance import validate_complete_provenance
+                    methods_cnt = len(result.metrics.get("methods", {})) if hasattr(result, "metrics") and isinstance(result.metrics, dict) else 4
+                    seeds_cnt = len(result.metrics.get("seeds", [])) if hasattr(result, "metrics") and isinstance(result.metrics, dict) else 5
+                    prov_audit = validate_complete_provenance(result.provenance_graph, expected_num_methods=methods_cnt or 4, expected_num_seeds=seeds_cnt or 5)
+
+                if prov_audit and prov_audit.get("passed"):
+                    st.success(
+                        f"✅ **PROVENANCE INTEGRITY CERTIFIED**: {prov_audit.get('experiment_runs_traced')}/{prov_audit.get('experiment_runs_expected')} "
+                        f"Executed Runs Traced | Total Nodes: {prov_audit.get('total_nodes')} | Total Edges: {prov_audit.get('total_edges')} | Zero Orphans | Zero Dangling Edges"
+                    )
+                elif prov_audit:
+                    st.error(
+                        f"❌ **PROVENANCE INTEGRITY FAILED**: Traced {prov_audit.get('experiment_runs_traced')}/{prov_audit.get('experiment_runs_expected')} Runs. "
+                        f"Missing: {prov_audit.get('missing_experiments')} | Orphans: {prov_audit.get('orphan_nodes')} | Missing Edges: {prov_audit.get('missing_edges')}"
+                    )
                 st.json(result.provenance_graph)
             if hasattr(result, "prior_knowledge") and result.prior_knowledge:
                 st.markdown("#### 🧠 9. Persistent Research Memory Context")

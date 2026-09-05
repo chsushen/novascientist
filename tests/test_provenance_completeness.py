@@ -310,3 +310,46 @@ def test_validate_complete_provenance_function(canonical_provenance_tracker):
     assert partial_res["passed"] is False
     assert partial_res["experiment_runs_traced"] == 6
     assert partial_res["experiment_runs_expected"] == 20
+
+
+@pytest.mark.asyncio
+async def test_real_orchestrator_production_provenance_integration(tmp_path):
+    """Test 12: Production Orchestrator end-to-end execution generates 20 verified experiment runs
+
+    and complete downstream lineage without falling back to 6 nodes.
+    """
+    orchestrator = NovaScientistOrchestrator(output_dir=str(tmp_path))
+    res = await orchestrator.execute(
+        topic="Adaptive Quantization and Memory Optimization in Deep Neural Networks",
+        target_length=TargetPaperLength.SHORT_CONFERENCE,
+        execution_mode=ExecutionMode.FAST_MICROBENCHMARK,
+        num_seeds=5,
+        num_epochs=5,
+    )
+
+    assert res.success is True
+    assert res.provenance_graph is not None
+
+    # Audit the returned provenance graph
+    audit = validate_complete_provenance(res.provenance_graph, expected_num_methods=4, expected_num_seeds=5)
+    assert audit["passed"] is True, f"Production provenance audit failed: {audit}"
+    assert audit["experiment_runs_traced"] == 20, f"Expected 20 runs, got {audit['experiment_runs_traced']}"
+    assert audit["experiment_runs_expected"] == 20
+
+    # Inspect all downstream nodes
+    node_types = {n["node_type"]: n for n in res.provenance_graph["nodes"]}
+    assert "experiment_spec" in node_types
+    assert "metrics_aggregate" in node_types
+    assert "meta_analysis" in node_types
+    assert "statistical_critic" in node_types
+    assert "scientific_review" in node_types
+    assert "revision" in node_types
+    assert "conclusion" in node_types
+    assert "publication" in node_types
+
+    # Verify critic input experiment IDs covers all 20
+    stat_meta = node_types["statistical_critic"]["metadata"]
+    assert len(stat_meta["input_experiment_ids"]) == 20
+    assert audit["orphan_nodes"] == []
+    assert audit["missing_edges"] == []
+

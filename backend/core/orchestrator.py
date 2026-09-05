@@ -46,7 +46,7 @@ from backend.core.figure_generator import ScientificFigureSuite
 from backend.core.latex_assembler import AuthorProfile, CompliantLaTeXAssembler
 from backend.core.literature import LiteratureService, PaperMetadata
 from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
-from backend.core.provenance import ProvenanceTracker
+from backend.core.provenance import ProvenanceTracker, validate_complete_provenance
 from backend.core.real_trainer import RealPyTorchTrainer, get_torch_device
 from backend.core.research_memory import ResearchMemory
 from backend.core.reviewer_swarm import ReviewerSwarm
@@ -106,6 +106,7 @@ class OrchestratorResult:
     stat_critique: Optional[Dict[str, Any]] = None
     review_report: Optional[Dict[str, Any]] = None
     provenance_graph: Optional[Dict[str, Any]] = None
+    provenance_audit: Optional[Dict[str, Any]] = None
     revision_history: Optional[Dict[str, Any]] = None
     prior_knowledge: Optional[List[Dict[str, Any]]] = None
 
@@ -532,7 +533,23 @@ class NovaScientistOrchestrator:
             relation="generates_publication",
         )
 
-        # Step 11: Record into Persistent Research Memory
+        # Step 11: Runtime Provenance Completeness Validation (Fail-Closed)
+        exported_graph = prov.export_graph()
+        num_methods = len(methods_dict) if methods_dict else 4
+        prov_audit = validate_complete_provenance(
+            graph_or_tracker=prov,
+            expected_num_methods=num_methods,
+            expected_num_seeds=num_seeds,
+        )
+        if not prov_audit["passed"]:
+            raise RuntimeError(
+                f"Provenance integrity validation failed: expected {prov_audit['experiment_runs_expected']} runs, "
+                f"traced {prov_audit['experiment_runs_traced']}. Missing: {prov_audit['missing_experiments']}, "
+                f"Duplicates: {prov_audit['duplicate_experiments']}, Orphans: {prov_audit['orphan_nodes']}, "
+                f"Dangling edges: {prov_audit['missing_edges']}"
+            )
+
+        # Step 12: Record into Persistent Research Memory
         self.memory.store_task(
             task_id=task_id,
             topic=topic,
@@ -544,7 +561,7 @@ class NovaScientistOrchestrator:
             review_passed=review_report.passed,
             model_acronym=plan.model_acronym,
             dataset_name=dataset.name,
-            provenance_graph=prov.export_graph(),
+            provenance_graph=exported_graph,
         )
 
         # Export to explicit output path if specified
@@ -581,7 +598,8 @@ class NovaScientistOrchestrator:
             validation_report=val_report.to_dict(),
             stat_critique=stat_critique.to_dict(),
             review_report=review_report.to_dict(),
-            provenance_graph=prov.export_graph(),
+            provenance_graph=exported_graph,
+            provenance_audit=prov_audit,
             revision_history=rev_history.to_dict(),
             prior_knowledge=prior_knowledge,
         )

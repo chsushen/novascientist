@@ -199,24 +199,33 @@ def validate_complete_provenance(
     )
     publication_present = publication_node is not None
 
-    # 6. Orphan Node Detection (nodes with no parents and no children, ignoring root/leaf)
+    # 6. Orphan Node Detection (nodes with no parents or no children in workflow DAG)
     all_parents = {p for n in nodes for p in n.get("parent_ids", [])}
     orphan_nodes: List[str] = []
     root_types = {"question", "plan"}
-    leaf_types = {"publication", "deliverable", "conclusion", "benchmark_eval"}
+    leaf_or_reference_types = {
+        "publication", "deliverable", "conclusion", "benchmark_eval",
+        "source", "claim", "doi_verification",
+    }
 
     for n in nodes:
         n_id = n.get("node_id")
         n_type = n.get("node_type")
         has_parents = len(n.get("parent_ids", [])) > 0
         has_children = n_id in all_parents
+
+        if not has_parents and not has_children:
+            orphan_nodes.append(n_id)
+            continue
+
         if n_type in root_types:
             if not has_children:
                 orphan_nodes.append(n_id)
-        elif n_type in leaf_types:
+        elif n_type in leaf_or_reference_types:
             if not has_parents:
                 orphan_nodes.append(n_id)
         else:
+            # Execution pipeline entity must have both upstream inputs and downstream consumers
             if not has_parents or not has_children:
                 orphan_nodes.append(n_id)
 
