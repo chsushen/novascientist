@@ -67,6 +67,7 @@ class PaperMetadata:
     doi_verification_status: str = "syntax_valid_only"  # 'verified', 'syntax_valid_only', 'metadata_mismatch', 'unresolvable', 'missing'
     doi_final_url: Optional[str] = None
     doi_http_status: Optional[int] = None
+    retraction_status: str = "active"  # 'active', 'retracted', 'unknown'
 
     @property
     def accessible_text(self) -> Optional[str]:
@@ -82,6 +83,10 @@ class PaperMetadata:
             raise ValueError(
                 f"Invalid source_origin '{self.source_origin}'. Must be one of {VALID_SOURCE_ORIGINS}"
             )
+
+        # Detect retracted literature from title or metadata notes
+        if re.search(r"\b(retracted|retraction|withdrawn)\b", self.title, re.IGNORECASE):
+            self.retraction_status = "retracted"
 
         # Auto-align text_origin when text is present but text_origin is default 'none'
         if self.text_origin == "none":

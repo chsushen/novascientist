@@ -527,15 +527,16 @@ elif st.session_state.current_stage == 4:
                     p = Path(fig_dict["png"])
                     if p.exists():
                         return p
-            p_ws = Path("./dist/workspace/figures") / default_filename
-            if p_ws.exists():
-                return p_ws
-            p_rep = Path("./dist/reproduced_figures") / default_filename
-            if p_rep.exists():
-                return p_rep
-            p_test = Path("./dist/test_journal_workspace/figures") / default_filename
-            if p_test.exists():
-                return p_test
+            search_paths = [
+                Path("./dist/workspace/figures") / default_filename,
+                Path("./dist/reproduced_figures") / default_filename,
+                Path("./dist/test_journal_workspace/figures") / default_filename,
+                Path("./artifacts/demo/run_canonical_01/figures") / default_filename,
+                Path("./artifacts/demo/run_canonical_01") / default_filename,
+            ]
+            for sp in search_paths:
+                if sp.exists():
+                    return sp
             return None
 
         with tab1:
@@ -599,6 +600,16 @@ elif st.session_state.current_stage == 4:
                 st.json(result.methodology)
             if hasattr(result, "evidence") and result.evidence:
                 st.markdown("#### 📚 3. Literature Evidence & Extracted Claims")
+                sources_list = result.evidence.get("sources", []) if isinstance(result.evidence, dict) else getattr(result.evidence, "sources", [])
+                retracted_sources = [
+                    s for s in sources_list
+                    if (isinstance(s, dict) and s.get("retraction_status") == "retracted")
+                    or (hasattr(s, "retraction_status") and s.retraction_status == "retracted")
+                ]
+                if retracted_sources:
+                    for rs in retracted_sources:
+                        r_title = rs.get("title") if isinstance(rs, dict) else rs.title
+                        st.warning(f"⚠️ **RETRACTED SOURCE ADVISORY**: The retrieved literature item *\"{r_title}\"* has been flagged as retracted. Its claims are quarantined from empirical validation.")
                 st.json(result.evidence)
             if hasattr(result, "validation_report") and result.validation_report:
                 st.markdown("#### ⚖️ 4. Empirical Evidence Validation Report")

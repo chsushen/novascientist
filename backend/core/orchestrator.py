@@ -279,6 +279,7 @@ class NovaScientistOrchestrator:
             prov.record_node(f"res_{er.experiment_id}", "result", f"{er.accuracy:.2f}% / {er.latency_ms:.1f}ms", parent_ids=[er_node.node_id])
 
         val_report = self.validator.validate_evidence(evidence, exp_records, metrics_dict)
+        methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(methodology, metrics_dict)
 
         # Step 7: Statistical Critic Agent
         notify("Statistical Critic evaluating variance bounds and DerSimonian-Laird meta-analysis...", 0.68)

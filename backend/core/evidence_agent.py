@@ -118,6 +118,11 @@ class SourceRecord:
     retrieved_text: Optional[str] = None
     claims: List[ClaimRecord] = field(default_factory=list)
     bibkey: str = ""
+    retraction_status: str = "active"  # 'active', 'retracted', 'unknown'
+
+    def __post_init__(self) -> None:
+        if re.search(r"\b(retracted|retraction|withdrawn)\b", self.title, re.IGNORECASE):
+            self.retraction_status = "retracted"
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -263,6 +268,7 @@ class LiteratureAgent:
                 retrieved_text=accessible_text if has_text else None,
                 claims=p_claims,
                 bibkey=paper.bibkey,
+                retraction_status=paper.retraction_status,
             )
             sources.append(source)
 

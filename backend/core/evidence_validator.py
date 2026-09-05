@@ -89,36 +89,63 @@ class EvidenceValidator:
         pooled_es = meta.get("pooled_effect_size", 0.0)
         z_stat = meta.get("z_statistic", 0.0)
 
+        # Unrelated domain/hardware keywords that must NOT be claimed as substantiated by local tensor experiments
+        UNRELATED_SCOPE_KEYWORDS = {
+            "memristor", "memristive", "neuromorphic", "resistive memory", "resistive",
+            "analog", "spintronic", "photonic", "optical computing", "crossbar",
+            "crossbar array", "phase-change", "pcm", "rram", "bio-inspired", "spiking", "asic"
+        }
+
+        # Explicit keywords signifying the active proposed architecture or local benchmark evaluation
+        PROPOSED_CONSTRUCT_KEYWORDS = {
+            "proposed", "mb-qgt", "mb_qgt", "our method", "our model", "our architecture",
+            "multi-branch quantized graph transformer", "evaluated model"
+        }
+
         # Matched experiment IDs for proposed and baseline methods
         prop_exp_ids = [e.experiment_id for e in experiments if "proposed" in e.method_id or "mb_qgt" in e.method_id]
         dense_exp_ids = [e.experiment_id for e in experiments if "dense" in e.method_id]
+        num_k = max(1, len(experiments) // 4 if len(experiments) >= 4 else len(experiments))
 
         for claim in evidence.claims:
             claim_text = claim.claim_text
             source_ids = [claim.source_id]
             matched_exp_ids = []
             
-            # Evaluate empirical support
+            # Default literature baseline
             support_score = 0.85
-            rationale = "Literature source verified with active DOI."
+            rationale = "Literature-grounded claim; no directly matching local experiment was identified."
 
-            if "memory" in claim_text.lower() or "tensor" in claim_text.lower():
-                matched_exp_ids.extend(prop_exp_ids[:2] + dense_exp_ids[:2])
-                if mem_reduction >= 50.0:
-                    support_score = 0.95
-                    rationale = f"Empirically substantiated: memory reduction of {mem_reduction:.1f}% verified across k={len(experiments)//4} seeds."
-                else:
-                    support_score = 0.65
-                    rationale = f"Weak support: observed memory reduction ({mem_reduction:.1f}%) is below expected 50% threshold."
+            # Check if claim refers to external/unrelated hardware or domain outside local benchmark scope
+            is_unrelated_hardware = any(
+                re.search(rf"\b{re.escape(kw)}\b", claim_text, re.IGNORECASE) for kw in UNRELATED_SCOPE_KEYWORDS
+            )
 
-            elif "quantization" in claim_text.lower() or "accuracy" in claim_text.lower():
-                matched_exp_ids.extend(prop_exp_ids[:2])
-                if acc_delta >= 0.0 or abs(acc_delta) < 5.0:
-                    support_score = 0.92
-                    rationale = f"Empirically substantiated: proposed accuracy ({p_acc:.2f}%) maintained with delta {acc_delta:+.2f}% vs Dense."
-                else:
-                    support_score = 0.40
-                    rationale = f"Unsupported: proposed accuracy degraded by {acc_delta:.2f}% under quantization."
+            # A claim only receives local experiment IDs if it explicitly concerns the active proposed construct
+            is_proposed_construct = any(
+                re.search(rf"\b{re.escape(kw)}\b", claim_text, re.IGNORECASE) for kw in PROPOSED_CONSTRUCT_KEYWORDS
+            )
+
+            is_empirical_scope = not is_unrelated_hardware and is_proposed_construct
+
+            if is_empirical_scope:
+                if any(kw in claim_text.lower() for kw in ["memory", "footprint", "ram", "compression"]):
+                    matched_exp_ids.extend(prop_exp_ids[:2] + dense_exp_ids[:2])
+                    if mem_reduction >= 50.0:
+                        support_score = 0.95
+                        rationale = f"Empirically substantiated: memory reduction of {mem_reduction:.1f}% verified across k={num_k} seeds."
+                    else:
+                        support_score = 0.65
+                        rationale = f"Weak support: observed memory reduction ({mem_reduction:.1f}%) is below expected 50% threshold."
+
+                elif any(kw in claim_text.lower() for kw in ["accuracy", "precision", "generalization", "quantiz"]):
+                    matched_exp_ids.extend(prop_exp_ids[:2])
+                    if acc_delta >= 0.0 or abs(acc_delta) < 5.0:
+                        support_score = 0.92
+                        rationale = f"Empirically substantiated: proposed accuracy ({p_acc:.2f}%) maintained with delta {acc_delta:+.2f}% vs Dense."
+                    else:
+                        support_score = 0.40
+                        rationale = f"Unsupported: proposed accuracy degraded by {acc_delta:.2f}% under quantization."
 
             if support_score >= 0.75:
                 status = "supported"

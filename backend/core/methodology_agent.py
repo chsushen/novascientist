@@ -16,6 +16,38 @@ from backend.core.evidence_agent import EvidenceBundle
 from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher
 
 
+from enum import Enum
+
+
+class HypothesisStatus(str, Enum):
+    """Formal evaluation status of an empirical scientific hypothesis."""
+    SUPPORTED = "SUPPORTED"
+    REFUTED = "REFUTED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+    NOT_EVALUATED = "NOT_EVALUATED"
+
+
+@dataclass
+class HypothesisEvaluationResult:
+    """Quantitative threshold-based evaluation of a scientific hypothesis against empirical telemetry."""
+    hypothesis_id: str
+    statement: str
+    status: HypothesisStatus
+    observed_value: float
+    threshold_value: float
+    rationale: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hypothesis_id": self.hypothesis_id,
+            "statement": self.statement,
+            "status": self.status.value if isinstance(self.status, HypothesisStatus) else str(self.status),
+            "observed_value": self.observed_value,
+            "threshold_value": self.threshold_value,
+            "rationale": self.rationale,
+        }
+
+
 @dataclass
 class MethodologySpec:
     """Structured specification of the proposed scientific methodology."""
@@ -27,14 +59,18 @@ class MethodologySpec:
     established_facts: List[str] = field(default_factory=list)
     retrieved_evidence: List[str] = field(default_factory=list)
     proposed_innovations: List[str] = field(default_factory=list)
+    engineering_rationales: List[str] = field(default_factory=list)
     assumptions: List[str] = field(default_factory=list)
     hypotheses: List[str] = field(default_factory=list)
     evaluation_criteria: List[str] = field(default_factory=list)
     baseline_methods: List[str] = field(default_factory=list)
     hardware_constraints: Dict[str, Any] = field(default_factory=dict)
+    hypothesis_evaluations: List[HypothesisEvaluationResult] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["hypothesis_evaluations"] = [h.to_dict() for h in self.hypothesis_evaluations]
+        return d
 
 
 class MethodologyAgent:
@@ -42,6 +78,88 @@ class MethodologyAgent:
 
     def __init__(self) -> None:
         pass
+
+    def evaluate_hypotheses(
+        self,
+        methodology: MethodologySpec,
+        metrics_dict: Dict[str, Any],
+    ) -> List[HypothesisEvaluationResult]:
+        """Formally evaluate each hypothesis against observed empirical telemetry."""
+        evaluations: List[HypothesisEvaluationResult] = []
+        methods = metrics_dict.get("methods", {})
+        prop = methods.get("proposed_mb_qgt", {})
+        dense = methods.get("dense_baseline", {})
+
+        p_acc = prop.get("mean_accuracy", 0.0) * 100.0 if prop.get("mean_accuracy", 0.0) <= 1.0 else prop.get("mean_accuracy", 0.0)
+        d_acc = dense.get("mean_accuracy", 0.0) * 100.0 if dense.get("mean_accuracy", 0.0) <= 1.0 else dense.get("mean_accuracy", 0.0)
+        p_mem = prop.get("mean_memory_mb", 1.0)
+        d_mem = dense.get("mean_memory_mb", 1.0)
+        p_lat = prop.get("mean_latency_ms", 1.0)
+        d_lat = dense.get("mean_latency_ms", 1.0)
+
+        mem_reduction = ((d_mem - p_mem) / d_mem * 100.0) if d_mem > 0 else 0.0
+        acc_delta = p_acc - d_acc
+        speedup = (d_lat / p_lat) if (p_lat > 0 and d_lat > 0) else 1.0
+
+        for idx, hyp_text in enumerate(methodology.hypotheses):
+            hyp_id = f"H{idx+1}"
+            if idx == 0 or "memory" in hyp_text.lower():
+                # H1: Memory reduction >= 70%
+                threshold = 70.0
+                obs = mem_reduction
+                if obs >= threshold:
+                    status = HypothesisStatus.SUPPORTED
+                    rationale = f"Observed memory reduction of {obs:.2f}% meets or exceeds threshold of {threshold:.1f}%."
+                elif obs < 0.0:
+                    status = HypothesisStatus.REFUTED
+                    rationale = f"Observed negative memory reduction ({obs:.2f}%); proposed method increased memory consumption."
+                else:
+                    status = HypothesisStatus.REFUTED
+                    rationale = f"Observed memory reduction of {obs:.2f}% failed to reach target threshold of {threshold:.1f}%."
+
+            elif idx == 1 or "accuracy" in hyp_text.lower() or "generalization" in hyp_text.lower():
+                # H2: Accuracy within 1.5% of full-precision baselines (acc_delta >= -1.5%)
+                threshold = -1.50
+                obs = acc_delta
+                if obs >= threshold:
+                    status = HypothesisStatus.SUPPORTED
+                    rationale = f"Observed accuracy delta of {obs:+.2f}% is within acceptable margin of {threshold:.2f}% (proposed: {p_acc:.2f}%, dense: {d_acc:.2f}%)."
+                elif obs < -5.0:
+                    status = HypothesisStatus.REFUTED
+                    rationale = f"Significant accuracy degradation observed ({obs:+.2f}%), failing tolerance of {threshold:.2f}%."
+                else:
+                    status = HypothesisStatus.INCONCLUSIVE
+                    rationale = f"Accuracy delta ({obs:+.2f}%) slightly exceeds tolerance threshold ({threshold:.2f}%)."
+
+            elif idx == 2 or "speedup" in hyp_text.lower() or "latency" in hyp_text.lower():
+                # H3: Latency speedup >= 2.0x
+                threshold = 2.0
+                obs = speedup
+                if obs >= threshold:
+                    status = HypothesisStatus.SUPPORTED
+                    rationale = f"Observed inference speedup of {obs:.2f}x meets or exceeds requirement of {threshold:.1f}x."
+                elif obs < 1.0:
+                    status = HypothesisStatus.REFUTED
+                    rationale = f"Inference latency slowed down (speedup {obs:.2f}x < 1.0x)."
+                else:
+                    status = HypothesisStatus.INCONCLUSIVE
+                    rationale = f"Observed speedup of {obs:.2f}x is below expected {threshold:.1f}x target."
+            else:
+                status = HypothesisStatus.NOT_EVALUATED
+                threshold = 0.0
+                obs = 0.0
+                rationale = "No automated telemetry mapping defined for this hypothesis."
+
+            evaluations.append(HypothesisEvaluationResult(
+                hypothesis_id=hyp_id,
+                statement=hyp_text,
+                status=status,
+                observed_value=round(obs, 2),
+                threshold_value=round(threshold, 2),
+                rationale=rationale,
+            ))
+
+        return evaluations
 
     def synthesize_methodology(
         self,
@@ -53,9 +171,9 @@ class MethodologyAgent:
         methodology_id = f"method_{m_hash}"
 
         established_facts = [
-            "Standard IEEE FP32 representations use 32 bits (4 bytes) per tensor weight and activation.",
-            "CPU and Apple Silicon vector registers operate most efficiently on 64-byte aligned memory blocks (SIMD).",
-            "Multi-seed paired random evaluations reduce empirical variance and prevent single-seed overfitting.",
+            "Standard IEEE 754 floating-point representations allocate 32 bits (4 bytes) per single-precision tensor weight and activation.",
+            "SIMD and vector registers in modern microarchitectures operate on byte-aligned cache-line boundaries (e.g., 64-byte lines).",
+            "Multi-seed random-split evaluations reduce sample variance and mitigate single-partition overfitting.",
         ]
 
         retrieved_evidence = [
@@ -68,6 +186,11 @@ class MethodologyAgent:
             f"Dynamic Block-Floating Discretization: Partition intermediate tensors into 64-element blocks with adaptive scale factors.",
             "Stochastic Cache-Line Alignment: Map quantized blocks directly to 64-byte L1/L2 cache lines to eliminate cache thrashing.",
             "Variance-Stabilized Gradient Scaling: Straight-Through Estimator (STE) with scaled backward pass to ensure convergence.",
+        ]
+
+        engineering_rationales = [
+            "Heuristic choice of 64-element tile size balances vector register saturation with scaling factor overhead.",
+            "Straight-Through Estimator (STE) serves as an empirical surrogate gradient for non-differentiable quantization operators.",
         ]
 
         assumptions = [
@@ -104,6 +227,7 @@ class MethodologyAgent:
             established_facts=established_facts,
             retrieved_evidence=retrieved_evidence,
             proposed_innovations=proposed_innovations,
+            engineering_rationales=engineering_rationales,
             assumptions=assumptions,
             hypotheses=hypotheses,
             evaluation_criteria=evaluation_criteria,
