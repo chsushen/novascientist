@@ -97,7 +97,7 @@ A comprehensive forensic release candidate audit was performed across the NovaSc
 
 ### Check 13: License File
 - **Result:** **PASSED**
-- `LICENSE` present in repository root ([Apache License 2.0](LICENSE)).
+- `LICENSE` present in repository root ([Apache License 2.0](../LICENSE)).
 
 ### Check 14: Community & Security Policies
 - **Result:** **PASSED**
