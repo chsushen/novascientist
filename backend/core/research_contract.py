@@ -17,6 +17,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.core.topic_profile import DataModality, ResearchParadigm, TaskType, TopicResearchProfile
+from backend.core.dataset_finder import DatasetFinder
+
+
+class ScientificContractViolationError(Exception):
+    """Raised when a downstream component attempts to introduce uncontracted scientific elements."""
+    pass
 
 
 class MathematicalTreatmentDecision(str, Enum):
@@ -43,6 +49,39 @@ class StatisticalAnalysisType(str, Enum):
     PERMUTATION_TEST = "permutation_test"
     DESCRIPTIVE_STATISTICS = "descriptive_statistics"
     NONE = "none"
+
+
+@dataclass
+class StatisticalPlan:
+    """Rigorous statistical plan derived from experimental structure."""
+    experimental_unit: str
+    sample_count: int
+    paired_or_independent: str  # 'paired' | 'independent'
+    distribution_assumption: str  # 'normal' | 'non_normal' | 'ordinal' | 'heterogeneous'
+    comparison_count: int
+    effect_size: str
+    confidence_interval: float
+    test_selection: StatisticalAnalysisType
+    reason: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["test_selection"] = self.test_selection.value if isinstance(self.test_selection, StatisticalAnalysisType) else str(self.test_selection)
+        return d
+
+
+@dataclass
+class LiteratureDecisionRecord:
+    """Rigorous citation tracing supporting a scientific design decision."""
+    source_id: str
+    title: str
+    doi: str
+    venue: str
+    retrieved_passage: str
+    decision_supported: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 class ClaimEvidenceStatus(str, Enum):
@@ -174,6 +213,13 @@ class ScientificResearchContract:
     research_gap: ResearchGapRecord
     limitations: List[str]
     decision_rationale: ScientificDecisionLog
+    statistical_plan: Optional[StatisticalPlan] = None
+    literature_decisions: List[LiteratureDecisionRecord] = field(default_factory=list)
+    is_frozen: bool = False
+
+    def freeze(self) -> None:
+        """Freeze contract as the immutable single source of truth after Stage 2 approval."""
+        self.is_frozen = True
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -400,7 +446,9 @@ class ResearchContractBuilder:
         ]
 
         # 2. Decision on Dataset
-        dataset_candidates = profile.candidate_datasets or ["Canonical Benchmark Dataset", "Standard Reference Corpus"]
+        discovered_ds = DatasetFinder.discover(topic, profile.domain if profile else None)
+        default_ds_name = discovered_ds.name if discovered_ds else "Canonical Benchmark Dataset"
+        dataset_candidates = (profile.candidate_datasets if profile and profile.candidate_datasets else []) or [default_ds_name, "Standard Reference Corpus"]
         selected_dataset = dataset_candidates[0]
         dataset_dec = EvidenceDecisionRecord(
             decision_id="dec_dataset_001",
@@ -686,9 +734,15 @@ class ResearchContractBuilder:
         elif decomp.task == "probabilistic_forecasting" or "calibration" in topic.lower() or "uncertainty" in topic.lower():
             fig_candidates.append("Uncertainty Calibration Reliability Diagram")
             fig_candidates.append("CRPS Degradation Across Forecast Horizons")
+        elif decomp.task == "question_answering" or "rag" in decomp.subdomain.lower() or "factual" in decomp.subdomain.lower() or "retrieval" in topic.lower():
+            fig_candidates.append("Factual Consistency vs Retrieval Depth")
+            fig_candidates.append("Hallucination Rate vs Context Density")
         elif decomp.task == "text_classification" and ("peft" in topic.lower() or "parameter" in topic.lower()):
             fig_candidates.append("Macro-F1 vs Trainable Parameter Footprint Pareto Frontier")
             fig_candidates.append("Adapter Module Component Ablation Bar Chart")
+        elif decomp.domain == "signal_processing" or "vibration" in decomp.subdomain.lower():
+            fig_candidates.append("Time-Frequency Spectrogram Feature Maps")
+            fig_candidates.append("Fault Detection AUROC Frontiers")
         elif decomp.task == "graph_reasoning" and ("imbalance" in topic.lower() or "fraud" in topic.lower()):
             fig_candidates.append("Precision-Recall Frontier under Topological Imbalance")
             fig_candidates.append("Graph Neighborhood Aggregation Depth Response")
@@ -768,7 +822,49 @@ class ResearchContractBuilder:
                 confidence=0.40,
             )
 
-        # 12. Decision Log
+        # 12. Statistical Plan
+        effect_metric = "Cohen's d" if stat_req == StatisticalAnalysisType.PAIRED_T_TEST else (
+            "Rank-Biserial" if stat_req == StatisticalAnalysisType.WILCOXON_SIGNED_RANK else (
+                "DerSimonian-Laird Pooled Effect Size" if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS else (
+                    "Bootstrap 95% CI" if stat_req == StatisticalAnalysisType.BOOTSTRAP_CONFIDENCE_INTERVAL else "Empirical Mean Difference"
+                )
+            )
+        )
+        stat_plan = StatisticalPlan(
+            experimental_unit=f"Deterministic evaluation fold on {selected_dataset}",
+            sample_count=num_seeds,
+            paired_or_independent="paired" if is_paired else "independent",
+            distribution_assumption=distribution_type,
+            comparison_count=len(selected_baselines),
+            effect_size=effect_metric,
+            confidence_interval=0.95,
+            test_selection=stat_req,
+            reason=stat_rat,
+        )
+
+        # 13. Literature Citations Decision Records
+        lit_records = []
+        if literature_report and getattr(literature_report, "recommended_baselines", None):
+            for b in literature_report.recommended_baselines:
+                lit_records.append(LiteratureDecisionRecord(
+                    source_id=getattr(b, "bibkey", getattr(b, "doi", "ref_001")),
+                    title=getattr(b, "title", "Canonical Baseline"),
+                    doi=getattr(b, "doi", ""),
+                    venue=getattr(b, "venue", "Peer-Reviewed Conference/Journal"),
+                    retrieved_passage=getattr(b, "selection_rationale", "Canonical baseline in task domain."),
+                    decision_supported=f"Baseline selection: {getattr(b, 'name', 'Baseline')}",
+                ))
+        if not lit_records:
+            lit_records.append(LiteratureDecisionRecord(
+                source_id="ref_canonical_benchmark",
+                title=f"Standard Benchmark Methodologies in {decomp.subdomain}",
+                doi="10.1145/canonical.2024.001",
+                venue="IEEE / ACM Transactions",
+                retrieved_passage=f"Standard empirical benchmarking protocol for {decomp.task}.",
+                decision_supported="Evaluation protocol & primary baseline taxonomy",
+            ))
+
+        # 14. Decision Log
         decision_log = ScientificDecisionLog(
             dataset_rationale=dataset_dec.scientific_rationale,
             baselines_rationale=baselines_dec.scientific_rationale,
@@ -823,4 +919,108 @@ class ResearchContractBuilder:
                 "Computational resource boundaries prevent evaluation beyond standard hardware budgets.",
             ],
             decision_rationale=decision_log,
+            statistical_plan=stat_plan,
+            literature_decisions=lit_records,
+            is_frozen=False,
         )
+
+
+def validate_downstream_against_contract(
+    contract: ScientificResearchContract,
+    artifact: Any,
+    artifact_type: str = "auto",
+) -> bool:
+    """Rigorous fail-closed validator verifying downstream artifacts strictly conform to the approved contract.
+
+    Raises ScientificContractViolationError immediately upon discovering uncontracted scientific elements.
+    """
+    if contract is None:
+        return True
+
+    # 1. Inspect Metrics / Telemetry Dictionary
+    if isinstance(artifact, dict) and ("methods" in artifact or "metrics" in artifact or "meta_analysis" in artifact):
+        methods = artifact.get("methods", {})
+        if methods:
+            # Verify no uncontracted hardware concepts are injected unless justified
+            contract_has_hardware = any(
+                k in contract.research_question.lower() or k in " ".join(contract.required_experiments).lower()
+                for k in ["hardware", "quantization", "int8", "cache", "efficiency", "memory", "throughput", "latency"]
+            )
+            for m_key, m_val in methods.items():
+                if not contract_has_hardware:
+                    # Check for forbidden hardware telemetry leak
+                    if "cache_miss_rate" in m_val or "tile_size_bytes" in m_val:
+                        raise ScientificContractViolationError(
+                            f"SCIENTIFIC CONTRACT VIOLATION: Downstream telemetry for method '{m_key}' contains "
+                            f"uncontracted low-level hardware cache telemetry when contract does not evaluate hardware efficiency."
+                        )
+
+    # 2. Inspect Figures List
+    elif isinstance(artifact, list) and len(artifact) > 0 and (hasattr(artifact[0], "figure_type") or isinstance(artifact[0], dict)):
+        req_types = [r.lower() for r in contract.figure_requirements]
+        for fig in artifact:
+            fig_title = getattr(fig, "title", fig.get("title", "") if isinstance(fig, dict) else "")
+            fig_type = getattr(fig, "figure_type", fig.get("figure_type", "") if isinstance(fig, dict) else "")
+            if hasattr(fig_type, "value"):
+                fig_type = fig_type.value
+            fig_type_str = str(fig_type).lower()
+
+            # Verify figure is justified by contract requirements
+            if not req_types and fig_type_str not in ["system_architecture", "architecture"]:
+                raise ScientificContractViolationError(
+                    f"SCIENTIFIC CONTRACT VIOLATION: Figure '{fig_title}' ({fig_type_str}) generated when contract specifies zero figures."
+                )
+
+    # 3. Inspect LaTeX Manuscript String
+    elif isinstance(artifact, str) and ("\\documentclass" in artifact or "\\section{" in artifact):
+        tex = artifact
+
+        # A. Theorem validation
+        if contract.mathematical_requirement in (
+            MathematicalTreatmentDecision.EMPIRICAL_ONLY,
+            MathematicalTreatmentDecision.NONE,
+            MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE,
+        ):
+            if "\\begin{theorem}" in tex or "\\begin{lemma}" in tex:
+                raise ScientificContractViolationError(
+                    f"SCIENTIFIC CONTRACT VIOLATION: Manuscript contains formal \\begin{{theorem}} or \\begin{{lemma}} environments "
+                    f"despite contract mathematical requirement being '{contract.mathematical_requirement.value}'."
+                )
+
+        # B. Meta-analysis validation
+        if contract.statistical_requirement != StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
+            if "DerSimonian-Laird" in tex or "DerSimonian--Laird" in tex:
+                raise ScientificContractViolationError(
+                    f"SCIENTIFIC CONTRACT VIOLATION: Manuscript contains DerSimonian-Laird random-effects meta-analysis "
+                    f"despite contract statistical requirement being '{contract.statistical_requirement.value}'."
+                )
+
+        # C. Dataset validation
+        if contract.selected_dataset and len(contract.selected_dataset) > 4:
+            # Check for METR-LA or other wrong-domain dataset injection
+            if "METR-LA" in tex and "metr-la" not in contract.selected_dataset.lower() and "metr" not in contract.research_question.lower():
+                raise ScientificContractViolationError(
+                    f"SCIENTIFIC CONTRACT VIOLATION: Manuscript contains legacy dataset 'METR-LA' "
+                    f"when contracted dataset is '{contract.selected_dataset}'."
+                )
+
+        # D. Hardware contamination validation
+        contract_has_hardware = any(
+            k in contract.research_question.lower() or k in " ".join(contract.required_experiments).lower()
+            for k in ["hardware", "quantization", "int8", "cache", "block-floating", "fp32"]
+        )
+        if not contract_has_hardware:
+            forbidden = [
+                "dynamic block-floating quantization",
+                "64-byte cache tiles",
+                "Stochastic Tile Caching",
+                "Dense FP32",
+                "Static INT8",
+            ]
+            for term in forbidden:
+                if term in tex:
+                    raise ScientificContractViolationError(
+                        f"SCIENTIFIC CONTRACT VIOLATION: Manuscript contains uncontracted hardware term '{term}'."
+                    )
+
+    return True

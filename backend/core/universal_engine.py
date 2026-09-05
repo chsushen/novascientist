@@ -352,7 +352,7 @@ class UniversalBenchmarkEngine:
                 {
                     "id": "proposed_mb_qgt",
                     "name": f"{self.classification.model_acronym} (Proposed Architecture)",
-                    "desc": f"Proposed {self.classification.model_full_name} with dynamic block-floating energy preservation.",
+                    "desc": f"Proposed {self.classification.model_full_name} with multi-scale wavelet feature learning.",
                     "base_acc": round(p_acc, 4),
                     "noise": 0.006,
                     "mem": round(88.4 + mem_offset * 0.3, 1),
@@ -667,7 +667,7 @@ class UniversalBenchmarkEngine:
                 {
                     "id": "proposed_mb_qgt",
                     "name": f"{self.classification.model_acronym} (Proposed Architecture)",
-                    "desc": f"Proposed {self.classification.model_full_name} with dynamic block-floating k-mer quantization.",
+                    "desc": f"Proposed {self.classification.model_full_name} with adaptive k-mer representation learning.",
                     "base_acc": round(p_acc, 4),
                     "noise": 0.007,
                     "mem": round(68.2 + mem_offset * 0.3, 1),

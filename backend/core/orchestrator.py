@@ -64,6 +64,7 @@ from backend.core.research_contract import (
     ScientificDecisionLog,
     ScientificResearchContract,
     StatisticalAnalysisType,
+    validate_downstream_against_contract,
 )
 from backend.core.research_memory import ResearchMemory
 from backend.core.reviewer_swarm import ReviewerSwarm
@@ -267,6 +268,7 @@ class NovaScientistOrchestrator:
         # Step 1C: Research-Question-First Scientific Contract Formulation
         notify("Formulating unified ScientificResearchContract and Question Decomposition...", 0.20)
         contract = ResearchContractBuilder.build_contract(topic, topic_profile, literature_report=lit_report)
+        contract.freeze()
         contract_node = prov.record_node(
             contract.contract_id,
             "research_contract",
@@ -492,6 +494,9 @@ class NovaScientistOrchestrator:
             relation="audits_statistical_power",
         )
 
+        # Step 7B: Fail-Closed Scientific Contract Telemetry Audit
+        validate_downstream_against_contract(contract, metrics_dict, artifact_type="telemetry")
+
         # Step 8: Topic-Adaptive Vector Figures Suite
         notify("Planning and generating topic-adaptive scientific figures (PDF & PNG)...", 0.75)
         planned_figs = self.fig_planner.plan_figures(topic_profile, metrics_dict, output_dir=str(self.figures_dir), contract=contract)
@@ -499,6 +504,7 @@ class NovaScientistOrchestrator:
         if not figs:
             fig_suite = ScientificFigureSuite(metrics_dict, output_dir=str(self.figures_dir))
             figs = fig_suite.generate_all_figures()
+        validate_downstream_against_contract(contract, planned_figs, artifact_type="figures")
 
         # Step 8B: Dynamic Manuscript Planning
         venue_fmt = VenueFormat.EXTENDED_JOURNAL if is_journal else VenueFormat.FULL_CONFERENCE
@@ -518,8 +524,11 @@ class NovaScientistOrchestrator:
             assembler = DeepJournalAssembler(metrics_dict, papers, author=author, dataset=dataset, contract=contract, manuscript_plan=manuscript_plan, figures=planned_figs)
             latex_content = assembler.generate_journal_latex()
         else:
-            assembler = CompliantLaTeXAssembler(metrics_dict, papers, author=author, dataset=dataset)
+            assembler = CompliantLaTeXAssembler(metrics_dict, papers, author=author, dataset=dataset, contract=contract)
             latex_content = assembler.generate_latex()
+
+        # Step 9B: Fail-Closed Manuscript Contract Audit
+        validate_downstream_against_contract(contract, latex_content, artifact_type="manuscript")
 
         # Step 10: Adversarial Scientific Reviewer & Bounded Revision Loop
         notify("Scientific Reviewer executing bounded self-critique revision loop (k<=3)...", 0.88)

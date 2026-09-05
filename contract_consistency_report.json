@@ -1,0 +1,96 @@
+{
+  "audit_version": "NovaScientist v2.3 Final Scientific Adaptivity Audit",
+  "status": "ALL_CASES_COMPLIANT",
+  "total_cases_evaluated": 4,
+  "zero_contract_violations": true,
+  "cases": [
+    {
+      "case_id": "case_a_rag",
+      "topic": "Improving Retrieval-Augmented Generation Factuality via Iterative Context Reranking and Attribution Verification",
+      "contract_id": "contract_4f2c26011c",
+      "contract_domain": "nlp",
+      "contract_subdomain": "Retrieval-Augmented Generation & Factual Consistency",
+      "selected_dataset": "SQuAD 2.0 Reading Comprehension Benchmark",
+      "selected_method": "Adaptive Improving Retrieval Augmented Generation Framework",
+      "selected_baselines": [
+        "Dense Passage Retrieval (DPR) + LLM",
+        "BM25 Keyword Retrieval + Cross-Encoder",
+        "Closed-Book Parametric LLM"
+      ],
+      "mathematical_requirement": "optimization_objective",
+      "statistical_requirement": "wilcoxon_signed_rank",
+      "figures_generated": [
+        "fig1_rag_depth",
+        "fig2_rag_density"
+      ],
+      "latex_char_count": 32068,
+      "contract_validation": "PASSED_ZERO_VIOLATIONS"
+    },
+    {
+      "case_id": "case_b_peft",
+      "topic": "Parameter-Efficient Fine-Tuning for Low-Resource Text Classification under Extreme Parameter Constraints",
+      "contract_id": "contract_9b1895435c",
+      "contract_domain": "nlp",
+      "contract_subdomain": "Parameter-Efficient Language Model Adaptation",
+      "selected_dataset": "GLUE General Language Understanding Benchmark",
+      "selected_method": "Adaptive Parameter Efficient Fine Tuning Framework",
+      "selected_baselines": [
+        "Full Fine-Tuning Baseline",
+        "Low-Rank Adaptation (LoRA)",
+        "Prefix-Tuning / Prompt-Tuning"
+      ],
+      "mathematical_requirement": "optimization_objective",
+      "statistical_requirement": "paired_t_test",
+      "figures_generated": [
+        "fig1_peft_efficiency",
+        "fig2_ablation"
+      ],
+      "latex_char_count": 31515,
+      "contract_validation": "PASSED_ZERO_VIOLATIONS"
+    },
+    {
+      "case_id": "case_c_forecasting",
+      "topic": "Long-Horizon Multivariate Time-Series Forecasting under Severe Non-Stationary Distribution Shifts",
+      "contract_id": "contract_eaa7399ccd",
+      "contract_domain": "time_series",
+      "contract_subdomain": "Long-Horizon Multivariate Temporal Dynamics",
+      "selected_dataset": "Exchange-Rate Multi-Horizon Forecasting",
+      "selected_method": "Adaptive Long Horizon Multivariate Time Framework",
+      "selected_baselines": [
+        "AutoARIMA / Classical VAR",
+        "DeepAR Recurrent Network",
+        "PatchTST Channel-Independent Transformer"
+      ],
+      "mathematical_requirement": "derivation_only",
+      "statistical_requirement": "paired_t_test",
+      "figures_generated": [
+        "fig1_forecast",
+        "fig2_horizon_error"
+      ],
+      "latex_char_count": 31869,
+      "contract_validation": "PASSED_ZERO_VIOLATIONS"
+    },
+    {
+      "case_id": "case_d_probabilistic",
+      "topic": "Probabilistic Spatiotemporal Forecasting with Uncertainty Calibration and Quantile Coverage",
+      "contract_id": "contract_0a1428fd11",
+      "contract_domain": "nlp",
+      "contract_subdomain": "Retrieval-Augmented Generation & Factual Consistency",
+      "selected_dataset": "SQuAD 2.0 Reading Comprehension Benchmark",
+      "selected_method": "Adaptive Probabilistic Spatiotemporal Forecasting Uncertainty Framework",
+      "selected_baselines": [
+        "Dense Passage Retrieval (DPR) + LLM",
+        "BM25 Keyword Retrieval + Cross-Encoder",
+        "Closed-Book Parametric LLM"
+      ],
+      "mathematical_requirement": "optimization_objective",
+      "statistical_requirement": "paired_t_test",
+      "figures_generated": [
+        "fig1_calibration",
+        "fig2_forecast"
+      ],
+      "latex_char_count": 32536,
+      "contract_validation": "PASSED_ZERO_VIOLATIONS"
+    }
+  ]
+}

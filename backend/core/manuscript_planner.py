@@ -27,6 +27,31 @@ class VenueFormat(str, Enum):
 
 
 @dataclass
+class ManuscriptSpecification:
+    """Rigorous contract-driven specification governing entire manuscript assembly."""
+    title: str
+    abstract_requirements: List[str]
+    sections: List[str]
+    subsections: Dict[str, List[str]]
+    equations: List[Dict[str, str]]
+    tables: List[Dict[str, Any]]
+    figures: List[FigurePlanItem]
+    claims: List[str]
+    references: List[Dict[str, str]]
+    limitations: List[str]
+    statistical_reporting: Dict[str, Any]
+    reproducibility_requirements: List[str]
+    page_target: str  # e.g., '6-8' or '8-12'
+    contract_id: str
+    provenance_hash: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["figures"] = [f.to_dict() if hasattr(f, "to_dict") else f for f in self.figures]
+        return d
+
+
+@dataclass
 class SectionPlanItem:
     """Structured plan for an individual manuscript section."""
     section_id: str
@@ -55,13 +80,16 @@ class ManuscriptPlan:
     total_target_words: int
     sections: List[SectionPlanItem] = field(default_factory=list)
     figure_allocations: Dict[str, str] = field(default_factory=dict)  # fig_id -> section_id
-    special_blocks: List[str] = field(default_factory=list)           # e.g., ["formal_theorem", "statistical_meta_analysis"]
+    special_blocks: List[str] = field(default_factory=list)           # e.g., ["formal_theorem", "paired_hypothesis_testing"]
+    specification: Optional[ManuscriptSpecification] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d["venue_format"] = self.venue_format.value if isinstance(self.venue_format, VenueFormat) else str(self.venue_format)
         d["sections"] = [s.to_dict() for s in self.sections]
+        if self.specification:
+            d["specification"] = self.specification.to_dict()
         return d
 
 
@@ -203,7 +231,34 @@ class ManuscriptPlanningAgent:
         ))
 
         # 6. Empirical Evaluation & Comparative Results
-        result_figs = [f.figure_id for f in figures if f.figure_id not in fig_alloc and ("convergence" in f.figure_type.value or "pareto" in f.figure_type.value or "comparison" in f.figure_type.value)][:2]
+        stat_req_val = getattr(contract, "statistical_requirement", None)
+        if hasattr(stat_req_val, "value"):
+            stat_req_str = stat_req_val.value
+        else:
+            stat_req_str = str(stat_req_val or "paired_t_test")
+
+        if stat_req_str == "random_effects_meta_analysis":
+            stat_sub = "DerSimonian-Laird Random-Effects Meta-Analysis"
+            stat_point = "Statistical meta-analysis summary (DerSimonian-Laird random effects, pooled effect size, I²)."
+            stat_block_name = "random_effects_meta_analysis"
+        elif stat_req_str == "paired_t_test":
+            stat_sub = "Multi-Seed Paired Hypothesis Testing & Cohen's d"
+            stat_point = "Paired Student's t-test hypothesis testing with Cohen's d effect size evaluation across deterministic seeds."
+            stat_block_name = "paired_hypothesis_testing"
+        elif stat_req_str == "bootstrap_confidence_interval":
+            stat_sub = "Empirical Bootstrap Resampling & Confidence Bounds"
+            stat_point = "Non-parametric bootstrap resampling confidence interval estimation (B=10,000 resamples)."
+            stat_block_name = "bootstrap_confidence_intervals"
+        elif stat_req_str == "wilcoxon_signed_rank":
+            stat_sub = "Non-Parametric Wilcoxon Signed-Rank Test"
+            stat_point = "Wilcoxon signed-rank test evaluating median paired differences across evaluation seeds."
+            stat_block_name = "wilcoxon_signed_rank"
+        else:
+            stat_sub = "Descriptive Statistical Variance & Seed Dispersion"
+            stat_point = "Descriptive statistics reporting sample mean and standard error across deterministic evaluation runs."
+            stat_block_name = "descriptive_statistics"
+
+        result_figs = [f.figure_id for f in figures if f.figure_id not in fig_alloc and ("convergence" in f.figure_type.value or "pareto" in f.figure_type.value or "comparison" in f.figure_type.value or "forecast" in f.figure_type.value or "depth" in f.figure_type.value)][:2]
         for f_id in result_figs:
             fig_alloc[f_id] = "sec_results"
         sections.append(SectionPlanItem(
@@ -214,12 +269,12 @@ class ManuscriptPlanningAgent:
             estimated_pages=1.5,
             key_points=[
                 f"Multi-seed comparative benchmark across all evaluated baselines.",
-                "Statistical meta-analysis summary (DerSimonian-Laird random effects, Z-scores, p-values).",
+                stat_point,
                 "Rigorous hypothesis evaluation against empirical criteria.",
             ],
             figure_ids=result_figs,
             has_equations=True,
-            subsections=["Primary Performance Benchmark", "Statistical Significance & Meta-Analysis", "Hypothesis Evaluation Results"],
+            subsections=["Primary Performance Benchmark", stat_sub, "Hypothesis Evaluation Results"],
         ))
 
         # 7. Ablation Studies & Sensitivity Analysis
@@ -272,9 +327,54 @@ class ManuscriptPlanningAgent:
         ))
 
         total_words = sum(s.target_words for s in sections)
-        special_blocks = ["statistical_meta_analysis", "provenance_graph"]
+        special_blocks = [stat_block_name, "provenance_graph"]
         if has_theorem:
             special_blocks.append("formal_theorem")
+
+        # Build ManuscriptSpecification
+        spec_hash = hashlib.sha256(f"{plan_id}_{total_words}".encode("utf-8")).hexdigest()[:12]
+        manuscript_spec = ManuscriptSpecification(
+            title=topic_profile.topic,
+            abstract_requirements=[
+                f"Problem contextualization in {topic_profile.domain}",
+                f"Research gap formalization",
+                f"Proposed {methodology.model_acronym} framework summary",
+                f"Empirical benchmark findings on {topic_profile.candidate_datasets[0] if topic_profile.candidate_datasets else 'canonical dataset'}",
+                stat_point,
+            ],
+            sections=[s.title for s in sections],
+            subsections={s.title: s.subsections for s in sections},
+            equations=[{"section": "Theoretical Formulation", "type": getattr(contract, "mathematical_requirement", "empirical_only")}],
+            tables=[
+                {"name": "Literature Taxonomy", "type": "comparative_taxonomy"},
+                {"name": "Main Benchmark Results", "type": "multi_seed_comparison"},
+                {"name": "Sub-Task Breakdown", "type": "stratum_analysis"},
+                {"name": "Hyperparameters", "type": "experimental_configuration"},
+            ],
+            figures=figures,
+            claims=[
+                f"Proposed {methodology.model_acronym} outperforms canonical baselines.",
+                f"Performance retention is verified across deterministic random seeds.",
+            ],
+            references=[{"bibkey": getattr(b, "bibkey", getattr(b, "doi", "ref"))} for b in getattr(literature_report, "recommended_baselines", [])],
+            limitations=[
+                f"Evaluations constrained to {topic_profile.candidate_datasets[0] if topic_profile.candidate_datasets else 'benchmark dataset'}.",
+                "Resource envelopes bounded by standard compute budgets.",
+            ],
+            statistical_reporting={
+                "method": stat_req_str,
+                "confidence_level": 0.95,
+                "effect_metric": getattr(getattr(contract, "statistical_plan", None), "effect_size", "Cohen's d"),
+            },
+            reproducibility_requirements=[
+                "Deterministic fixed random seeds",
+                "Strict pre-split partition isolation (zero data leakage)",
+                "Full code and configuration artifact archival",
+            ],
+            page_target=f"{target_page_min}-{target_page_max}",
+            contract_id=getattr(contract, "contract_id", "contract_default"),
+            provenance_hash=spec_hash,
+        )
 
         return ManuscriptPlan(
             plan_id=plan_id,
@@ -286,6 +386,7 @@ class ManuscriptPlanningAgent:
             sections=sections,
             figure_allocations=fig_alloc,
             special_blocks=special_blocks,
+            specification=manuscript_spec,
             metadata={
                 "task_type": topic_profile.task_type.value,
                 "research_paradigm": topic_profile.research_paradigm.value,

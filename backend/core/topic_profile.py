@@ -13,6 +13,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from backend.core.dataset_finder import DatasetFinder
 
 
 class ResearchParadigm(str, Enum):
@@ -304,7 +305,7 @@ class TopicProfileExtractor:
             problem_characteristics=problem_characteristics,
             candidate_metrics=metrics,
             primary_metric=primary_m,
-            candidate_datasets=["Canonical Benchmark Dataset"],
+            candidate_datasets=[d.name for d in DatasetFinder.discover_candidates(topic, domain_name, limit=3)] or ["Canonical Benchmark Dataset"],
             candidate_baselines=baselines,
             candidate_method_families=method_families,
             mathematical_objects=math_objs,
