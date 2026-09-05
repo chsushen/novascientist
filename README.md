@@ -1,5 +1,5 @@
 # NovaScientist 🔬
-### Evidence-First Autonomous Research Infrastructure
+### Evidence-First AI Research Orchestration & Reproducibility Infrastructure
 
 [![Release](https://img.shields.io/badge/Release-v2.3.0-blue.svg?logo=github)](https://github.com/chsushen/novascientist/releases)
 [![Tests](https://img.shields.io/badge/pytest-209%20passed%20(100%25)-brightgreen.svg)](tests/)
@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker)](Dockerfile)
 
-> **NovaScientist** is an AI research orchestration platform that transforms research questions into structured research plans, evidence-grounded literature workflows, experiment pipelines, provenance records, statistical analyses, and reproducible publication artifacts.
+> **NovaScientist** is an AI research orchestration platform that transforms research questions into structured research plans, evidence-grounded literature workflows, experiment pipelines, statistical evaluations, provenance records, and reproducible publication artifacts.
 
 ---
 
@@ -16,7 +16,7 @@
 | Dimension | Implementation Details |
 | :--- | :--- |
 | **What It Is** | An end-to-end research-automation & infrastructure prototype bridging LLM reasoning with deterministic scientific execution. |
-| **Core Problem Solved** | Eliminates hallucinated findings, metric recycling, and template leakage by binding execution to an immutable, frozen **Scientific Research Contract**. |
+| **Core Problem Solved** | Mitigates common integrity risks such as hallucinated findings, metric recycling, and template leakage through contract-grounded execution, evidence validation, and provenance tracking. |
 | **Key Technologies** | Python 3.11+, FastAPI, Streamlit, PyTorch, SciPy (`scipy.stats`), Tectonic LaTeX Engine, NetworkX DAGs, Docker. |
 | **Evaluation & Rigor** | Multi-seed deterministic execution ($k \ge 5$), paired Student's $t$ / Wilcoxon tests, Chi-Square variance bounds, DerSimonian-Laird random-effects meta-analysis. |
 | **Reproducibility** | Full SHA-256 cryptographic provenance graphs, Overleaf-compatible LaTeX bundles, and machine-readable execution manifests. |
@@ -93,7 +93,7 @@ For complete technical specifications, see [docs/architecture.md](docs/architect
 ## 5. Major Engineering Components
 
 - **Frozen Research Contract (`backend/core/research_contract.py`)**: Fail-closed contract engine that prevents post-freeze configuration drift and validates downstream telemetry.
-- **Hypothesis Evaluation Engine (`backend/core/methodology_agent.py`)**: Zero-fallback statistical evaluator ensuring all decisions derive strictly from real seed distributions and meta-analyses.
+- **Hypothesis Evaluation Engine (`backend/core/methodology_agent.py`)**: Telemetry-grounded statistical evaluator designed to fail closed when required empirical observations are unavailable or inconsistent.
 - **Topic-Adaptive Dispatcher (`backend/core/topic_profile.py`, `universal_engine.py`)**: Adapts architectures, datasets, baselines, and figure suites to specific research domains (RAG, PEFT, Time-Series Forecasting, GNNs, PINNs).
 - **Provenance DAG Tracker (`backend/core/provenance.py`)**: Builds an auditable Directed Acyclic Graph connecting research questions, literature sources, seed runs, statistical tests, and publication sections.
 - **Production REST API & Job Queue (`backend/api/server.py`, `backend/jobs/job_manager.py`)**: FastAPI service supporting asynchronous execution, job cancellation, health probes, and project workspaces.
@@ -220,10 +220,11 @@ See [docs/limitations.md](docs/limitations.md) for a complete breakdown.
 ---
 
 ## 14. Version History
+NovaScientist evolved from the v2.0 autonomous research-to-publication prototype into the v2.3.0 evidence-first research orchestration and reproducibility infrastructure platform.
 
-- **v2.3.0** (Current): Strict frozen contract enforcement, zero-fallback hypothesis evaluation, expanded 7-page physical PDF synthesis, topic adaptivity across 6 computational domains, fail-closed downstream validation.
+- **v2.3.0** (Current): Strict frozen contract enforcement, telemetry-grounded hypothesis evaluation with fail-closed missing data guards, expanded physical PDF synthesis, topic adaptivity across 6 computational domains, and complete DAG provenance tracking.
 - **v2.2.0**: Topic-adaptive intelligence, dynamic baseline selection, rhetorical linting, multi-stage Streamlit UI.
-- **v2.0.0** (Historical): Initial autonomous research pipeline, multi-seed hardware execution, DerSimonian-Laird meta-analysis, 7-pillar peer review.
+- **v2.0.0** (Historical): Initial autonomous research pipeline prototype, multi-seed hardware execution, DerSimonian-Laird meta-analysis, 7-pillar peer review.
 
 ---
 

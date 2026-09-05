@@ -1,6 +1,6 @@
 """Surrogate Benchmark Engine & DerSimonian-Laird Meta-Analysis.
 
-Executes reproducible, compute-invariant machine learning experiments on CPU
+Executes reproducible, empirical machine learning experiments on CPU
 across multiple seeds (k=5) and computes mathematical random-effects meta-analysis
 (DerSimonian-Laird estimator, Cochran's Q, I^2 heterogeneity, and confidence intervals).
 """

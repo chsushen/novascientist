@@ -183,7 +183,7 @@ with st.sidebar:
 
 # Top Header
 st.markdown("<div class='main-header'>🔬 NovaScientist v2.3.0</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-header'>Evidence-First Autonomous Scientific Research & IEEE Publication Engine</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-header'>Evidence-First AI Research Orchestration & Reproducibility Infrastructure</div>", unsafe_allow_html=True)
 
 
 # ========================================================

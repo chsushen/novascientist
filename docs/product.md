@@ -1,7 +1,7 @@
 # NovaScientist Product Vision & Positioning
 
 ## 1. Core Positioning
-**NovaScientist is Evidence-First Autonomous Research Infrastructure.**
+**NovaScientist is Evidence-First AI Research Orchestration & Reproducibility Infrastructure.**
 
 It is designed to structure, accelerate, and automate scientific investigation pipelines while retaining human scientific review and oversight.
 

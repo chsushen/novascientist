@@ -1,4 +1,4 @@
-"""Universal Domain Dispatcher & Compute-Invariant Benchmark Engine.
+"""Universal Domain Dispatcher & Empirical Benchmark Engine.
 
 Classifies arbitrary research queries into computational domains (physics surrogate,
 graph, vision, nlp, tabular, timeseries), executes multi-seed (k=5) CPU forward passes,
