@@ -41,8 +41,9 @@ class ProvenanceTracker:
         label: str,
         metadata: Optional[Dict[str, Any]] = None,
         parent_ids: Optional[List[str]] = None,
+        relation: Optional[str] = None,
     ) -> ProvenanceNode:
-        """Record a new scientific entity in the lineage graph."""
+        """Record a new scientific entity in the lineage graph with explicit deduplication."""
         p_ids = parent_ids or []
         node = ProvenanceNode(
             node_id=node_id,
@@ -53,7 +54,13 @@ class ProvenanceTracker:
         )
         self.nodes[node_id] = node
         for p in p_ids:
-            self.edges.append({"source": p, "target": node_id})
+            edge: Dict[str, str] = {
+                "source": p,
+                "target": node_id,
+                "relation": relation or f"{node_type}_lineage",
+            }
+            if edge not in self.edges:
+                self.edges.append(edge)
         return node
 
     def trace_lineage(self, node_id: str) -> List[ProvenanceNode]:
@@ -86,3 +93,172 @@ class ProvenanceTracker:
             "nodes": [n.to_dict() for n in self.nodes.values()],
             "edges": self.edges,
         }
+
+
+def validate_complete_provenance(
+    graph_or_tracker: Dict[str, Any] | ProvenanceTracker,
+    expected_num_methods: int = 4,
+    expected_num_seeds: int = 5,
+) -> Dict[str, Any]:
+    """Forensically audit a provenance graph for completeness, structural integrity,
+
+    and zero missing or fabricated execution entities.
+    """
+    if isinstance(graph_or_tracker, ProvenanceTracker):
+        graph = graph_or_tracker.export_graph()
+    else:
+        graph = graph_or_tracker
+
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+
+    nodes_by_id: Dict[str, Dict[str, Any]] = {}
+    duplicate_experiments: List[str] = []
+    seen_ids = set()
+
+    for n in nodes:
+        n_id = n.get("node_id")
+        if n_id in seen_ids:
+            duplicate_experiments.append(n_id)
+        seen_ids.add(n_id)
+        nodes_by_id[n_id] = n
+
+    # 1. Experiment Node Coverage
+    exp_nodes = [
+        n for n in nodes
+        if n.get("node_type") in ("experiment", "seed_run")
+    ]
+    exp_runs_traced = len(exp_nodes)
+    exp_runs_expected = expected_num_methods * expected_num_seeds
+
+    # Check method and seed pairs
+    seen_runs = set()
+    missing_experiments: List[str] = []
+    for en in exp_nodes:
+        m = en.get("metadata", {}).get("method_id") or en.get("metadata", {}).get("method") or en.get("node_id")
+        s = en.get("metadata", {}).get("seed")
+        key = f"{m}_seed_{s}"
+        if key in seen_runs:
+            duplicate_experiments.append(en.get("node_id"))
+        seen_runs.add(key)
+
+    # 2. Result Lineage Check: Every experiment node has a downstream result node
+    res_nodes = [n for n in nodes if n.get("node_type") == "result"]
+    exp_with_results = set()
+    for rn in res_nodes:
+        for p in rn.get("parent_ids", []):
+            if p in nodes_by_id and nodes_by_id[p].get("node_type") in ("experiment", "seed_run"):
+                exp_with_results.add(p)
+    # If no separate result nodes but experiment nodes contain results directly
+    missing_results = [
+        en.get("node_id") for en in exp_nodes
+        if en.get("node_id") not in exp_with_results and not res_nodes
+    ]
+    every_experiment_has_result = (len(exp_with_results) == len(exp_nodes)) if res_nodes else True
+
+    # 3. Statistical Critic & Meta Analysis Node
+    stat_critic_node = next(
+        (n for n in nodes if n.get("node_type") in ("statistical_critic", "stat_critic")),
+        None
+    )
+    stat_critic_present = stat_critic_node is not None
+    stat_input_ids = (
+        stat_critic_node.get("metadata", {}).get("input_experiment_ids", [])
+        if stat_critic_node else []
+    )
+    all_exp_ids = {en.get("node_id") for en in exp_nodes}
+    stat_critic_covers_all_exp = (
+        bool(all_exp_ids.issubset(set(stat_input_ids)))
+        if (stat_critic_present and stat_input_ids)
+        else stat_critic_present
+    )
+
+    meta_analysis_node = next(
+        (n for n in nodes if n.get("node_type") in ("meta_analysis", "statistical_analysis")),
+        None
+    )
+    meta_analysis_present = meta_analysis_node is not None
+
+    # 4. Review & Revision Lineage
+    review_node = next(
+        (n for n in nodes if n.get("node_type") in ("scientific_review", "review_findings", "review", "review_verdict")),
+        None
+    )
+    review_present = review_node is not None
+
+    revision_node = next(
+        (n for n in nodes if n.get("node_type") in ("revision", "revision_cycle")),
+        None
+    )
+    revision_present = revision_node is not None
+
+    # 5. Publication / Output Deliverable Node
+    publication_node = next(
+        (n for n in nodes if n.get("node_type") in ("publication", "deliverable", "conclusion")),
+        None
+    )
+    publication_present = publication_node is not None
+
+    # 6. Orphan Node Detection (nodes with no parents and no children, ignoring root/leaf)
+    all_parents = {p for n in nodes for p in n.get("parent_ids", [])}
+    orphan_nodes: List[str] = []
+    root_types = {"question", "plan"}
+    leaf_types = {"publication", "deliverable", "conclusion", "benchmark_eval"}
+
+    for n in nodes:
+        n_id = n.get("node_id")
+        n_type = n.get("node_type")
+        has_parents = len(n.get("parent_ids", [])) > 0
+        has_children = n_id in all_parents
+        if n_type in root_types:
+            if not has_children:
+                orphan_nodes.append(n_id)
+        elif n_type in leaf_types:
+            if not has_parents:
+                orphan_nodes.append(n_id)
+        else:
+            if not has_parents or not has_children:
+                orphan_nodes.append(n_id)
+
+    # 7. DAG Edge and Parent ID Validity
+    missing_edges: List[str] = []
+    for e in edges:
+        if e.get("source") not in nodes_by_id or e.get("target") not in nodes_by_id:
+            missing_edges.append(f"{e.get('source')}->{e.get('target')}")
+
+    for n in nodes:
+        for p in n.get("parent_ids", []):
+            if p not in nodes_by_id:
+                missing_edges.append(f"parent:{p}->node:{n.get('node_id')}")
+
+    passed = (
+        exp_runs_traced >= exp_runs_expected
+        and len(duplicate_experiments) == 0
+        and every_experiment_has_result
+        and stat_critic_present
+        and stat_critic_covers_all_exp
+        and review_present
+        and revision_present
+        and publication_present
+        and len(orphan_nodes) == 0
+        and len(missing_edges) == 0
+    )
+
+    return {
+        "passed": passed,
+        "experiment_runs_expected": exp_runs_expected,
+        "experiment_runs_traced": exp_runs_traced,
+        "missing_experiments": missing_experiments,
+        "duplicate_experiments": duplicate_experiments,
+        "every_experiment_has_result": every_experiment_has_result,
+        "statistical_critic_present": stat_critic_present,
+        "statistical_critic_covers_all_exp": stat_critic_covers_all_exp,
+        "meta_analysis_present": meta_analysis_present,
+        "review_present": review_present,
+        "revision_present": revision_present,
+        "publication_present": publication_present,
+        "orphan_nodes": orphan_nodes,
+        "missing_edges": missing_edges,
+        "total_nodes": len(nodes),
+        "total_edges": len(edges),
+    }

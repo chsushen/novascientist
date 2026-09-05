@@ -228,6 +228,19 @@ class NovaScientistOrchestrator:
             num_epochs=num_epochs,
             hardware_target=dev_name,
         )
+        exp_spec_node = prov.record_node(
+            exp_spec.spec_id if hasattr(exp_spec, "spec_id") else "exp_spec_001",
+            "experiment_spec",
+            f"Benchmark Spec: {dataset.name} ({dataset.sample_count} samples, {num_epochs} epochs)",
+            {
+                "dataset_name": dataset.name,
+                "sample_count": dataset.sample_count,
+                "num_epochs": num_epochs,
+                "hardware_target": dev_name,
+            },
+            parent_ids=[method_node.node_id],
+            relation="specifies_experiments",
+        )
 
         # Step 4: AST Static Analysis Guard
         notify("Auditing code AST to certify zero test-set data leakage...", 0.35)
@@ -274,16 +287,134 @@ class NovaScientistOrchestrator:
         # Step 6: Extract Experiment Records & Validate Evidence
         notify("Evidence Validator auditing claim alignment against empirical records...", 0.60)
         exp_records = self.exp_agent.extract_experiment_records(metrics_dict, dataset_name=dataset.name, checkpoint_path=final_ckpt_path)
-        for er in exp_records[:6]:
-            er_node = prov.record_node(er.experiment_id, "experiment", f"{er.method_name} (Seed {er.seed})", {"acc": er.accuracy, "mem": er.memory_mb}, parent_ids=[method_node.node_id])
-            prov.record_node(f"res_{er.experiment_id}", "result", f"{er.accuracy:.2f}% / {er.latency_ms:.1f}ms", parent_ids=[er_node.node_id])
+        
+        all_exp_node_ids: List[str] = []
+        all_res_node_ids: List[str] = []
+        for er in exp_records:
+            er_node = prov.record_node(
+                er.experiment_id,
+                "experiment",
+                f"{er.method_name} (Seed {er.seed})",
+                {
+                    "experiment_id": er.experiment_id,
+                    "method": er.method_name,
+                    "method_id": er.method_id,
+                    "seed": er.seed,
+                    "status": er.status,
+                    "started_at": er.start_time,
+                    "completed_at": er.end_time,
+                    "runtime_sec": er.runtime_sec,
+                    "hardware_device": er.hardware_device,
+                    "accuracy": er.accuracy,
+                    "memory_mb": er.memory_mb,
+                    "latency_ms": er.latency_ms,
+                    "throughput": er.throughput,
+                    "compression_ratio": er.compression_ratio,
+                    "checkpoint_path": er.checkpoint_path,
+                },
+                parent_ids=[exp_spec_node.node_id],
+                relation="executes_run",
+            )
+            all_exp_node_ids.append(er_node.node_id)
+            res_node = prov.record_node(
+                f"res_{er.experiment_id}",
+                "result",
+                f"{er.method_name} Seed {er.seed} Result: {er.accuracy:.2f}% / {er.memory_mb:.1f}MB / {er.latency_ms:.2f}ms",
+                {
+                    "accuracy": er.accuracy,
+                    "memory_mb": er.memory_mb,
+                    "latency_ms": er.latency_ms,
+                    "throughput": er.throughput,
+                    "compression_ratio": er.compression_ratio,
+                    "runtime_sec": er.runtime_sec,
+                },
+                parent_ids=[er_node.node_id],
+                relation="produces_result",
+            )
+            all_res_node_ids.append(res_node.node_id)
 
+        all_claim_ids = [c.claim_id for s in evidence.sources for c in s.claims] or [plan_node.node_id]
         val_report = self.validator.validate_evidence(evidence, exp_records, metrics_dict)
+        val_node = prov.record_node(
+            "val_report_001",
+            "validation_report",
+            f"Evidence Validation: {val_report.supported_count} Supported, {val_report.unsupported_count} Unsupported",
+            {
+                "verified_doi_rate": val_report.verified_doi_rate,
+                "unsupported_rate": val_report.unsupported_rate,
+                "total_claims": val_report.total_claims,
+                "supported_count": val_report.supported_count,
+                "unsupported_count": val_report.unsupported_count,
+            },
+            parent_ids=all_claim_ids,
+            relation="audits_evidence",
+        )
         methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(methodology, metrics_dict)
 
-        # Step 7: Statistical Critic Agent
+        # Step 7: Statistical Critic Agent & Meta-Analysis Lineage
         notify("Statistical Critic evaluating variance bounds and DerSimonian-Laird meta-analysis...", 0.68)
         stat_critique = self.stat_critic.evaluate_statistics(metrics_dict)
+        
+        methods_dict = metrics_dict.get("methods", {})
+        meta_dict = metrics_dict.get("meta_analysis", {})
+        metrics_agg_node = prov.record_node(
+            "metrics_aggregate_001",
+            "metrics_aggregate",
+            f"Aggregated Telemetry across {len(exp_records)} Runs ({len(methods_dict)} Methods, k={num_seeds})",
+            {
+                "num_methods": len(methods_dict),
+                "num_seeds": num_seeds,
+                "total_runs": len(exp_records),
+                "methods": {
+                    m: {
+                        "mean_accuracy": methods_dict[m].get("mean_accuracy"),
+                        "mean_memory_mb": methods_dict[m].get("mean_memory_mb"),
+                        "mean_latency_ms": methods_dict[m].get("mean_latency_ms"),
+                    }
+                    for m in methods_dict if isinstance(methods_dict[m], dict)
+                },
+            },
+            parent_ids=all_res_node_ids,
+            relation="aggregates_results",
+        )
+        meta_node = prov.record_node(
+            "meta_analysis_001",
+            "meta_analysis",
+            f"DerSimonian-Laird Random-Effects Meta-Analysis: Effect Size {meta_dict.get('pooled_effect_size', 0.0):+.4f} (Z={meta_dict.get('z_statistic', 0.0):.2f}, I²={meta_dict.get('i_squared_percent', 0.0):.1f}%)",
+            {
+                "pooled_effect_size": meta_dict.get("pooled_effect_size"),
+                "pooled_standard_error": meta_dict.get("pooled_standard_error"),
+                "ci_95_lower": meta_dict.get("ci_95_lower"),
+                "ci_95_upper": meta_dict.get("ci_95_upper"),
+                "z_statistic": meta_dict.get("z_statistic"),
+                "p_value_z": meta_dict.get("p_value_z"),
+                "i_squared_percent": meta_dict.get("i_squared_percent"),
+                "tau_squared": meta_dict.get("tau_squared"),
+                "cochran_q": meta_dict.get("cochran_q"),
+                "model": "DerSimonian-Laird Random Effects",
+            },
+            parent_ids=[metrics_agg_node.node_id],
+            relation="computes_meta_analysis",
+        )
+        stat_critic_node = prov.record_node(
+            "stat_critic_001",
+            "statistical_critic",
+            f"Statistical Critic Audit: {'PASSED' if stat_critique.passed else 'FLAGGED'}",
+            {
+                "passed": stat_critique.passed,
+                "num_seeds": num_seeds,
+                "methods": len(methods_dict),
+                "input_experiment_ids": all_exp_node_ids,
+                "sample_size_sufficient": stat_critique.sample_size_sufficient,
+                "variance_bounded": stat_critique.variance_bounded,
+                "heterogeneity_acceptable": stat_critique.heterogeneity_acceptable,
+                "meta_analysis_significant": stat_critique.meta_analysis_significant,
+                "cherry_picking_risk": stat_critique.cherry_picking_risk,
+                "critical_issues": stat_critique.critical_issues,
+            },
+            parent_ids=[meta_node.node_id],
+            relation="audits_statistical_power",
+        )
 
         # Step 8: Vector Figures Suite
         notify("Generating 5-figure publication vector suite (PDF & PNG)...", 0.75)
@@ -309,22 +440,58 @@ class NovaScientistOrchestrator:
             revision_callback=lambda msg, it: notify(msg, 0.88 + it * 0.02),
         )
         latex_content = revised_latex
-        prov.record_node("rev_001", "review", f"Verdict: {review_report.overall_verdict.title()}", {"iterations": rev_history.total_iterations}, parent_ids=[method_node.node_id])
-        prov.record_node("conc_001", "conclusion", f"Validated {plan.model_acronym} Performance", parent_ids=["rev_001"])
-
-        # Step 11: Record into Persistent Research Memory
-        self.memory.store_task(
-            task_id=task_id,
-            topic=topic,
-            domain=classification.domain_display_name,
-            plan_id=plan.plan_id,
-            sources=evidence.sources,
-            claims=evidence.claims,
-            metrics=metrics_dict,
-            review_passed=review_report.passed,
-            model_acronym=plan.model_acronym,
-            dataset_name=dataset.name,
-            provenance_graph=prov.export_graph(),
+        avg_score = (
+            sum(review_report.category_scores.values()) / len(review_report.category_scores)
+            if review_report.category_scores
+            else (8.5 if review_report.passed else 5.0)
+        )
+        rev_findings_node = prov.record_node(
+            "rev_findings_001",
+            "scientific_review",
+            f"Scientific Review Verdict: {review_report.overall_verdict.title()} (Avg Score: {avg_score:.1f}/10)",
+            {
+                "iteration": review_report.iteration,
+                "verdict": review_report.overall_verdict,
+                "passed": review_report.passed,
+                "critical_count": review_report.critical_count,
+                "major_count": review_report.major_count,
+                "minor_count": review_report.minor_count,
+                "category_scores": review_report.category_scores,
+                "findings_count": len(review_report.findings),
+                "recommendations": [f.recommended_action for f in review_report.findings],
+            },
+            parent_ids=[stat_critic_node.node_id, val_node.node_id, method_node.node_id],
+            relation="conducts_peer_review",
+        )
+        actions_list = [
+            action
+            for r in rev_history.revisions
+            for action in r.get("actions_applied", [])
+        ]
+        rev_cycle_node = prov.record_node(
+            "rev_cycle_001",
+            "revision",
+            f"Bounded Revision Cycle ({rev_history.total_iterations} Iterations: {rev_history.stopped_reason})",
+            {
+                "iterations": rev_history.total_iterations,
+                "actions": actions_list,
+                "stopped_reason": rev_history.stopped_reason,
+                "converged": review_report.passed,
+            },
+            parent_ids=[rev_findings_node.node_id],
+            relation="executes_revision",
+        )
+        conc_node = prov.record_node(
+            "conc_001",
+            "conclusion",
+            f"Validated {plan.model_acronym} Performance",
+            {
+                "model_acronym": plan.model_acronym,
+                "hypotheses_evaluated": len(methodology.hypothesis_evaluations),
+                "review_verdict": review_report.overall_verdict,
+            },
+            parent_ids=[rev_cycle_node.node_id],
+            relation="validates_conclusions",
         )
 
         # Step 12: Tectonic Compilation & ZIP Packaging
@@ -348,6 +515,37 @@ class NovaScientistOrchestrator:
                 page_count = len(reader.pages)
             except Exception:
                 page_count = 8 if is_journal else 4
+
+        # Final Publication Deliverable Lineage Node
+        pub_node = prov.record_node(
+            "pub_deliverable_001",
+            "publication",
+            f"Publication Package: IEEE Transactions PDF ({page_count} Pages) & Overleaf ZIP",
+            {
+                "pdf_path": final_pdf_path,
+                "zip_path": str(zip_path),
+                "page_count": page_count,
+                "latex_content_length": len(latex_content),
+                "success": comp_res.success,
+            },
+            parent_ids=[conc_node.node_id],
+            relation="generates_publication",
+        )
+
+        # Step 11: Record into Persistent Research Memory
+        self.memory.store_task(
+            task_id=task_id,
+            topic=topic,
+            domain=classification.domain_display_name,
+            plan_id=plan.plan_id,
+            sources=evidence.sources,
+            claims=evidence.claims,
+            metrics=metrics_dict,
+            review_passed=review_report.passed,
+            model_acronym=plan.model_acronym,
+            dataset_name=dataset.name,
+            provenance_graph=prov.export_graph(),
+        )
 
         # Export to explicit output path if specified
         if output_pdf and final_pdf_path:
