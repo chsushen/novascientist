@@ -967,7 +967,7 @@ class UniversalBenchmarkEngine:
                 std_errors.append(se_diff)
             meta = DerSimonianLairdEstimator.compute(effect_sizes, std_errors)
         else:
-            meta = MetaAnalysisResult(0.23, 4, 0.9939, 0.0, 0.0, 0.0627, 0.005, 0.053, 0.0725, 12.61, 0.0, [0.2]*5, [0.06]*5, [0.0001]*5)
+            meta = None
 
         hw_info = get_physical_hardware_info()
         p_lat, p_rss = self._run_physical_cpu_micro_benchmark(seed=42)

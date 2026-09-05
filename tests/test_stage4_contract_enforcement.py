@@ -18,6 +18,7 @@ from backend.core.research_contract import (
     ScientificContractViolationError,
     StatisticalRequirement,
     MathematicalTreatmentDecision,
+    HypothesisStatus,
     generate_contract_consistency_report,
 )
 from backend.core.latex_assembler import CompliantLaTeXAssembler, AuthorProfile
@@ -294,3 +295,296 @@ def test_same_domain_nlp_differentiation():
     assert c_rag.subdomain != c_peft.subdomain or c_rag.selected_dataset != c_peft.selected_dataset
     assert c_rag.selected_method != c_peft.selected_method
     assert c_rag.selected_baselines != c_peft.selected_baselines
+
+
+# ==============================================================================
+# ADVERSARIAL SCIENTIFIC INTEGRITY & ZERO FALLBACK TEST SUITE
+# ==============================================================================
+
+def test_missing_std_telemetry_not_evaluated():
+    """Rule A: Missing multi-seed runs (< 2) must evaluate to NOT_EVALUATED."""
+    from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
+    agent = MethodologyAgent()
+    spec = MethodologySpec(
+        methodology_id="m_001",
+        topic_title="Test Topic",
+        domain="NLP",
+        model_acronym="TestNet",
+        model_full_name="Test Model",
+        hypotheses=["H1: Performance remains stable with cross-seed variance within 1.0%."],
+    )
+    
+    # Missing runs (only 1 seed run)
+    metrics_insufficient = {
+        "methods": {
+            "proposed_testnet": {
+                "name": "TestNet",
+                "seed_runs": [{"final_accuracy": 0.85}],
+            }
+        }
+    }
+    evals = agent.evaluate_hypotheses(spec, metrics_insufficient)
+    assert len(evals) == 1
+    assert evals[0].decision == HypothesisStatus.NOT_EVALUATED
+    assert evals[0].p_value is None
+    assert evals[0].confidence_interval is None
+    assert "Insufficient" in evals[0].rationale or "Missing" in evals[0].rationale
+
+
+def test_missing_p_value_not_evaluated():
+    """Rule B: When statistical test cannot run or has missing pairs, decision is NOT_EVALUATED."""
+    from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
+    agent = MethodologyAgent()
+    spec = MethodologySpec(
+        methodology_id="m_001",
+        topic_title="Test Topic",
+        domain="NLP",
+        model_acronym="TestNet",
+        model_full_name="Test Model",
+        hypotheses=["H1: Proposed method achieves statistically significant improvement over baseline (p < 0.05)."],
+    )
+    # Empty baseline runs -> no pairing possible
+    metrics_unpaired = {
+        "methods": {
+            "proposed_testnet": {
+                "name": "TestNet",
+                "seed_runs": [{"final_accuracy": 0.88}, {"final_accuracy": 0.89}],
+            },
+            "dense_baseline": {
+                "name": "Dense Baseline",
+                "seed_runs": [],  # Empty baseline
+            }
+        }
+    }
+    evals = agent.evaluate_hypotheses(spec, metrics_unpaired)
+    assert len(evals) == 1
+    assert evals[0].decision == HypothesisStatus.NOT_EVALUATED
+    assert evals[0].p_value is None
+
+
+def test_missing_meta_analysis_not_evaluated():
+    """Rule C: When meta-analysis is missing or not computed, status is NOT_EVALUATED with no fabricated Z."""
+    from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
+    agent = MethodologyAgent()
+    spec = MethodologySpec(
+        methodology_id="m_001",
+        topic_title="Test Topic",
+        domain="NLP",
+        model_acronym="TestNet",
+        model_full_name="Test Model",
+        hypotheses=["H1: Proposed method achieves significant positive effect size under random-effects meta-analysis (Z >= 1.96)."],
+    )
+    metrics_no_meta = {
+        "methods": {},
+        "meta_analysis": None,
+    }
+    evals = agent.evaluate_hypotheses(spec, metrics_no_meta)
+    assert len(evals) == 1
+    assert evals[0].decision == HypothesisStatus.NOT_EVALUATED
+    assert evals[0].p_value is None
+    assert evals[0].effect_size is None
+    assert evals[0].observed_value == 0.0
+    assert "Missing telemetry" in evals[0].rationale
+
+
+def test_fabricated_metric_injected_rejected():
+    """Rule D: Injected unmapped or invalid metric name is rejected by contract validation."""
+    topic = "Can Retrieval-Augmented Generation Improve Factual Consistency in Domain-Specific Question Answering?"
+    contract = make_contract(topic)
+    contract.freeze()
+
+    from backend.core.research_contract import HypothesisEvaluation
+    evals = [
+        HypothesisEvaluation(
+            hypothesis_id="H1",
+            statement="Proposed model improves accuracy.",
+            metric_name="unmapped",
+            metric_direction="maximize",
+            threshold=0.0,
+            comparison_target=">= 0.0%",
+            experiment_ids=["exp_01"],
+            statistical_test="paired_t_test",
+            raw_observations=[5.0],
+            observed_value=5.0,
+            p_value=0.01,
+            decision=HypothesisStatus.SUPPORTED,
+        )
+    ]
+    val = contract.validate_downstream_state(hypothesis_evaluations=evals)
+    assert not val["is_valid"]
+    assert val["status"] == "BLOCKED"
+    assert any("explicit valid metric mapping" in v for v in val["violations"])
+
+
+def test_nonexistent_experiment_id_rejected():
+    """Rule E: Referencing nonexistent experiment IDs triggers contract violation."""
+    topic = "Can Retrieval-Augmented Generation Improve Factual Consistency in Domain-Specific Question Answering?"
+    contract = make_contract(topic)
+    contract.freeze()
+
+    from dataclasses import dataclass
+    @dataclass
+    class MockExpRecord:
+        experiment_id: str
+        method_name: str
+        method_id: str
+        seed: int
+
+    real_records = [
+        MockExpRecord(experiment_id="proposed_ada_rag_seed42", method_name="Ada-RAG", method_id="proposed_ada_rag", seed=42)
+    ]
+
+    from backend.core.research_contract import HypothesisEvaluation
+    evals = [
+        HypothesisEvaluation(
+            hypothesis_id="H1",
+            statement="Proposed model improves accuracy.",
+            metric_name="primary_performance_delta_pct",
+            metric_direction="maximize",
+            threshold=0.0,
+            comparison_target=">= 0.0%",
+            experiment_ids=["fabricated_exp_node_999"],  # Nonexistent
+            statistical_test="paired_t_test",
+            raw_observations=[5.0],
+            observed_value=5.0,
+            p_value=0.01,
+            decision=HypothesisStatus.SUPPORTED,
+        )
+    ]
+    val = contract.validate_downstream_state(experiment_records=real_records, hypothesis_evaluations=evals)
+    assert not val["is_valid"]
+    assert val["status"] == "BLOCKED"
+    assert any("nonexistent experiment ID" in v for v in val["violations"])
+
+
+def test_empty_observations_rejected():
+    """Rule G: Marking a hypothesis SUPPORTED with empty raw observations is rejected."""
+    topic = "Can Retrieval-Augmented Generation Improve Factual Consistency in Domain-Specific Question Answering?"
+    contract = make_contract(topic)
+    contract.freeze()
+
+    from backend.core.research_contract import HypothesisEvaluation
+    evals = [
+        HypothesisEvaluation(
+            hypothesis_id="H1",
+            statement="Proposed model improves accuracy.",
+            metric_name="primary_performance_delta_pct",
+            metric_direction="maximize",
+            threshold=0.0,
+            comparison_target=">= 0.0%",
+            experiment_ids=["exp_01"],
+            statistical_test="paired_t_test",
+            raw_observations=[],  # Empty!
+            observed_value=5.0,
+            p_value=0.01,
+            decision=HypothesisStatus.SUPPORTED,
+        )
+    ]
+    val = contract.validate_downstream_state(hypothesis_evaluations=evals)
+    assert not val["is_valid"]
+    assert val["status"] == "BLOCKED"
+    assert any("empty raw observations" in v for v in val["violations"])
+
+
+def test_statistics_unavailable_rejected():
+    """Rule H: Marking a hypothesis SUPPORTED without a computed p_value is rejected."""
+    topic = "Can Retrieval-Augmented Generation Improve Factual Consistency in Domain-Specific Question Answering?"
+    contract = make_contract(topic)
+    contract.freeze()
+
+    from backend.core.research_contract import HypothesisEvaluation
+    evals = [
+        HypothesisEvaluation(
+            hypothesis_id="H1",
+            statement="Proposed model achieves statistically significant improvement.",
+            metric_name="primary_performance_delta_pct",
+            metric_direction="maximize",
+            threshold=0.0,
+            comparison_target=">= 0.0%",
+            experiment_ids=["exp_01"],
+            statistical_test="paired_two_tailed_t_test",
+            raw_observations=[2.5, 3.0, 3.5],
+            observed_value=3.0,
+            p_value=None,  # Missing p-value
+            decision=HypothesisStatus.SUPPORTED,
+        )
+    ]
+    val = contract.validate_downstream_state(hypothesis_evaluations=evals)
+    assert not val["is_valid"]
+    assert val["status"] == "BLOCKED"
+    assert any("without a valid computed p-value" in v for v in val["violations"])
+
+
+def test_hardcoded_p_value_mutation_fails():
+    """Rule I: Verify evaluator computes genuine scipy p-values and does not return static 0.001."""
+    from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
+    agent = MethodologyAgent()
+    spec = MethodologySpec(
+        methodology_id="m_001",
+        topic_title="Test Topic",
+        domain="NLP",
+        model_acronym="TestNet",
+        model_full_name="Test Model",
+        hypotheses=["H1: Proposed method improves accuracy over baseline (p < 0.05)."],
+    )
+    # Distinct distributions that yield distinct non-degenerate p-values
+    metrics_data_1 = {
+        "methods": {
+            "proposed_testnet": {
+                "name": "TestNet",
+                "seed_runs": [{"final_accuracy": 0.85}, {"final_accuracy": 0.88}, {"final_accuracy": 0.86}, {"final_accuracy": 0.89}, {"final_accuracy": 0.87}],
+            },
+            "dense_baseline": {
+                "name": "Dense Baseline",
+                "seed_runs": [{"final_accuracy": 0.80}, {"final_accuracy": 0.84}, {"final_accuracy": 0.79}, {"final_accuracy": 0.83}, {"final_accuracy": 0.81}],
+            }
+        }
+    }
+    metrics_data_2 = {
+        "methods": {
+            "proposed_testnet": {
+                "name": "TestNet",
+                "seed_runs": [{"final_accuracy": 0.82}, {"final_accuracy": 0.84}, {"final_accuracy": 0.83}, {"final_accuracy": 0.85}, {"final_accuracy": 0.84}],
+            },
+            "dense_baseline": {
+                "name": "Dense Baseline",
+                "seed_runs": [{"final_accuracy": 0.81}, {"final_accuracy": 0.83}, {"final_accuracy": 0.82}, {"final_accuracy": 0.84}, {"final_accuracy": 0.83}],
+            }
+        }
+    }
+    evals_1 = agent.evaluate_hypotheses(spec, metrics_data_1)
+    evals_2 = agent.evaluate_hypotheses(spec, metrics_data_2)
+    
+    assert evals_1[0].p_value is not None
+    assert evals_2[0].p_value is not None
+    # Truly computed p-values must differ between distinct distributions
+    assert evals_1[0].p_value != evals_2[0].p_value
+    assert evals_1[0].p_value != 0.001  # Not the legacy constant
+
+
+def test_zero_fabricated_scientific_values_in_telemetry():
+    """Rule J: Verify entire evaluation produces zero legacy constants (0.0098, 2.58, 0.42, 0.0065)."""
+    from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
+    agent = MethodologyAgent()
+    spec = MethodologySpec(
+        methodology_id="m_001",
+        topic_title="Test Topic",
+        domain="NLP",
+        model_acronym="TestNet",
+        model_full_name="Test Model",
+        hypotheses=[
+            "H1: Proposed method improves accuracy over baseline (p < 0.05).",
+            "H2: Cross-seed variance is bounded within 1.0%.",
+            "H3: Proposed method achieves significant effect size under meta-analysis (Z >= 1.96).",
+        ],
+    )
+    # Empty telemetry
+    evals_empty = agent.evaluate_hypotheses(spec, {"methods": {}})
+    for h in evals_empty:
+        assert h.decision == HypothesisStatus.NOT_EVALUATED
+        assert h.p_value is None
+        assert h.observed_value != 2.58
+        assert h.observed_value != 0.0098
+        assert h.observed_value != 0.42
+        assert h.observed_value != 0.65
+

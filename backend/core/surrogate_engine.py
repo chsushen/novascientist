@@ -83,8 +83,8 @@ class ExperimentPackage:
     seeds: List[int]
     device: str
     methods: Dict[str, MethodMetrics]
-    meta_analysis: MetaAnalysisResult
-    hardware_info: Dict[str, Any]
+    meta_analysis: Optional[MetaAnalysisResult] = None
+    hardware_info: Dict[str, Any] = field(default_factory=dict)
 
 
 class DerSimonianLairdEstimator:

@@ -335,11 +335,36 @@ class ScientificResearchContract:
         # 2. Hypothesis Evaluations Integrity
         evals = hypothesis_evaluations or getattr(self, "hypothesis_evaluations", [])
         if evals:
+            known_exp_ids = set()
+            if experiment_records:
+                for e in experiment_records:
+                    eid = getattr(e, "experiment_id", "")
+                    mid = getattr(e, "method_id", "")
+                    sd = getattr(e, "seed", 0)
+                    if eid:
+                        known_exp_ids.add(eid)
+                    if mid:
+                        known_exp_ids.add(mid)
+                        known_exp_ids.add(f"{mid}_seed_{sd}")
+                        known_exp_ids.add(f"{mid}_seed{sd}")
+
             for h_eval in evals:
                 stmt = h_eval.statement.lower()
-                m_name = h_eval.metric_name.lower()
+                m_name = h_eval.metric_name.lower() if h_eval.metric_name else ""
                 
-                # Check for metric recycling
+                # Rule A: Missing / unmapped metric
+                if not m_name or m_name in ("unmapped", "none", "unknown"):
+                    violations.append(
+                        f"SCIENTIFIC INTEGRITY VIOLATION: Hypothesis '{h_eval.hypothesis_id}' has no explicit valid metric mapping."
+                    )
+
+                # Rule B: Missing telemetry / NOT_EVALUATED
+                if h_eval.decision == HypothesisStatus.NOT_EVALUATED:
+                    violations.append(
+                        f"SCIENTIFIC INTEGRITY VIOLATION: Required hypothesis '{h_eval.hypothesis_id}' was NOT_EVALUATED: {h_eval.rationale}"
+                    )
+                
+                # Rule C: Check for metric recycling / mismatches
                 if any(v in stmt for v in ["variance", "standard deviation", "cross-seed", "std", "dispersion"]):
                     if not any(v in m_name for v in ["variance", "standard deviation", "std", "dispersion"]):
                         violations.append(
@@ -352,8 +377,20 @@ class ScientificResearchContract:
                             f"Hypothesis '{h_eval.hypothesis_id}' specifies meta-analysis but was evaluated using metric '{h_eval.metric_name}'."
                         )
 
-                # Check supported condition
+                # Rule D: SUPPORTED validation
                 if h_eval.decision == HypothesisStatus.SUPPORTED:
+                    if not h_eval.raw_observations:
+                        violations.append(
+                            f"SCIENTIFIC INTEGRITY VIOLATION: Hypothesis '{h_eval.hypothesis_id}' is marked SUPPORTED with empty raw observations."
+                        )
+                    if h_eval.p_value is None and h_eval.statistical_test not in ("constant_difference", "relative_reduction_ratio"):
+                        violations.append(
+                            f"SCIENTIFIC INTEGRITY VIOLATION: Hypothesis '{h_eval.hypothesis_id}' is marked SUPPORTED without a valid computed p-value."
+                        )
+                    if ("significant" in stmt or "p <" in stmt or "p<" in stmt) and h_eval.p_value is not None and h_eval.p_value >= 0.05:
+                        violations.append(
+                            f"SCIENTIFIC INTEGRITY VIOLATION: Hypothesis '{h_eval.hypothesis_id}' claims statistical significance but observed p-value ({h_eval.p_value}) is >= 0.05."
+                        )
                     if h_eval.metric_direction == "bounded_variance":
                         if h_eval.observed_value > h_eval.threshold:
                             violations.append(
@@ -368,6 +405,14 @@ class ScientificResearchContract:
                         if h_eval.observed_value > h_eval.threshold:
                             violations.append(
                                 f"Hypothesis '{h_eval.hypothesis_id}' marked SUPPORTED but observed value ({h_eval.observed_value}) exceeds threshold ({h_eval.threshold})."
+                            )
+
+                # Rule E: Experiment IDs traceability
+                if known_exp_ids and h_eval.experiment_ids:
+                    for eid in h_eval.experiment_ids:
+                        if not eid.startswith("meta_analysis") and eid not in known_exp_ids and not any(k in eid or eid in k for k in known_exp_ids):
+                            violations.append(
+                                f"SCIENTIFIC INTEGRITY VIOLATION: Hypothesis '{h_eval.hypothesis_id}' references nonexistent experiment ID '{eid}'."
                             )
 
         # 3. Experiment Methods Integrity
