@@ -135,7 +135,22 @@ class TopicProfileExtractor:
         dom_lower = (explicit_domain or "").lower()
 
         # Evidence-driven domain and task inference
-        if dom_lower == "federated" or any(k in t_lower for k in ["federat", "client drift", "fl", "decentralized"]):
+        if dom_lower == "graph" or any(k in t_lower for k in ["graph", "gnn", "node", "edge", "topology", "relational", "fraud", "imbalance"]):
+            task = TaskType.GRAPH_REASONING
+            modality = DataModality.RELATIONAL_GRAPH
+            domain_name = "graph"
+            subdomain = "Topological Graph Representation & Imbalanced Node Classification"
+            paradigm = ResearchParadigm.THEORETICAL_ALGORITHMIC if "expressive" in t_lower or "bound" in t_lower else ResearchParadigm.EMPIRICAL_BENCHMARK
+            metrics = ["Area Under Precision-Recall Curve (AUPRC)", "Minority-Class F1 Score", "Node Classification Top-1 Accuracy (%)", "Neighborhood Aggregation Latency (ms)"]
+            primary_m = "Area Under Precision-Recall Curve (AUPRC)"
+            baselines = ["Graph Convolutional Network (GCN)", "Graph Attention Network (GATv2)", "GraphSAGE Neighbor Sampling", "Standard Message Passing NN"]
+            method_families = ["Hierarchical Subgraph Pooling", "Spectral Graph Filtering", "Relational Memory-Bounded Transformers"]
+            math_objs = ["Normalized Graph Laplacian L = I - D^{-1/2}AD^{-1/2}", "Weisfeiler-Lehman 1-WL Color Refinement", "Dirichlet Energy E(X)", "Spectral Filter Eigenvalues λ_k"]
+            stat_tests = ["Paired t-test over K-Fold Cross Validation", "Wilcoxon Signed-Rank Test", "DerSimonian-Laird Meta-Analysis"]
+            figs = ["Precision-Recall Frontier under Topological Imbalance", "Graph Neighborhood Aggregation Depth Response", "Graph Neighborhood Representation t-SNE Embedding"]
+            requires_theorem = False
+
+        elif dom_lower == "federated" or any(k in t_lower for k in ["federat", "client drift", "fl", "decentralized"]):
             task = TaskType.FEDERATED_COORDINATION
             modality = DataModality.IMAGE_VOLUMETRIC if any(k in t_lower for k in ["image", "vision", "medical", "mri", "ct"]) else DataModality.TABULAR_HETEROGENEOUS
             domain_name = "federated"
@@ -165,7 +180,7 @@ class TopicProfileExtractor:
             figs = ["Qualitative Multi-Slice Segmentation Overlays", "ROC and Precision-Recall Curves", "Calibration Reliability Diagrams", "Inter-Site Robustness Box Plots"]
             requires_theorem = False
 
-        elif dom_lower == "time_series" or any(k in t_lower for k in ["forecast", "time series", "timeseries", "temporal", "autoregress", "trend", "seasonality", "traffic", "sensor"]):
+        elif (dom_lower == "time_series" or any(k in t_lower for k in ["forecast", "time series", "timeseries", "temporal", "autoregress", "trend", "seasonality", "traffic", "sensor"])) and not any(k in t_lower for k in ["graph", "gnn", "node", "edge", "text", "language"]):
             task = TaskType.TIMESERIES_FORECASTING
             modality = DataModality.MULTIVARIATE_TIME_SERIES
             domain_name = "time_series"
@@ -186,29 +201,14 @@ class TopicProfileExtractor:
             domain_name = "nlp"
             subdomain = "Efficient Parameter Tuning & Sequence Modeling"
             paradigm = ResearchParadigm.EMPIRICAL_BENCHMARK
-            metrics = ["Perplexity (PPL)", "BLEU / ROUGE-L Score (%)", "Exact Match / Task F1 (%)", "Active Parameter Count & Memory Footprint (MB)"]
-            primary_m = "Exact Match / Task F1 (%)"
+            metrics = ["Macro F1 Score (%)", "Top-1 Accuracy (%)", "Active Parameter Count & Memory Footprint (MB)"]
+            primary_m = "Macro F1 Score (%)"
             baselines = ["Full Fine-Tuning Baseline", "Low-Rank Adaptation (LoRA)", "Prefix-Tuning / Prompt-Tuning", "Standard INT8 Static Quantization"]
             method_families = ["Dynamic Low-Rank Projections", "Sub-Quadratic Linear Attention", "Layer-Wise Sparse Adaptation"]
             math_objs = ["Key-Query Attention Matrix softmax(QK^T / sqrt(d))", "Low-Rank Decomposition W_0 + B*A", "Entropy Residual H(p, q)", "Gradient Orthogonality Bound"]
             stat_tests = ["Bootstrap Resampling Significance Test", "Paired t-test on Macro F1", "DerSimonian-Laird Meta-Analysis"]
             figs = ["Accuracy vs Active Parameter Footprint Trade-off", "Per-Layer Attention Weight Entropy Heatmap", "Token-Wise Loss Convergence Curves", "Rank Dimension (r) Sensitivity Plot"]
             requires_theorem = False
-
-        elif dom_lower == "graph" or any(k in t_lower for k in ["graph", "gnn", "network", "node", "edge", "topology", "relational"]):
-            task = TaskType.GRAPH_REASONING
-            modality = DataModality.RELATIONAL_GRAPH
-            domain_name = "graph"
-            subdomain = "Spatial-Temporal Message Passing & Graph Transformers"
-            paradigm = ResearchParadigm.THEORETICAL_ALGORITHMIC if "expressive" in t_lower or "bound" in t_lower else ResearchParadigm.EMPIRICAL_BENCHMARK
-            metrics = ["Node Classification Top-1 Accuracy (%)", "ROC-AUC for Link Prediction (%)", "Mean Reciprocal Rank (MRR)", "Neighborhood Aggregation Latency (ms)"]
-            primary_m = "Node Classification Top-1 Accuracy (%)"
-            baselines = ["Graph Convolutional Network (GCN)", "Graph Attention Network (GATv2)", "GraphSAGE Neighbor Sampling", "Standard Message Passing NN"]
-            method_families = ["Hierarchical Subgraph Pooling", "Spectral Graph Filtering", "Relational Memory-Bounded Transformers"]
-            math_objs = ["Normalized Graph Laplacian L = I - D^{-1/2}AD^{-1/2}", "Weisfeiler-Lehman 1-WL Color Refinement", "Dirichlet Energy E(X)", "Spectral Filter Eigenvalues λ_k"]
-            stat_tests = ["Paired t-test over K-Fold Cross Validation", "Wilcoxon Signed-Rank Test", "DerSimonian-Laird Meta-Analysis"]
-            figs = ["Graph Neighborhood Representation t-SNE Embedding", "Homophily vs Accuracy Correlation Curve", "Oversmoothing Dirichlet Energy vs Depth", "Message Passing Throughput Scalability"]
-            requires_theorem = True
 
         elif dom_lower == "physics_surrogate" or any(k in t_lower for k in ["physics", "pde", "pinn", "operator", "navier", "fluid", "mechanics", "differential", "helmholtz", "darcy"]):
             task = TaskType.PDE_OPERATOR_LEARNING

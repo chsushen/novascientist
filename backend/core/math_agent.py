@@ -169,10 +169,11 @@ class MathematicalFormulationAgent:
         topic_profile: TopicResearchProfile,
         methodology: Optional[Any] = None,
         has_theoretical_claims: bool = True,
+        contract: Optional[Any] = None,
     ) -> FormalTheorem:
         """Formulate and independently verify a formal mathematical theorem."""
         m_name = getattr(methodology, "model_acronym", None) or getattr(topic_profile, "model_acronym_suggestion", "Proposed Architecture")
-        raw_thm = self.formulate_mathematics(topic_profile, method_name=m_name)
+        raw_thm = self.formulate_mathematics(topic_profile, method_name=m_name, contract=contract)
         
         # Run independent verification gate
         is_valid, notes = self.verifier.verify(raw_thm)
@@ -191,6 +192,7 @@ class MathematicalFormulationAgent:
         cls,
         profile: TopicResearchProfile,
         method_name: Optional[str] = None,
+        contract: Optional[Any] = None,
     ) -> FormalTheorem:
         """Derive appropriate mathematical formulation based on topic requirements."""
         m_name = method_name or profile.model_acronym_suggestion or "Proposed Framework"
@@ -198,7 +200,29 @@ class MathematicalFormulationAgent:
         paradigm = profile.research_paradigm
 
         # Evidence-driven decision on whether a formal theorem is required
-        if paradigm == ResearchParadigm.THEORETICAL_ALGORITHMIC or profile.requires_formal_theorem:
+        math_decision_val = None
+        if contract and hasattr(contract, "mathematical_requirement"):
+            math_decision_val = getattr(contract.mathematical_requirement, "value", str(contract.mathematical_requirement))
+
+        if math_decision_val in ("no_formal_theorem", "empirical_only"):
+            return FormalTheorem(
+                theorem_id=f"thm_{abs(hash(m_name)) % 100000:05d}",
+                title=f"Empirical Task Formulation for {m_name}",
+                decision_type=MathematicalDecision.EMPIRICAL_STUDY,
+                formal_objects=[f"Task loss objective $\\mathcal{{L}}_{{\\text{{task}}}}$", f"Parameter space $\\theta \\in \\Theta$"],
+                assumptions=[],
+                statement=f"The empirical investigation of {m_name} focuses on comparative performance benchmarking without formal asymptotic theorem claims.",
+                latex_statement="",
+                proof_steps=[],
+                latex_proof="",
+                is_verified=True,
+                verification_notes=["Empirical formulation: No formal theorem claimed."],
+                theorem_type="empirical_formulation",
+            )
+        elif math_decision_val in ("optimization_objective", "derivation_only"):
+            decision = MathematicalDecision.ANALYTICAL_DERIVATION
+            thm_type = "analytical_derivation"
+        elif paradigm == ResearchParadigm.THEORETICAL_ALGORITHMIC or profile.requires_formal_theorem or math_decision_val in ("formal_theorem", "formal_proposition"):
             decision = MathematicalDecision.THEOREM_REQUIRED
             thm_type = "theorem"
         elif paradigm == ResearchParadigm.SYSTEMS_OPTIMIZATION:

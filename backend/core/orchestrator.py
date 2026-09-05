@@ -56,6 +56,15 @@ from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
 from backend.core.page_controller import PageBudgetEvaluation, PhysicalPageController
 from backend.core.provenance import ProvenanceTracker, validate_complete_provenance
 from backend.core.real_trainer import RealPyTorchTrainer, get_torch_device
+from backend.core.research_contract import (
+    ClaimEvidenceStatus,
+    MathematicalTreatmentDecision,
+    QuestionDecompositionEngine,
+    ResearchContractBuilder,
+    ScientificDecisionLog,
+    ScientificResearchContract,
+    StatisticalAnalysisType,
+)
 from backend.core.research_memory import ResearchMemory
 from backend.core.reviewer_swarm import ReviewerSwarm
 from backend.core.scientific_reviewer import BoundedRevisionLoop, RevisionHistory, ScientificReviewReport, ScientificReviewerAgent
@@ -118,13 +127,15 @@ class OrchestratorResult:
     provenance_audit: Optional[Dict[str, Any]] = None
     revision_history: Optional[Dict[str, Any]] = None
     prior_knowledge: Optional[List[Dict[str, Any]]] = None
-    # v2.1 Topic-Adaptive additions
+    # v2.1 & v2.2 Topic-Adaptive & Research-Question-First additions
     topic_profile: Optional[Dict[str, Any]] = None
     literature_synthesis: Optional[Dict[str, Any]] = None
     baseline_suite: Optional[Dict[str, Any]] = None
     theorem: Optional[Dict[str, Any]] = None
     manuscript_plan: Optional[Dict[str, Any]] = None
     page_budget_eval: Optional[Dict[str, Any]] = None
+    research_contract: Optional[Dict[str, Any]] = None
+    scientific_decision_log: Optional[Dict[str, Any]] = None
 
 
 class NovaScientistOrchestrator:
@@ -253,6 +264,17 @@ class NovaScientistOrchestrator:
         dev_type, dev_name = get_torch_device()
         bibtex_content = self.lit_agent.lit_service.generate_bibtex(papers, dataset=dataset)
 
+        # Step 1C: Research-Question-First Scientific Contract Formulation
+        notify("Formulating unified ScientificResearchContract and Question Decomposition...", 0.20)
+        contract = ResearchContractBuilder.build_contract(topic, topic_profile, literature_report=lit_report)
+        contract_node = prov.record_node(
+            contract.contract_id,
+            "research_contract",
+            f"Scientific Contract: {contract.primary_objective}",
+            contract.to_dict(),
+            parent_ids=[plan_node.node_id],
+        )
+
         # Step 2: Methodology Agent & Mathematical Formulation
         notify(f"Methodology Agent formulating theoretical specification for {plan.model_acronym}...", 0.22)
         methodology = self.method_agent.synthesize_methodology(
@@ -262,7 +284,7 @@ class NovaScientistOrchestrator:
             literature_report=lit_report,
             baseline_suite=baseline_suite,
         )
-        method_node = prov.record_node(methodology.methodology_id, "methodology", methodology.model_full_name, parent_ids=[plan_node.node_id])
+        method_node = prov.record_node(methodology.methodology_id, "methodology", methodology.model_full_name, parent_ids=[contract_node.node_id])
 
         # Step 2B: Mathematical Formulation Agent
         notify("Mathematical Formulation Agent analyzing formal theorem & lemma justifications...", 0.25)
@@ -270,6 +292,7 @@ class NovaScientistOrchestrator:
             topic_profile=topic_profile,
             methodology=methodology,
             has_theoretical_claims=True,
+            contract=contract,
         )
 
         # Step 3: Experiment Planning Agent
@@ -471,7 +494,7 @@ class NovaScientistOrchestrator:
 
         # Step 8: Topic-Adaptive Vector Figures Suite
         notify("Planning and generating topic-adaptive scientific figures (PDF & PNG)...", 0.75)
-        planned_figs = self.fig_planner.plan_figures(topic_profile, metrics_dict, output_dir=str(self.figures_dir))
+        planned_figs = self.fig_planner.plan_figures(topic_profile, metrics_dict, output_dir=str(self.figures_dir), contract=contract)
         figs = self.fig_planner.generate_figures(planned_figs)
         if not figs:
             fig_suite = ScientificFigureSuite(metrics_dict, output_dir=str(self.figures_dir))
@@ -486,12 +509,13 @@ class NovaScientistOrchestrator:
             theorem=theorem,
             figures=planned_figs,
             venue_format=venue_fmt,
+            contract=contract,
         )
 
         # Step 9: Manuscript Assembly
         notify("Constructing complete IEEE Transactions LaTeX manuscript...", 0.82)
         if is_journal:
-            assembler = DeepJournalAssembler(metrics_dict, papers, author=author, dataset=dataset)
+            assembler = DeepJournalAssembler(metrics_dict, papers, author=author, dataset=dataset, contract=contract, manuscript_plan=manuscript_plan, figures=planned_figs)
             latex_content = assembler.generate_journal_latex()
         else:
             assembler = CompliantLaTeXAssembler(metrics_dict, papers, author=author, dataset=dataset)
@@ -692,4 +716,6 @@ class NovaScientistOrchestrator:
             theorem=theorem.to_dict(),
             manuscript_plan=manuscript_plan.to_dict(),
             page_budget_eval=page_eval.to_dict(),
+            research_contract=contract.to_dict(),
+            scientific_decision_log=contract.decision_rationale.to_dict(),
         )

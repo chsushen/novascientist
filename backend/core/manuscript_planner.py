@@ -79,6 +79,7 @@ class ManuscriptPlanningAgent:
         theorem: Optional[FormalTheorem],
         figures: List[FigurePlanItem],
         venue_format: VenueFormat = VenueFormat.EXTENDED_JOURNAL,
+        contract: Optional[Any] = None,
     ) -> ManuscriptPlan:
         """Construct a dynamic, topic-tailored manuscript structure."""
         plan_hash = hashlib.sha256(
@@ -145,14 +146,15 @@ class ManuscriptPlanningAgent:
             subsections=[f"Foundations of {topic_profile.subdomain}", "Contemporary Baseline Methods", "Comparative Positioning"],
         ))
 
-        # 3. Problem Formulation & Theoretical Foundations
+        # 3. Problem Formulation & Analytical Framework
+        theory_title = "Problem Formulation & Theoretical Foundations" if has_theorem else "Problem Formulation & Analytical Framework"
         theory_subsections = ["Notational Framework and Mathematical Setup", "Formal Problem Definition"]
         if has_theorem:
             theory_subsections.append(f"Theoretical Properties & {theorem.theorem_type.capitalize()} Guarantees")
         sections.append(SectionPlanItem(
             section_id="sec_theory",
             number=3,
-            title="Problem Formulation & Theoretical Foundations",
+            title=theory_title,
             target_words=int(base_word_budget * 0.15),
             estimated_pages=1.3 if has_theorem else 1.0,
             key_points=[
