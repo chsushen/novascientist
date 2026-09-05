@@ -2,6 +2,8 @@
 
 Formulates, structures, and validates typed research plans from user research questions,
 domains, constraints, and target publication formats.
+Topic-adaptive: dynamically constructs objectives, literature requirements,
+methodology plans, and experiment suites from TopicResearchProfile.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.universal_engine import ComputationalDomain, UniversalDomainDispatcher
+from backend.core.topic_profile import TopicProfileExtractor, TopicResearchProfile
 
 
 @dataclass
@@ -59,6 +62,7 @@ class ResearchPlannerAgent:
         constraints: Optional[Dict[str, Any]] = None,
         target_format: str = "8_12_pages_journal",
         num_seeds: int = 5,
+        topic_profile: Optional[TopicResearchProfile] = None,
     ) -> ResearchPlan:
         """Synthesize a complete structured research plan for a given research question."""
         cleaned_q = research_question.strip()
@@ -68,6 +72,9 @@ class ResearchPlannerAgent:
         classification = UniversalDomainDispatcher.classify_topic(cleaned_q)
         active_domain = domain or classification.domain
         
+        # Topic profile extraction for dynamic adaptive intelligence
+        profile = topic_profile or TopicProfileExtractor.extract(cleaned_q, domain=active_domain.value)
+
         q_hash = hashlib.sha256(cleaned_q.encode("utf-8")).hexdigest()[:8]
         plan_id = f"plan_{q_hash}"
 
@@ -78,58 +85,60 @@ class ResearchPlannerAgent:
             "double_blind": True,
         }
 
+        # Dynamic topic-driven objectives
+        metric_str = ", ".join(profile.candidate_metrics[:2]) if profile.candidate_metrics else classification.primary_metric_name
+        baselines_str = ", ".join(profile.candidate_baselines[:3]) if profile.candidate_baselines else "standard baselines"
+
         objectives = [
-            f"Formulate and prove mathematical bounds for {classification.model_full_name} ({classification.model_acronym}).",
-            f"Implement dynamic block-floating discretization aligned with 64-byte L1/L2 cache lines for SIMD acceleration.",
-            f"Empirically validate {classification.primary_metric_name} across k={num_seeds} deterministic seeds against dense and quantized baselines.",
+            f"Formulate and evaluate the {classification.model_full_name} ({classification.model_acronym}) architecture for {profile.subdomain}.",
+            f"Develop domain-appropriate inductive biases and algorithmic operators optimized for {profile.task_type.value}.",
+            f"Empirically validate performance across {metric_str} using k={num_seeds} deterministic seeds against {baselines_str}.",
             f"Perform DerSimonian-Laird random-effects meta-analysis to quantify pooled effect size and inter-seed heterogeneity.",
         ]
 
         sub_questions = [
-            f"Can dynamic block quantization eliminate memory bus stalls without degrading {classification.primary_metric_name}?",
-            f"What is the theoretical error bound between continuous operators and {classification.model_acronym} discretizations?",
-            f"Does stochastic cache-line alignment yield reproducible latency acceleration on commodity CPU/MPS hardware?",
+            f"How does {classification.model_acronym} impact {metric_str} compared to canonical {profile.subdomain} baselines?",
+            f"What theoretical guarantees or convergence properties govern {classification.model_acronym} on {profile.data_modality.value} data?",
+            f"Are the empirical gains consistent across multi-seed replications on {', '.join(profile.candidate_datasets[:2])}?",
         ]
 
         literature_requirements = [
-            f"Foundational papers on {classification.domain_display_name} architectures and neural operators.",
-            "Theoretical literature on post-training quantization, straight-through estimators, and low-rank approximation.",
-            "Empirical benchmarks and canonical baseline implementations for comparative validation.",
+            f"Foundational literature on {profile.domain} with focus on {profile.subdomain}.",
+            f"Canonical benchmark studies evaluating {', '.join(profile.candidate_baselines[:3])}.",
+            f"Empirical validation protocols and metrics for {profile.task_type.value}.",
         ]
 
         methodology_plan = [
-            f"Define mathematical formulation for {classification.model_acronym} with Straight-Through Estimators (STE).",
-            "Derive variance bounds for dynamic block-floating tensor scaling under stochastic noise.",
-            "Formulate straight-through backward propagation equations with variance stabilization.",
+            f"Define mathematical formulation for {classification.model_acronym} leveraging {', '.join(profile.mathematical_objects[:3])}.",
+            f"Synthesize architectural operators tailored to {profile.research_paradigm.value}.",
+            f"Formulate loss objectives and computational complexity bounds for {profile.task_type.value}.",
         ]
 
         experiment_plan = [
-            f"Evaluate Dense FP32 baseline across k={num_seeds} deterministic random seeds.",
-            f"Evaluate Static INT8 post-training quantization baseline across k={num_seeds} seeds.",
-            f"Evaluate Sparsified baseline across k={num_seeds} seeds.",
-            f"Evaluate Proposed {classification.model_acronym} across k={num_seeds} seeds under identical data partitions.",
-            "Execute component ablation suite (w/o block scaling, w/o tile caching, w/o variance stabilization).",
-            "Compute 2D hyperparameter sensitivity grid across quantization depths and cache tile dimensions.",
+            f"Evaluate canonical baselines ({', '.join(profile.candidate_baselines[:3])}) across k={num_seeds} seeds.",
+            f"Evaluate proposed {classification.model_acronym} across k={num_seeds} seeds under strictly identical data partitions.",
+            "Execute component ablation suite isolating core architectural mechanisms.",
+            "Compute 2D hyperparameter sensitivity grid across key operational regimes.",
         ]
 
         evaluation_plan = [
-            f"Primary Task Metric: {classification.primary_metric_name}",
+            f"Primary Task Metrics: {', '.join(profile.candidate_metrics[:3])}",
             "Peak Working Memory Footprint (MB)",
-            "Per-Sample Inference Latency (ms) & Arithmetic Throughput (samples/sec)",
+            "Per-Sample Inference Latency (ms) & Arithmetic Throughput",
             "DerSimonian-Laird Meta-Analysis: Pooled Effect Size (%), 95% Confidence Interval, Z-statistic, and I² Heterogeneity",
             "AST Dataflow Verification for strict train/test partition isolation.",
         ]
 
         risk_factors = [
-            "Quantization noise divergence along high-frequency gradient boundaries.",
-            "Cache miss penalties if tensor widths do not align with 64-byte SIMD boundaries.",
+            f"Stochastic divergence during optimization across complex {profile.data_modality.value} distributions.",
+            "Potential domain shift or partition sensitivity between benchmark datasets.",
             "Data leakage between evaluation folds if random seeds are not strictly isolated.",
         ]
 
         expected_outputs = [
             "Structured ExperimentRecord telemetry for all evaluation folds.",
-            "5-figure publication vector suite (Architecture, Convergence, Pareto, Ablation, Sensitivity).",
-            "Complete 10-section IEEE Transactions LaTeX manuscript with verified BibTeX citations.",
+            "Topic-adaptive publication vector figure suite.",
+            "Complete IEEE / ACM formatted LaTeX manuscript with verified BibTeX citations.",
             "Self-contained Overleaf ZIP package and downloadable publication PDF.",
         ]
 

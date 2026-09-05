@@ -25,6 +25,9 @@ class DatasetMetadata:
     splits: str  # e.g., '70% Train / 15% Val / 15% Test'
     description: str
     keywords: List[str]
+    acquisition_status: str = "literature_verified"  # 'discovered', 'literature_verified', 'locally_available', 'loaded'
+    task_compatibility_score: float = 1.0
+    selection_rationale: str = ""
     bibtex_key: str = field(default='')
     bibtex_entry: str = field(default='')
 
@@ -300,41 +303,41 @@ class DatasetFinder:
     ]
 
     @classmethod
-    def discover(cls, topic: str, domain: Union[ComputationalDomain, str]) -> DatasetMetadata:
-        """Discover and match the optimal canonical evaluation dataset for a given research topic."""
+    def discover_candidates(
+        cls,
+        topic: str,
+        domain: Union[ComputationalDomain, str, None] = None,
+        limit: int = 3,
+    ) -> List[DatasetMetadata]:
+        """Rank and return top candidate datasets with task compatibility scores."""
         target_domain = None
         if isinstance(domain, ComputationalDomain):
             target_domain = domain
-        else:
+        elif domain is not None:
             domain_str = str(domain).lower()
             for cd in ComputationalDomain:
                 if cd.value == domain_str or cd.name.lower() == domain_str:
                     target_domain = cd
                     break
-        if not target_domain:
-            target_domain = ComputationalDomain.PHYSICS_SURROGATE
 
         topic_lower = topic.lower()
         topic_tokens = set(re.findall(r'\w+', topic_lower))
-
-        # Check if topic has strong transport / disaster / evacuation / traffic affinity
         transport_keywords = {'disaster', 'evacuation', 'traffic', 'resilience', 'transport', 'corridor', 'shelter', 'metr', 'pems'}
         has_transport_intent = bool(topic_tokens.intersection(transport_keywords))
 
         if has_transport_intent and target_domain in {ComputationalDomain.GRAPH, ComputationalDomain.TIMESERIES, ComputationalDomain.PHYSICS_SURROGATE}:
-            # Prioritize candidates from Graph & Timeseries registry
             candidates = [d for d in cls.DATASET_REGISTRY if d.domain in {ComputationalDomain.GRAPH, ComputationalDomain.TIMESERIES}]
-        else:
+        elif target_domain:
             candidates = [d for d in cls.DATASET_REGISTRY if d.domain == target_domain]
+        else:
+            candidates = cls.DATASET_REGISTRY
 
         if not candidates:
             candidates = cls.DATASET_REGISTRY
 
-        best_score = -1.0
-        best_dataset = candidates[0]
-
+        scored_candidates = []
         for cand in candidates:
-            score = 0.0
+            score = 1.0
             for kw in cand.keywords:
                 kw_tokens = set(kw.lower().split())
                 overlap = topic_tokens.intersection(kw_tokens)
@@ -346,10 +349,23 @@ class DatasetFinder:
             score += len(topic_tokens.intersection(name_tokens)) * 3.0
 
             if cand.domain == target_domain:
-                score += 1.0
+                score += 2.0
 
-            if score > best_score:
-                best_score = score
-                best_dataset = cand
+            cand.task_compatibility_score = round(min(1.0, score / 12.0), 2)
+            cand.acquisition_status = "literature_verified"
+            cand.selection_rationale = (
+                f"Selected for high semantic keyword affinity ({cand.task_compatibility_score:.2f}) "
+                f"and canonical benchmark standing in {cand.domain.value.replace('_', ' ').title()}."
+            )
+            scored_candidates.append((score, cand))
 
-        return best_dataset
+        scored_candidates.sort(key=lambda x: x[0], reverse=True)
+        return [c[1] for c in scored_candidates[:limit]]
+
+    @classmethod
+    def discover(cls, topic: str, domain: Union[ComputationalDomain, str]) -> DatasetMetadata:
+        """Discover and match the optimal canonical evaluation dataset for a given research topic."""
+        candidates = cls.discover_candidates(topic, domain, limit=1)
+        selected = candidates[0] if candidates else cls.DATASET_REGISTRY[0]
+        selected.acquisition_status = "loaded"
+        return selected

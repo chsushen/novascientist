@@ -1,20 +1,25 @@
 """NovaScientist Centralized Pipeline Orchestrator.
 
 Coordinates full autonomous research cycle across specialized agentic components:
-1. Research Planner Agent (Typed research question, objectives, constraints)
-2. Literature & Evidence Agent (Verified DOI discovery and claim extraction)
-3. Provenance Tracker (Full entity lineage from question to conclusion)
-4. Methodology Agent (Sound hypothesis formulation and assumption tracking)
-5. Experiment Planning & Telemetry Agent (Multi-seed execution records)
-6. AST Static Code Analysis Guard (Zero test-leakage certification)
-7. Hardware PyTorch Training Engine (CUDA / Apple Silicon MPS / CPU)
-8. Evidence Validator (Empirical support scoring and claim gating)
-9. Statistical Critic Agent (DerSimonian-Laird meta-analysis and power auditing)
-10. Scientific Reviewer Agent & Bounded Revision Loop (Peer-review with max 3 cycles)
-11. Publication-Grade Vector Figures Suite (5-panel IEEE figures)
-12. Deep Journal & Compliant LaTeX Assemblers
-13. Persistent Research Memory (Cross-session knowledge storage)
-14. Tectonic Compiler & Overleaf Packaging (1-click PDF & ZIP bundles)
+1. Topic Research Profile Engine (Dynamic domain, task type, paradigm, modality, candidate metrics)
+2. Research Planner Agent (Typed research question, objectives, constraints)
+3. Scholarly Literature & Evidence Agent (Verified DOI discovery and claim extraction)
+4. Literature Advisory & Synthesis Agent (Canonical baselines, research gaps, epistemic boundaries)
+5. Dynamic Baseline Selector (Task-appropriate baseline comparative suites)
+6. Topic-Aware Dataset Discovery (Multi-criteria compatibility scoring and provenance)
+7. Methodology Agent (Sound hypothesis formulation and assumption tracking)
+8. Mathematical Formulation Agent (Topic-adaptive theorem/lemma justification and verified proofs)
+9. Experiment Planning & Telemetry Agent (Multi-seed execution records)
+10. AST Static Code Analysis Guard (Zero test-leakage certification)
+11. Hardware PyTorch Training Engine (CUDA / Apple Silicon MPS / CPU)
+12. Evidence Validator (Empirical support scoring and claim gating)
+13. Statistical Critic Agent (DerSimonian-Laird meta-analysis and power auditing)
+14. Scientific Reviewer Agent & Bounded Revision Loop (Peer-review with max 3 cycles)
+15. Topic-Adaptive Publication Figures Suite (Vector PDF & PNG charts)
+16. Manuscript Planning Agent & Physical Page-Length Controller
+17. Compliant LaTeX Assemblers & Tectonic Compilation (1-click PDF & ZIP bundles)
+18. Persistent Research Memory (Cross-session knowledge storage)
+19. Provenance Tracker (Complete fail-closed lineage from question to publication)
 """
 
 from __future__ import annotations
@@ -33,19 +38,22 @@ import pypdf
 
 from backend.core.agentic_planner import ResearchPlan, ResearchPlannerAgent
 from backend.core.ast_guard import ASTGuard
-from backend.core.conversational_agent import (
-    ExecutionMode,
-    TargetPaperLength,
-)
+from backend.core.baseline_selector import BaselineComparisonSuite, DynamicBaselineSelector
+from backend.core.conversational_agent import ExecutionMode, TargetPaperLength
 from backend.core.dataset_finder import DatasetFinder, DatasetMetadata
 from backend.core.deep_journal_assembler import DeepJournalAssembler
 from backend.core.evidence_agent import EvidenceBundle, LiteratureAgent
 from backend.core.evidence_validator import EvidenceValidationReport, EvidenceValidator
 from backend.core.experiment_agent import ExperimentAgent, ExperimentRecord, ExperimentSpec
 from backend.core.figure_generator import ScientificFigureSuite
+from backend.core.figure_planner import FigurePlanItem, FigurePlanningAgent
 from backend.core.latex_assembler import AuthorProfile, CompliantLaTeXAssembler
 from backend.core.literature import LiteratureService, PaperMetadata
+from backend.core.literature_advisor import LiteratureAdvisor, LiteratureSynthesisReport
+from backend.core.manuscript_planner import ManuscriptPlan, ManuscriptPlanningAgent, VenueFormat
+from backend.core.math_agent import FormalTheorem, MathematicalFormulationAgent, TheoremDecisionType
 from backend.core.methodology_agent import MethodologyAgent, MethodologySpec
+from backend.core.page_controller import PageBudgetEvaluation, PhysicalPageController
 from backend.core.provenance import ProvenanceTracker, validate_complete_provenance
 from backend.core.real_trainer import RealPyTorchTrainer, get_torch_device
 from backend.core.research_memory import ResearchMemory
@@ -53,6 +61,7 @@ from backend.core.reviewer_swarm import ReviewerSwarm
 from backend.core.scientific_reviewer import BoundedRevisionLoop, RevisionHistory, ScientificReviewReport, ScientificReviewerAgent
 from backend.core.statistical_critic import StatisticalCriticAgent, StatisticalCritique
 from backend.core.tectonic_runner import CompilationResult, TectonicRunner
+from backend.core.topic_profile import TopicProfileExtractor, TopicResearchProfile
 from backend.core.universal_engine import (
     ComputationalDomain,
     UniversalBenchmarkEngine,
@@ -109,10 +118,17 @@ class OrchestratorResult:
     provenance_audit: Optional[Dict[str, Any]] = None
     revision_history: Optional[Dict[str, Any]] = None
     prior_knowledge: Optional[List[Dict[str, Any]]] = None
+    # v2.1 Topic-Adaptive additions
+    topic_profile: Optional[Dict[str, Any]] = None
+    literature_synthesis: Optional[Dict[str, Any]] = None
+    baseline_suite: Optional[Dict[str, Any]] = None
+    theorem: Optional[Dict[str, Any]] = None
+    manuscript_plan: Optional[Dict[str, Any]] = None
+    page_budget_eval: Optional[Dict[str, Any]] = None
 
 
 class NovaScientistOrchestrator:
-    """Autonomous agentic research-to-publication engine for NovaScientist v2.0."""
+    """Autonomous agentic research-to-publication engine for NovaScientist v2.1."""
 
     def __init__(self, output_dir: str = "./dist", memory: Optional[ResearchMemory] = None) -> None:
         self.output_dir = Path(output_dir)
@@ -122,11 +138,17 @@ class NovaScientistOrchestrator:
         self.experiments_dir = self.output_dir / "experiments"
         self.checkpoints_dir = self.experiments_dir / "checkpoints"
 
-        # Instantiate specialized agents
+        # Specialized agents
         self.planner = ResearchPlannerAgent()
         self.lit_agent = LiteratureAgent()
+        self.lit_advisor = LiteratureAdvisor()
+        self.baseline_selector = DynamicBaselineSelector()
         self.method_agent = MethodologyAgent()
+        self.math_agent = MathematicalFormulationAgent()
         self.exp_agent = ExperimentAgent()
+        self.fig_planner = FigurePlanningAgent()
+        self.manuscript_planner = ManuscriptPlanningAgent()
+        self.page_controller = PhysicalPageController()
         self.validator = EvidenceValidator()
         self.stat_critic = StatisticalCriticAgent()
         self.reviewer = ScientificReviewerAgent()
@@ -153,7 +175,7 @@ class NovaScientistOrchestrator:
         output_pdf: Optional[str] = None,
         progress_callback: Optional[Callable[[str, float], None]] = None,
     ) -> OrchestratorResult:
-        """Run the complete autonomous agentic research pipeline."""
+        """Run the complete topic-adaptive autonomous agentic research pipeline."""
         start_time = time.perf_counter()
 
         def notify(msg: str, progress: float) -> None:
@@ -162,7 +184,7 @@ class NovaScientistOrchestrator:
 
         self._prepare_directories()
 
-        # Normalize parameters
+        # Author profile gate
         if author is None:
             author = AuthorProfile(
                 name="Anonymous Author(s)",
@@ -182,17 +204,28 @@ class NovaScientistOrchestrator:
         q_node = prov.record_node("q_001", "question", topic)
 
         classification = UniversalDomainDispatcher.classify_topic(topic)
+        
+        # Step 0A: Topic Research Profile Extraction
+        notify("Extracting structured TopicResearchProfile (domain, task, paradigm, modality)...", 0.03)
+        topic_profile = TopicProfileExtractor.extract(topic, domain=classification.domain.value)
+
         prior_knowledge = self.memory.find_relevant_knowledge(topic, classification.domain_display_name)
         if prior_knowledge:
-            notify(f"Research Memory: Retrieved {len(prior_knowledge)} relevant historical research task(s)...", 0.04)
+            notify(f"Research Memory: Retrieved {len(prior_knowledge)} relevant historical research task(s)...", 0.05)
 
-        # Step 0: Research Planning Agent
-        notify("Research Planner formulating structured objectives & constraints...", 0.05)
-        plan = self.planner.create_plan(topic, num_seeds=num_seeds, target_format=length_str)
+        # Step 0B: Research Planning Agent
+        notify("Research Planner formulating topic-adaptive objectives & constraints...", 0.07)
+        plan = self.planner.create_plan(
+            topic,
+            domain=classification.domain,
+            num_seeds=num_seeds,
+            target_format=length_str,
+            topic_profile=topic_profile,
+        )
         plan_node = prov.record_node(plan.plan_id, "plan", plan.topic_title, parent_ids=[q_node.node_id])
 
         # Step 1: Scholarly Literature & Evidence Agent
-        notify("Literature Agent querying CrossRef & OpenAlex for verified evidence...", 0.15)
+        notify("Literature Agent querying CrossRef & OpenAlex for verified empirical evidence...", 0.15)
         evidence = await self.lit_agent.gather_evidence(topic, limit=10 if is_journal else 5)
         papers: List[PaperMetadata] = []
         for s in evidence.sources:
@@ -210,15 +243,34 @@ class NovaScientistOrchestrator:
                 bibkey=s.bibkey,
             ))
 
+        # Step 1B: Literature Advisory & Dynamic Baselines
+        notify("Literature Advisor synthesizing baseline methods & candidate research gaps...", 0.18)
+        lit_report = self.lit_advisor.synthesize(evidence, topic_profile)
+        baseline_suite = self.baseline_selector.select_baselines(topic_profile, lit_report)
+
         dataset = DatasetFinder.discover(topic, classification.domain)
         venues = VenueMatcher.match_venues(topic, classification.domain, top_k=3)
         dev_type, dev_name = get_torch_device()
         bibtex_content = self.lit_agent.lit_service.generate_bibtex(papers, dataset=dataset)
 
-        # Step 2: Methodology Agent
+        # Step 2: Methodology Agent & Mathematical Formulation
         notify(f"Methodology Agent formulating theoretical specification for {plan.model_acronym}...", 0.22)
-        methodology = self.method_agent.synthesize_methodology(plan, evidence)
+        methodology = self.method_agent.synthesize_methodology(
+            plan,
+            evidence,
+            topic_profile=topic_profile,
+            literature_report=lit_report,
+            baseline_suite=baseline_suite,
+        )
         method_node = prov.record_node(methodology.methodology_id, "methodology", methodology.model_full_name, parent_ids=[plan_node.node_id])
+
+        # Step 2B: Mathematical Formulation Agent
+        notify("Mathematical Formulation Agent analyzing formal theorem & lemma justifications...", 0.25)
+        theorem = self.math_agent.formulate(
+            topic_profile=topic_profile,
+            methodology=methodology,
+            has_theoretical_claims=True,
+        )
 
         # Step 3: Experiment Planning Agent
         notify("Experiment Agent setting up multi-seed benchmarking specification...", 0.28)
@@ -417,12 +469,26 @@ class NovaScientistOrchestrator:
             relation="audits_statistical_power",
         )
 
-        # Step 8: Vector Figures Suite
-        notify("Generating 5-figure publication vector suite (PDF & PNG)...", 0.75)
-        fig_suite = ScientificFigureSuite(metrics_dict, output_dir=str(self.figures_dir))
-        figs = fig_suite.generate_all_figures()
+        # Step 8: Topic-Adaptive Vector Figures Suite
+        notify("Planning and generating topic-adaptive scientific figures (PDF & PNG)...", 0.75)
+        planned_figs = self.fig_planner.plan_figures(topic_profile, metrics_dict, output_dir=str(self.figures_dir))
+        figs = self.fig_planner.generate_figures(planned_figs)
+        if not figs:
+            fig_suite = ScientificFigureSuite(metrics_dict, output_dir=str(self.figures_dir))
+            figs = fig_suite.generate_all_figures()
 
-        # Step 9: IEEE Manuscript Assembly
+        # Step 8B: Dynamic Manuscript Planning
+        venue_fmt = VenueFormat.EXTENDED_JOURNAL if is_journal else VenueFormat.FULL_CONFERENCE
+        manuscript_plan = self.manuscript_planner.plan_manuscript(
+            topic_profile=topic_profile,
+            literature_report=lit_report,
+            methodology=methodology,
+            theorem=theorem,
+            figures=planned_figs,
+            venue_format=venue_fmt,
+        )
+
+        # Step 9: Manuscript Assembly
         notify("Constructing complete IEEE Transactions LaTeX manuscript...", 0.82)
         if is_journal:
             assembler = DeepJournalAssembler(metrics_dict, papers, author=author, dataset=dataset)
@@ -495,6 +561,14 @@ class NovaScientistOrchestrator:
             relation="validates_conclusions",
         )
 
+        # Step 11: Physical Page Budget Evaluation
+        page_eval = self.page_controller.evaluate_page_budget(
+            target_min=manuscript_plan.target_page_min,
+            target_max=manuscript_plan.target_page_max,
+            tex_content=latex_content,
+            num_figures=len(planned_figs),
+        )
+
         # Step 12: Tectonic Compilation & ZIP Packaging
         notify("Compiling IEEE publication PDF via Tectonic / Publication Engine...", 0.94)
         runner = TectonicRunner(str(self.workspace_dir))
@@ -517,6 +591,16 @@ class NovaScientistOrchestrator:
             except Exception:
                 page_count = 8 if is_journal else 4
 
+        # Re-evaluate page controller on real PDF
+        if final_pdf_path:
+            page_eval = self.page_controller.evaluate_page_budget(
+                target_min=manuscript_plan.target_page_min,
+                target_max=manuscript_plan.target_page_max,
+                pdf_path=final_pdf_path,
+                tex_content=latex_content,
+                num_figures=len(planned_figs),
+            )
+
         # Final Publication Deliverable Lineage Node
         pub_node = prov.record_node(
             "pub_deliverable_001",
@@ -533,7 +617,7 @@ class NovaScientistOrchestrator:
             relation="generates_publication",
         )
 
-        # Step 11: Runtime Provenance Completeness Validation (Fail-Closed)
+        # Step 13: Runtime Provenance Completeness Validation (Fail-Closed)
         exported_graph = prov.export_graph()
         num_methods = len(methods_dict) if methods_dict else 4
         prov_audit = validate_complete_provenance(
@@ -549,7 +633,7 @@ class NovaScientistOrchestrator:
                 f"Dangling edges: {prov_audit['missing_edges']}"
             )
 
-        # Step 12: Record into Persistent Research Memory
+        # Step 14: Record into Persistent Research Memory
         self.memory.store_task(
             task_id=task_id,
             topic=topic,
@@ -571,7 +655,7 @@ class NovaScientistOrchestrator:
             shutil.copy2(final_pdf_path, out_p)
 
         elapsed = time.perf_counter() - start_time
-        notify(f"✓ Autonomous research pipeline completed in {elapsed:.1f}s ({page_count} pages, Review: {review_report.overall_verdict.title()})!", 1.0)
+        notify(f"✓ Topic-adaptive research pipeline completed in {elapsed:.1f}s ({page_count} pages, Review: {review_report.overall_verdict.title()})!", 1.0)
 
         return OrchestratorResult(
             success=comp_res.success,
@@ -602,4 +686,10 @@ class NovaScientistOrchestrator:
             provenance_audit=prov_audit,
             revision_history=rev_history.to_dict(),
             prior_knowledge=prior_knowledge,
+            topic_profile=topic_profile.to_dict(),
+            literature_synthesis=lit_report.to_dict(),
+            baseline_suite=baseline_suite.to_dict(),
+            theorem=theorem.to_dict(),
+            manuscript_plan=manuscript_plan.to_dict(),
+            page_budget_eval=page_eval.to_dict(),
         )
