@@ -64,6 +64,7 @@ from backend.core.research_contract import (
     ScientificDecisionLog,
     ScientificResearchContract,
     StatisticalAnalysisType,
+    generate_contract_consistency_report,
     validate_downstream_against_contract,
 )
 from backend.core.research_memory import ResearchMemory
@@ -186,6 +187,7 @@ class NovaScientistOrchestrator:
         num_epochs: int = 40,
         output_pdf: Optional[str] = None,
         progress_callback: Optional[Callable[[str, float], None]] = None,
+        contract: Optional[ScientificResearchContract] = None,
     ) -> OrchestratorResult:
         """Run the complete topic-adaptive autonomous agentic research pipeline."""
         start_time = time.perf_counter()
@@ -260,14 +262,18 @@ class NovaScientistOrchestrator:
         lit_report = self.lit_advisor.synthesize(evidence, topic_profile)
         baseline_suite = self.baseline_selector.select_baselines(topic_profile, lit_report)
 
-        dataset = DatasetFinder.discover(topic, classification.domain)
+        if contract and contract.selected_dataset:
+            dataset = DatasetFinder.find_dataset_by_name(contract.selected_dataset) or DatasetFinder.discover(topic, classification.domain)
+        else:
+            dataset = DatasetFinder.discover(topic, classification.domain)
         venues = VenueMatcher.match_venues(topic, classification.domain, top_k=3)
         dev_type, dev_name = get_torch_device()
         bibtex_content = self.lit_agent.lit_service.generate_bibtex(papers, dataset=dataset)
 
         # Step 1C: Research-Question-First Scientific Contract Formulation
-        notify("Formulating unified ScientificResearchContract and Question Decomposition...", 0.20)
-        contract = ResearchContractBuilder.build_contract(topic, topic_profile, literature_report=lit_report)
+        if contract is None:
+            notify("Formulating unified ScientificResearchContract and Question Decomposition...", 0.20)
+            contract = ResearchContractBuilder.build_contract(topic, topic_profile, literature_report=lit_report)
         contract.freeze()
         contract_node = prov.record_node(
             contract.contract_id,
@@ -429,8 +435,8 @@ class NovaScientistOrchestrator:
         )
         methodology.hypothesis_evaluations = self.method_agent.evaluate_hypotheses(methodology, metrics_dict)
 
-        # Step 7: Statistical Critic Agent & Meta-Analysis Lineage
-        notify("Statistical Critic evaluating variance bounds and DerSimonian-Laird meta-analysis...", 0.68)
+        # Step 7: Statistical Critic Agent & Lineage
+        notify("Statistical Critic evaluating variance bounds and statistical plan...", 0.68)
         stat_critique = self.stat_critic.evaluate_statistics(metrics_dict)
         
         methods_dict = metrics_dict.get("methods", {})
@@ -455,25 +461,41 @@ class NovaScientistOrchestrator:
             parent_ids=all_res_node_ids,
             relation="aggregates_results",
         )
-        meta_node = prov.record_node(
-            "meta_analysis_001",
-            "meta_analysis",
-            f"DerSimonian-Laird Random-Effects Meta-Analysis: Effect Size {meta_dict.get('pooled_effect_size', 0.0):+.4f} (Z={meta_dict.get('z_statistic', 0.0):.2f}, I²={meta_dict.get('i_squared_percent', 0.0):.1f}%)",
-            {
-                "pooled_effect_size": meta_dict.get("pooled_effect_size"),
-                "pooled_standard_error": meta_dict.get("pooled_standard_error"),
-                "ci_95_lower": meta_dict.get("ci_95_lower"),
-                "ci_95_upper": meta_dict.get("ci_95_upper"),
-                "z_statistic": meta_dict.get("z_statistic"),
-                "p_value_z": meta_dict.get("p_value_z"),
-                "i_squared_percent": meta_dict.get("i_squared_percent"),
-                "tau_squared": meta_dict.get("tau_squared"),
-                "cochran_q": meta_dict.get("cochran_q"),
-                "model": "DerSimonian-Laird Random Effects",
-            },
-            parent_ids=[metrics_agg_node.node_id],
-            relation="computes_meta_analysis",
-        )
+
+        stat_req = contract.statistical_requirement if contract else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
+        if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
+            stat_node = prov.record_node(
+                "meta_analysis_001",
+                "meta_analysis",
+                f"DerSimonian-Laird Random-Effects Meta-Analysis: Effect Size {meta_dict.get('pooled_effect_size', 0.0):+.4f} (Z={meta_dict.get('z_statistic', 0.0):.2f}, I²={meta_dict.get('i_squared_percent', 0.0):.1f}%)",
+                {
+                    "pooled_effect_size": meta_dict.get("pooled_effect_size"),
+                    "pooled_standard_error": meta_dict.get("pooled_standard_error"),
+                    "ci_95_lower": meta_dict.get("ci_95_lower"),
+                    "ci_95_upper": meta_dict.get("ci_95_upper"),
+                    "z_statistic": meta_dict.get("z_statistic"),
+                    "p_value_z": meta_dict.get("p_value_z"),
+                    "i_squared_percent": meta_dict.get("i_squared_percent"),
+                    "tau_squared": meta_dict.get("tau_squared"),
+                    "cochran_q": meta_dict.get("cochran_q"),
+                    "model": "DerSimonian-Laird Random Effects",
+                },
+                parent_ids=[metrics_agg_node.node_id],
+                relation="computes_meta_analysis",
+            )
+        else:
+            stat_node = prov.record_node(
+                "statistical_analysis_001",
+                "statistical_analysis",
+                f"Statistical Hypothesis Testing & Power Audit ({stat_req.value if hasattr(stat_req, 'value') else stat_req})",
+                {
+                    "statistical_requirement": stat_req.value if hasattr(stat_req, "value") else str(stat_req),
+                    "pairwise_comparisons": [c.to_dict() for c in stat_critique.pairwise_comparisons],
+                },
+                parent_ids=[metrics_agg_node.node_id],
+                relation="computes_statistics",
+            )
+
         stat_critic_node = prov.record_node(
             "stat_critic_001",
             "statistical_critic",
@@ -490,7 +512,7 @@ class NovaScientistOrchestrator:
                 "cherry_picking_risk": stat_critique.cherry_picking_risk,
                 "critical_issues": stat_critique.critical_issues,
             },
-            parent_ids=[meta_node.node_id],
+            parent_ids=[stat_node.node_id],
             relation="audits_statistical_power",
         )
 
@@ -500,10 +522,7 @@ class NovaScientistOrchestrator:
         # Step 8: Topic-Adaptive Vector Figures Suite
         notify("Planning and generating topic-adaptive scientific figures (PDF & PNG)...", 0.75)
         planned_figs = self.fig_planner.plan_figures(topic_profile, metrics_dict, output_dir=str(self.figures_dir), contract=contract)
-        figs = self.fig_planner.generate_figures(planned_figs)
-        if not figs:
-            fig_suite = ScientificFigureSuite(metrics_dict, output_dir=str(self.figures_dir))
-            figs = fig_suite.generate_all_figures()
+        figs = self.fig_planner.generate_figures(planned_figs, metrics_dict=metrics_dict, profile=topic_profile, output_dir=str(self.figures_dir))
         validate_downstream_against_contract(contract, planned_figs, artifact_type="figures")
 
         # Step 8B: Dynamic Manuscript Planning
@@ -527,8 +546,13 @@ class NovaScientistOrchestrator:
             assembler = CompliantLaTeXAssembler(metrics_dict, papers, author=author, dataset=dataset, contract=contract)
             latex_content = assembler.generate_latex()
 
-        # Step 9B: Fail-Closed Manuscript Contract Audit
+        # Step 9B: Fail-Closed Manuscript Contract Audit & Consistency Report
         validate_downstream_against_contract(contract, latex_content, artifact_type="manuscript")
+        consistency_rep = generate_contract_consistency_report(contract, latex_content, planned_figs, metrics_dict)
+        with open(self.workspace_dir / "contract_consistency_report.json", "w", encoding="utf-8") as f:
+            json.dump(consistency_rep, f, indent=2)
+        with open(self.artifacts_dir / "contract_consistency_report.json", "w", encoding="utf-8") as f:
+            json.dump(consistency_rep, f, indent=2)
 
         # Step 10: Adversarial Scientific Reviewer & Bounded Revision Loop
         notify("Scientific Reviewer executing bounded self-critique revision loop (k<=3)...", 0.88)

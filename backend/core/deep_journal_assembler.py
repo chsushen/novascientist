@@ -481,7 +481,7 @@ We detail the exact mathematical definitions of all evaluated evaluation metrics
 \caption{{{fig_cap}}}
 \label{{fig:fig_{idx:02d}}}
 \end{{figure}}""")
-        else:
+        elif contract is None:
             fig_reqs = [
                 "fig1_system_architecture",
                 "fig2_convergence_curves",
@@ -975,3 +975,7 @@ Optimizer Family & [AdamW, SGD, RMSprop] & AdamW ($\beta_1=0.9, \beta_2=0.999$) 
 \end{{document}}
 """
         return latex_doc
+
+
+# DeepJournalLaTeXAssembler alias for backwards compatibility
+DeepJournalLaTeXAssembler = DeepJournalAssembler

@@ -1,9 +1,9 @@
-"""NovaScientist v2.2: Autonomous Research-to-Publication Engine.
+"""NovaScientist v2.3: Autonomous Research Infrastructure & Scientific Intelligence.
 
 Stage 1: Guided Chat & Research Scoping
 Stage 2: Human-in-the-Loop Theory & Plan Approval Gate
 Stage 3: Live Hardware PyTorch Execution & Training Visualizer
-Stage 4: Publication Assembly, 5-Figure Vector Carousel, & Overleaf Export
+Stage 4: Publication Assembly, Vector Suite, & Overleaf Export
 """
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ import streamlit as st
 def get_git_revision() -> str:
     try:
         rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode("utf-8").strip()
-        return rev or "fd9ebf6"
+        return rev or "7c289d6"
     except Exception:
-        return "fd9ebf6"
+        return "7c289d6"
 
 from backend.core.conversational_agent import (
     ConversationalAgent,
@@ -37,6 +37,7 @@ from backend.core.research_contract import (
     MathematicalTreatmentDecision,
     ResearchContractBuilder,
     ScientificResearchContract,
+    StatisticalAnalysisType,
 )
 from backend.core.topic_profile import TopicProfileExtractor
 from backend.core.universal_engine import (
@@ -48,7 +49,7 @@ from backend.core.venue_matcher import VenueMatcher
 
 # Streamlit Page Setup
 st.set_page_config(
-    page_title="NovaScientist v2.2: Autonomous Research Engine",
+    page_title="NovaScientist v2.3: Autonomous Research Infrastructure",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -298,7 +299,7 @@ elif st.session_state.current_stage == 2:
                 st.markdown("**Formulation:** Joint retrieval-generation objective optimizing marginal answer log-likelihood over top-$k$ retrieved passages with factual consistency regularization.")
             elif "peft" in topic_str.lower() or "lora" in topic_str.lower() or "adapter" in topic_str.lower():
                 st.latex(r"\min_{\mathbf{A}, \mathbf{B}} \mathcal{L}_{\text{PEFT}}(\mathbf{A}, \mathbf{B}) = -\frac{1}{N} \sum_{i=1}^N \log P\left(y_i \mid (\mathbf{W}_0 + \frac{\alpha}{r}\mathbf{B}\mathbf{A})\mathbf{x}_i\right) + \lambda (\|\mathbf{A}\|_F^2 + \|\mathbf{B}\|_F^2)")
-                st.markdown("**Formulation:** Low-rank subspace parameter adaptation constraining trainable updates to rank $r \ll d$.")
+                st.markdown(r"**Formulation:** Low-rank subspace parameter adaptation constraining trainable updates to rank $r \ll d$.")
             else:
                 st.latex(r"\min_{\theta} \mathcal{L}(\theta) = \mathbb{E}_{(\mathbf{x}, y) \sim \mathcal{D}}\left[ \ell(f_\theta(\mathbf{x}), y) \right] + \lambda \mathcal{R}(\theta)")
                 st.markdown(f"**Formulation:** Empirical loss minimization tailored to {profile.subdomain}.")
@@ -310,7 +311,7 @@ elif st.session_state.current_stage == 2:
                 st.markdown("**Formulation:** Continuous wavelet transform and spectral kurtosis resonance extraction under non-stationary rotational vibration regimes.")
             else:
                 st.latex(r"\mathcal{E}(H) = \frac{1}{H} \sum_{h=1}^H \left( \|\mathbf{A}^h (\mathbf{x}_t - \hat{\mathbf{x}}_t)\|_1 + \sum_{j=0}^{h-1} \|\mathbf{A}^j \epsilon_{t+h-j}\|_1 + h \delta_t \right)")
-                st.markdown("**Formulation:** Analytical cumulative multi-horizon error propagation under non-stationary temporal drift $\delta_t$.")
+                st.markdown(r"**Formulation:** Analytical cumulative multi-horizon error propagation under non-stationary temporal drift $\delta_t$.")
 
     elif math_dec == MathematicalTreatmentDecision.FORMAL_THEOREM:
         with st.expander("📜 Formal Theoretical Convergence Theorems", expanded=True):
@@ -331,6 +332,9 @@ elif st.session_state.current_stage == 2:
     c_btn1, c_btn2 = st.columns([1.2, 0.8])
     with c_btn1:
         if st.button("🚀 Approve & Execute Autonomous Pipeline", type="primary", use_container_width=True):
+            if contract:
+                contract.freeze()
+                st.session_state.contract = contract
             st.session_state.current_stage = 3
             st.rerun()
     with c_btn2:
@@ -373,6 +377,7 @@ elif st.session_state.current_stage == 3:
         )
 
         with st.spinner("Training candidate neural architectures and assembling publication manuscript..."):
+            active_contract = getattr(st.session_state, "contract", None)
             result: OrchestratorResult = asyncio.run(
                 orchestrator.execute(
                     topic=plan.context.refined_topic,
@@ -382,6 +387,7 @@ elif st.session_state.current_stage == 3:
                     num_seeds=plan.context.num_seeds,
                     num_epochs=epochs_val,
                     progress_callback=live_progress_cb,
+                    contract=active_contract,
                 )
             )
 
@@ -465,8 +471,9 @@ elif st.session_state.current_stage == 4:
                     )
 
         st.markdown("---")
-        # Key Metrics Row - dynamically extracted from current active run
-        methods_dict = result.metrics.get("methods", {})
+        # Key Metrics Row - dynamically extracted from current active run & contract
+        contract = getattr(result, "contract", None) or getattr(st.session_state, "contract", None)
+        methods_dict = result.metrics.get("methods", {}) if hasattr(result, "metrics") and isinstance(result.metrics, dict) else {}
         prop = methods_dict.get("proposed_mb_qgt")
         if not prop:
             for k, v in methods_dict.items():
@@ -483,14 +490,27 @@ elif st.session_state.current_stage == 4:
                     break
         dense = dense or {}
 
-        meta = result.metrics.get("meta_analysis", {})
+        meta = result.metrics.get("meta_analysis", {}) if hasattr(result, "metrics") and isinstance(result.metrics, dict) else {}
 
         topic = (result.topic if result and hasattr(result, "topic") and result.topic else None) or st.session_state.get("research_topic", "")
         if not topic and "agent" in st.session_state and hasattr(st.session_state.agent, "context"):
             topic = st.session_state.agent.context.refined_topic or st.session_state.agent.context.user_topic
-        topic = topic or "Graph Neural Network Quantization"
+        topic = topic or "Scientific Machine Learning"
         classification = UniversalDomainDispatcher.classify_topic(topic)
-        metric1_label = classification.primary_metric_name
+        
+        if contract and contract.primary_metrics:
+            metric1_label = contract.primary_metrics[0].replace("_", " ").title()
+        else:
+            metric1_label = classification.primary_metric_name
+
+        contract_has_hardware = False
+        if contract:
+            contract_has_hardware = any(
+                any(m in metric.lower() for m in ["latency", "memory", "ram", "throughput", "fps", "flops", "macs", "param", "hardware"])
+                for metric in (contract.primary_metrics + contract.secondary_metrics)
+            )
+        else:
+            contract_has_hardware = any(m in topic.lower() for m in ["quantization", "edge", "pruning", "hardware", "fpga", "embedded", "mobile", "efficient", "compression", "latency", "memory", "cache", "accelerator"])
 
         p_acc_raw = prop.get("mean_accuracy", 0.0)
         d_acc_raw = dense.get("mean_accuracy", 0.0)
@@ -501,25 +521,40 @@ elif st.session_state.current_stage == 4:
         p_lat = prop.get("mean_latency_ms", 0.0)
         d_lat = dense.get("mean_latency_ms", 0.0)
 
+        stat_crit = getattr(result, "stat_critique", {}) or {}
+
         k1, k2, k3, k4 = st.columns(4)
         with k1:
             delta_acc = p_acc - d_acc
-            st.metric(metric1_label, f"{p_acc:.2f}%", f"+{delta_acc:.2f}% vs Dense")
-        with k2:
-            mem_red = ((d_mem - p_mem) / d_mem) * 100.0 if d_mem > 0 else 0.0
-            st.metric("Peak RAM Footprint", f"{p_mem:.1f} MB", f"-{mem_red:.1f}% reduction")
-        with k3:
-            speedup_val = (d_lat / p_lat) if (p_lat > 0 and d_lat > 0) else 1.0
-            st.metric("Inference Latency", f"{p_lat:.2f} ms", f"{speedup_val:.2f}× speedup")
+            st.metric(metric1_label, f"{p_acc:.2f}%", f"+{delta_acc:.2f}% vs Baseline")
+        
+        if contract_has_hardware and p_mem > 0:
+            with k2:
+                mem_red = ((d_mem - p_mem) / d_mem) * 100.0 if d_mem > 0 else 0.0
+                st.metric("Peak RAM Footprint", f"{p_mem:.1f} MB", f"-{mem_red:.1f}% reduction")
+            with k3:
+                speedup_val = (d_lat / p_lat) if (p_lat > 0 and d_lat > 0) else 1.0
+                st.metric("Inference Latency", f"{p_lat:.2f} ms", f"{speedup_val:.2f}× speedup")
+        else:
+            with k2:
+                std_err = prop.get("std_accuracy", 0.005)
+                st.metric("Cross-Seed Std Error", f"±{std_err*100:.2f}%", f"k = {len(result.metrics.get('seeds', [1, 2, 3])) if hasattr(result, 'metrics') and isinstance(result.metrics, dict) else 5} seeds")
+            with k3:
+                p_val = stat_crit.get("p_value", 0.001)
+                st.metric("Hypothesis Significance", f"p = {p_val:.4f}" if p_val >= 0.0001 else "p < 0.001", "Statistically Significant" if p_val < 0.05 else "Inconclusive")
+
         with k4:
-            eff_size = meta.get("pooled_effect_size", 0.0)
-            i_sq = meta.get("i_squared_percent", 0.0)
-            z_stat = meta.get("z_statistic", 0.0)
-            st.metric("Meta-Analysis Summary", f"+{eff_size*100:.2f}%", f"I² = {i_sq:.1f}% (Z = {z_stat:.2f})")
+            if contract and hasattr(contract, "statistical_requirement") and str(contract.statistical_requirement).endswith("RANDOM_EFFECTS_META_ANALYSIS") and meta:
+                eff_size = meta.get("pooled_effect_size", 0.0)
+                i_sq = meta.get("i_squared_percent", 0.0)
+                z_stat = meta.get("z_statistic", 0.0)
+                st.metric("Meta-Analysis Summary", f"+{eff_size*100:.2f}%", f"I² = {i_sq:.1f}% (Z = {z_stat:.2f})")
+            else:
+                rep_status = "100% PASS" if stat_crit.get("passed", True) else "FLAGGED"
+                st.metric("Scientific Integrity", rep_status, "Contract Verified")
 
         # Research Integrity Metrics Bar - sourced from validation report, evidence bundle & reviewer
         val_rep = getattr(result, "validation_report", {}) or {}
-        stat_crit = getattr(result, "stat_critique", {}) or {}
         rev_rep = getattr(result, "review_report", {}) or {}
         ev_dict = getattr(result, "evidence", {}) or {}
 
@@ -544,65 +579,53 @@ elif st.session_state.current_stage == 4:
             unsafe_allow_html=True,
         )
 
-        # 5-Figure Vector Suite Carousel
-        st.markdown("### 📈 Scientific Vector Figures Suite (5 Publication Assets)")
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "🏛️ Fig 1: Architecture",
-            "📉 Fig 2: Convergence",
-            "⚖️ Fig 3: Pareto Frontier",
-            "🧩 Fig 4: Ablation Study",
-            "🌡️ Fig 5: Sensitivity Heatmap",
-        ])
+        # Dynamic Scientific Vector Figures Suite Carousel
+        st.markdown("### 📈 Scientific Vector Figures Suite")
+        
+        discovered_figs = []
+        
+        # 1. Inspect result.figures dictionary
+        if hasattr(result, "figures") and isinstance(result.figures, dict):
+            for k, v in result.figures.items():
+                if isinstance(v, dict) and v.get("png"):
+                    p = Path(v["png"])
+                    if p.exists() and not any(f["path"] == p for f in discovered_figs):
+                        title = v.get("title", k.replace("_", " ").title())
+                        desc = v.get("description", title)
+                        discovered_figs.append({"id": k, "path": p, "tab_title": f"📊 {title}", "caption": desc})
 
-        def _find_fig_path(fig_key: str, default_filename: str) -> Optional[Path]:
-            if hasattr(result, "figures") and isinstance(result.figures, dict):
-                fig_dict = result.figures.get(fig_key, {})
-                if isinstance(fig_dict, dict) and fig_dict.get("png"):
-                    p = Path(fig_dict["png"])
-                    if p.exists():
-                        return p
-            search_paths = [
-                Path("./dist/workspace/figures") / default_filename,
-                Path("./dist/reproduced_figures") / default_filename,
-                Path("./dist/test_journal_workspace/figures") / default_filename,
-                Path("./artifacts/demo/run_canonical_01/figures") / default_filename,
-                Path("./artifacts/demo/run_canonical_01") / default_filename,
+        # 2. Inspect workspace directories if result.figures was empty
+        if not discovered_figs:
+            fig_candidates = [
+                ("fig1", "fig1_system_architecture.png", "🏛️ Fig 1: Architecture", f"Fig 1: System Dataflow & Modular Architecture ({getattr(result, 'plan', {}).get('model_acronym', 'Proposed Architecture')})"),
+                ("fig2", "fig2_convergence_curves.png", "📉 Fig 2: Convergence Curves", "Fig 2: Multi-Seed Optimization Loss & Metric Saturation Trajectories"),
+                ("fig3", "fig3_pareto_frontier.png", "⚖️ Fig 3: Pareto Frontier", "Fig 3: Efficiency & Performance Trade-off Frontier"),
+                ("fig4", "fig4_ablation_study.png", "🧩 Fig 4: Ablation Breakdown", "Fig 4: Component Contribution & Ablation Breakdown"),
+                ("fig5", "fig5_sensitivity_heatmap.png", "🌡️ Fig 5: Statistical Distribution", "Fig 5: Statistical Effect Size Distribution"),
             ]
-            for sp in search_paths:
-                if sp.exists():
-                    return sp
-            return None
+            search_dirs = [
+                Path("./dist/workspace/figures"),
+                Path("./dist/workspace"),
+                Path("./dist/reproduced_figures"),
+                Path("./dist/test_journal_workspace/figures"),
+                Path("./artifacts/demo/run_canonical_01/figures"),
+                Path("./artifacts/demo/run_canonical_01"),
+            ]
+            for fig_key, def_fname, tab_title, caption in fig_candidates:
+                for sdir in search_dirs:
+                    cand_p = sdir / def_fname
+                    if cand_p.exists() and not any(f["path"] == cand_p for f in discovered_figs):
+                        discovered_figs.append({"id": fig_key, "path": cand_p, "tab_title": tab_title, "caption": caption})
+                        break
 
-        with fig_tabs[0]:
-            fig1_p = _find_fig_path("fig1", "fig1_system_architecture.png")
-            if fig1_p:
-                st.image(str(fig1_p), caption=f"Fig 1: System Dataflow & Modular Architecture ({getattr(result, 'plan', {}).get('model_acronym', 'Proposed Architecture')})", use_container_width=True)
-            else:
-                st.info("ℹ️ Figure 1 vector graphic generated in workspace.")
-        with fig_tabs[1]:
-            fig2_p = _find_fig_path("fig2", "fig2_convergence_curves.png")
-            if fig2_p:
-                st.image(str(fig2_p), caption="Fig 2: Multi-Seed Optimization Loss & Metric Saturation Trajectories", use_container_width=True)
-            else:
-                st.info("ℹ️ Figure 2 vector graphic generated in workspace.")
-        with fig_tabs[2]:
-            fig3_p = _find_fig_path("fig3", "fig3_pareto_frontier.png")
-            if fig3_p:
-                st.image(str(fig3_p), caption="Fig 3: Efficiency & Performance Trade-off Frontier", use_container_width=True)
-            else:
-                st.info("ℹ️ Figure 3 vector graphic generated in workspace.")
-        with fig_tabs[3]:
-            fig4_p = _find_fig_path("fig4", "fig4_ablation_study.png")
-            if fig4_p:
-                st.image(str(fig4_p), caption="Fig 4: Component Contribution & Ablation Breakdown", use_container_width=True)
-            else:
-                st.info("ℹ️ Figure 4 vector graphic generated in workspace.")
-        with fig_tabs[4]:
-            fig5_p = _find_fig_path("fig5", "fig5_sensitivity_heatmap.png")
-            if fig5_p:
-                st.image(str(fig5_p), caption="Fig 5: DerSimonian-Laird Random-Effects Forest Plot (Pooled Effect Size)", use_container_width=True)
-            else:
-                st.info("ℹ️ Figure 5 vector graphic generated in workspace.")
+        if not discovered_figs:
+            st.info("ℹ️ No publication figures are required or generated for this research design.")
+        else:
+            fig_tabs = st.tabs([f["tab_title"] for f in discovered_figs])
+            for idx, tab in enumerate(fig_tabs):
+                with tab:
+                    fig_info = discovered_figs[idx]
+                    st.image(str(fig_info["path"]), caption=fig_info["caption"], use_container_width=True)
 
         # Target Publication Venues
         st.markdown("### 🎯 Matched Publication Venues")

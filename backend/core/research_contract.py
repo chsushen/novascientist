@@ -25,6 +25,10 @@ class ScientificContractViolationError(Exception):
     pass
 
 
+# ScientificContractViolation alias for strict contract violation assertions
+ScientificContractViolation = ScientificContractViolationError
+
+
 class MathematicalTreatmentDecision(str, Enum):
     """Rigorous decision on whether formal mathematics or theorems are justified."""
     NONE = "none"
@@ -49,6 +53,9 @@ class StatisticalAnalysisType(str, Enum):
     PERMUTATION_TEST = "permutation_test"
     DESCRIPTIVE_STATISTICS = "descriptive_statistics"
     NONE = "none"
+
+
+StatisticalRequirement = StatisticalAnalysisType
 
 
 @dataclass
@@ -220,6 +227,14 @@ class ScientificResearchContract:
     def freeze(self) -> None:
         """Freeze contract as the immutable single source of truth after Stage 2 approval."""
         self.is_frozen = True
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "is_frozen", False) and name != "is_frozen":
+            raise ScientificContractViolationError(
+                f"SCIENTIFIC CONTRACT VIOLATION: Attempted to mutate frozen scientific contract field '{name}' "
+                f"after Stage 2 approval. The contract is frozen and must remain the single authoritative source of truth."
+            )
+        super().__setattr__(name, value)
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -750,6 +765,11 @@ class ResearchContractBuilder:
             fig_candidates.append("Client Drift Divergence Heatmap")
             fig_candidates.append("Communication Rounds vs Accuracy Scaling")
 
+        # Ensure empirical paradigm studies receive core scientific visualization assets
+        if not fig_candidates and profile.research_paradigm != ResearchParadigm.THEORETICAL_ALGORITHMIC and not any(k in topic.lower() for k in ["zero figure", "purely tabular", "meta-review"]):
+            fig_candidates.append("System Architecture & Modular Pipeline Dataflow")
+            fig_candidates.append("Multi-Seed Empirical Evaluation Benchmark Breakdown")
+
         # If zero figure study (e.g. theoretical note or tabular meta-analysis), empty list is preserved!
         fig_reqs = fig_candidates
         fig_rat = (
@@ -1024,3 +1044,81 @@ def validate_downstream_against_contract(
                     )
 
     return True
+
+
+def generate_contract_consistency_report(
+    contract: ScientificResearchContract,
+    latex_content: str,
+    figures: List[Any],
+    metrics_dict: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Audit and generate comprehensive contract consistency report across all artifacts."""
+    import time
+    unauthorized_sections: List[str] = []
+    unauthorized_figures: List[str] = []
+    unauthorized_metrics: List[str] = []
+    unauthorized_statistics: List[str] = []
+    unauthorized_dataset: List[str] = []
+    unauthorized_methodology: List[str] = []
+    unauthorized_mathematics: List[str] = []
+
+    # 1. Dataset check
+    if contract.selected_dataset and "metr-la" not in contract.selected_dataset.lower() and "METR-LA" in latex_content:
+        unauthorized_dataset.append("Found legacy dataset 'METR-LA' in manuscript.")
+
+    # 2. Hardware check
+    contract_has_hardware = any(
+        k in contract.research_question.lower() or k in " ".join(contract.required_experiments).lower()
+        for k in ["hardware", "quantization", "int8", "cache", "efficiency", "memory", "throughput", "latency"]
+    )
+    if not contract_has_hardware:
+        forbidden = [
+            "dynamic block-floating quantization",
+            "64-byte cache tiles",
+            "Stochastic Tile Caching",
+        ]
+        for term in forbidden:
+            if term in latex_content:
+                unauthorized_methodology.append(f"Found uncontracted hardware term '{term}'.")
+
+    # 3. Mathematics check
+    if contract.mathematical_requirement in (
+        MathematicalTreatmentDecision.EMPIRICAL_ONLY,
+        MathematicalTreatmentDecision.NONE,
+        MathematicalTreatmentDecision.OPTIMIZATION_OBJECTIVE,
+    ):
+        if "\\begin{theorem}" in latex_content or "\\begin{lemma}" in latex_content:
+            unauthorized_mathematics.append(f"Found formal theorem/lemma in manuscript despite mathematical requirement '{contract.mathematical_requirement.value}'.")
+
+    # 4. Statistics check
+    if contract.statistical_requirement != StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
+        if "DerSimonian-Laird" in latex_content or "DerSimonian--Laird" in latex_content:
+            unauthorized_statistics.append("Found DerSimonian-Laird meta-analysis in manuscript despite non-meta-analysis requirement.")
+
+    # 5. Figures check
+    if not contract.figure_requirements and figures:
+        unauthorized_figures.append(f"Found {len(figures)} figures generated when contract specifies zero figures.")
+
+    passed = (
+        len(unauthorized_sections) == 0
+        and len(unauthorized_figures) == 0
+        and len(unauthorized_metrics) == 0
+        and len(unauthorized_statistics) == 0
+        and len(unauthorized_dataset) == 0
+        and len(unauthorized_methodology) == 0
+        and len(unauthorized_mathematics) == 0
+    )
+
+    return {
+        "contract_id": contract.contract_id,
+        "research_question": contract.research_question,
+        "status": "PASS" if passed else "FAIL",
+        "unauthorized_sections": unauthorized_sections,
+        "unauthorized_figures": unauthorized_figures,
+        "unauthorized_metrics": unauthorized_metrics,
+        "unauthorized_statistics": unauthorized_statistics,
+        "unauthorized_dataset": unauthorized_dataset,
+        "unauthorized_methodology": unauthorized_methodology,
+        "unauthorized_mathematics": unauthorized_mathematics,
+        "timestamp": time.time(),
+    }

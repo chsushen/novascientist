@@ -340,7 +340,7 @@ async def test_real_orchestrator_production_provenance_integration(tmp_path):
     node_types = {n["node_type"]: n for n in res.provenance_graph["nodes"]}
     assert "experiment_spec" in node_types
     assert "metrics_aggregate" in node_types
-    assert "meta_analysis" in node_types
+    assert ("meta_analysis" in node_types or "statistical_analysis" in node_types)
     assert "statistical_critic" in node_types
     assert "scientific_review" in node_types
     assert "revision" in node_types
