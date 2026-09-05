@@ -82,16 +82,16 @@ class ExperimentAgent:
         spec_id = f"spec_{s_hash}"
 
         methods = [
-            {"id": "dense_baseline", "name": "Dense FP32 Baseline", "precision": "FP32"},
-            {"id": "post_int8", "name": "Static INT8 Quantization", "precision": "INT8"},
-            {"id": "sparse_gnn", "name": "Dynamic Sparsified Baseline", "precision": "Sparse FP32"},
-            {"id": "proposed_mb_qgt", "name": f"Proposed {methodology.model_acronym}", "precision": "Dynamic Block INT8"},
+            {"id": "dense_baseline", "name": "Primary Baseline (Baseline 1)", "precision": "Full Precision"},
+            {"id": "post_int8", "name": "Secondary Baseline (Baseline 2)", "precision": "Standard"},
+            {"id": "sparse_gnn", "name": "Lightweight Baseline (Baseline 3)", "precision": "Efficient"},
+            {"id": "proposed_mb_qgt", "name": f"Proposed {methodology.model_acronym}", "precision": "Proposed"},
         ]
 
         ablations = [
-            "Full Proposed System",
-            "w/o Dynamic Block Scaling",
-            "w/o Stochastic Tile Caching",
+            f"Full Proposed {methodology.model_acronym}",
+            "w/o Adaptive Modulation",
+            "w/o State Alignment",
             "w/o Variance-Stabilized Step",
         ]
 

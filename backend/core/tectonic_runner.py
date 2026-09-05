@@ -287,16 +287,16 @@ This research manuscript package is 100% self-contained and pre-configured for *
                     ax_im1 = plt.axes([0.1, 0.16, 0.8, 0.42])
                     ax_im1.imshow(im1)
                     ax_im1.axis("off")
-                    ax_im1.set_title("Figure 1: System Dataflow & Dynamic Quantization Architecture", fontsize=8.5, y=-0.08)
+                    ax_im1.set_title("Figure 1: System Dataflow & Modular Architecture", fontsize=8.5, y=-0.08)
 
                 fig1.text(0.5, 0.04, "Page 1 of 3 — IEEE Transactions Layout Preview (NovaScientist Autonomous Engine)", ha="center", fontsize=7.5, color="#64748B")
                 pdf.savefig(fig1, bbox_inches="tight")
                 plt.close(fig1)
 
-                # Page 2: Optimization Convergence & Pareto Frontier
+                # Page 2: Optimization Convergence & Multi-Objective Trade-off
                 fig2 = plt.figure(figsize=(8.5, 11), dpi=150)
                 plt.axis("off")
-                fig2.text(0.5, 0.96, "Section III: Empirical Benchmarking Trajectories & Pareto Frontier", ha="center", fontsize=11, weight="bold")
+                fig2.text(0.5, 0.96, "Section III: Empirical Benchmarking Trajectories & Efficiency Trade-off", ha="center", fontsize=11, weight="bold")
 
                 fig2_img_path = self.figures_dir / "fig2_convergence_curves.png"
                 if fig2_img_path.exists():
@@ -304,7 +304,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
                     ax_im2 = plt.axes([0.1, 0.54, 0.8, 0.38])
                     ax_im2.imshow(im2)
                     ax_im2.axis("off")
-                    ax_im2.set_title("Figure 2: Multi-Seed Training Convergence & Validation Accuracy Trajectories", fontsize=8.5, y=-0.06)
+                    ax_im2.set_title("Figure 2: Multi-Seed Training Convergence & Validation Metric Trajectories", fontsize=8.5, y=-0.06)
 
                 fig3_img_path = self.figures_dir / "fig3_pareto_frontier.png"
                 if fig3_img_path.exists():
@@ -312,7 +312,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
                     ax_im3 = plt.axes([0.1, 0.10, 0.8, 0.38])
                     ax_im3.imshow(im3)
                     ax_im3.axis("off")
-                    ax_im3.set_title("Figure 3: Multi-Objective Pareto Frontier (Inference Latency vs Peak RAM vs Accuracy)", fontsize=8.5, y=-0.06)
+                    ax_im3.set_title("Figure 3: Multi-Objective Efficiency and Generalization Frontier", fontsize=8.5, y=-0.06)
 
                 fig2.text(0.5, 0.04, "Page 2 of 3 — Empirical Results & Trade-off Frontier", ha="center", fontsize=7.5, color="#64748B")
                 pdf.savefig(fig2, bbox_inches="tight")

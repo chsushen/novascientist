@@ -573,34 +573,34 @@ elif st.session_state.current_stage == 4:
                     return sp
             return None
 
-        with tab1:
+        with fig_tabs[0]:
             fig1_p = _find_fig_path("fig1", "fig1_system_architecture.png")
             if fig1_p:
-                st.image(str(fig1_p), caption="Fig 1: System Dataflow & Dynamic Quantization Architecture", use_container_width=True)
+                st.image(str(fig1_p), caption=f"Fig 1: System Dataflow & Modular Architecture ({getattr(result, 'plan', {}).get('model_acronym', 'Proposed Architecture')})", use_container_width=True)
             else:
                 st.info("ℹ️ Figure 1 vector graphic generated in workspace.")
-        with tab2:
+        with fig_tabs[1]:
             fig2_p = _find_fig_path("fig2", "fig2_convergence_curves.png")
             if fig2_p:
-                st.image(str(fig2_p), caption="Fig 2: Dual-Panel Optimization Convergence and Validation Accuracy Trajectories", use_container_width=True)
+                st.image(str(fig2_p), caption="Fig 2: Multi-Seed Optimization Loss & Metric Saturation Trajectories", use_container_width=True)
             else:
                 st.info("ℹ️ Figure 2 vector graphic generated in workspace.")
-        with tab3:
+        with fig_tabs[2]:
             fig3_p = _find_fig_path("fig3", "fig3_pareto_frontier.png")
             if fig3_p:
-                st.image(str(fig3_p), caption="Fig 3: Multi-Objective Pareto Frontier (Inference Latency vs Peak RAM vs Accuracy)", use_container_width=True)
+                st.image(str(fig3_p), caption="Fig 3: Efficiency & Performance Trade-off Frontier", use_container_width=True)
             else:
                 st.info("ℹ️ Figure 3 vector graphic generated in workspace.")
-        with tab4:
+        with fig_tabs[3]:
             fig4_p = _find_fig_path("fig4", "fig4_ablation_study.png")
             if fig4_p:
-                st.image(str(fig4_p), caption="Fig 4: Component Ablation Study on Key Architectural Modules", use_container_width=True)
+                st.image(str(fig4_p), caption="Fig 4: Component Contribution & Ablation Breakdown", use_container_width=True)
             else:
                 st.info("ℹ️ Figure 4 vector graphic generated in workspace.")
-        with tab5:
+        with fig_tabs[4]:
             fig5_p = _find_fig_path("fig5", "fig5_sensitivity_heatmap.png")
             if fig5_p:
-                st.image(str(fig5_p), caption="Fig 5: 2D Hyperparameter Sensitivity across Quantization Bits & Cache Tile Sizes", use_container_width=True)
+                st.image(str(fig5_p), caption="Fig 5: DerSimonian-Laird Random-Effects Forest Plot (Pooled Effect Size)", use_container_width=True)
             else:
                 st.info("ℹ️ Figure 5 vector graphic generated in workspace.")
 

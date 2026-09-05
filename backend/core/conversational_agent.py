@@ -78,7 +78,7 @@ class ExecutionPlan:
             "primary_venue": self.target_venue_name,
             "authorship": f"{self.context.author_name} ({'Double-Blind' if self.context.is_anonymous else self.context.affiliation})",
             "seeds": f"k = {self.context.num_seeds}",
-            "novelty_focus": self.context.novelty_points or ["Dynamic Block-Floating Quantization", "Stochastic Tile Caching"],
+            "novelty_focus": self.context.novelty_points or ["Task-Specific Inductive Architecture", "Multi-Seed Grounded Validation"],
             "stages_count": len(self.stages),
         }
 
