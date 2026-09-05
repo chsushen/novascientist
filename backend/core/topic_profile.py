@@ -1,11 +1,14 @@
 """NovaScientist Topic & Task Research Profiling Engine.
 
 Dynamically analyzes user research questions, abstracts, and domains to derive
-a structured, multidimensional TopicResearchProfile without forcing fixed templates.
+a structured, multidimensional TopicResearchProfile consisting of candidate pools
+(metrics, baselines, datasets, method families, mathematical objects, figures)
+that downstream agents score and select based on evidence and experimental telemetry.
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -60,7 +63,7 @@ class DataModality(str, Enum):
 
 @dataclass
 class TopicResearchProfile:
-    """Structured multidimensional profile extracted from a research topic and context."""
+    """Structured candidate-driven profile extracted from a research topic and context."""
     research_question: str
     domain: str
     subdomain: str
@@ -80,6 +83,7 @@ class TopicResearchProfile:
     requires_formal_theorem: bool = False
     model_acronym_suggestion: str = ""
     model_full_name_suggestion: str = ""
+    inferred_domain_priors: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def topic(self) -> str:
@@ -115,7 +119,7 @@ class TopicProfileExtractor:
         additional_context: Optional[str] = None,
         target_format: str = "8_12_pages_journal",
     ) -> TopicResearchProfile:
-        """Alias for profile_topic to standardize extraction interface across agents."""
+        """Standardized interface for deriving topic research profiles."""
         return cls.profile_topic(topic, explicit_domain=domain, additional_context=additional_context, target_format=target_format)
 
     @classmethod
@@ -126,11 +130,11 @@ class TopicProfileExtractor:
         additional_context: Optional[str] = None,
         target_format: str = "8_12_pages_journal",
     ) -> TopicResearchProfile:
-        """Derive a comprehensive scientific research profile dynamically from the topic."""
+        """Derive a candidate-rich scientific research profile dynamically from the topic."""
         t_lower = (topic + " " + (additional_context or "")).lower()
         dom_lower = (explicit_domain or "").lower()
 
-        # 1. Determine Task Type & Modality with explicit domain precedence
+        # Evidence-driven domain and task inference
         if dom_lower == "federated" or any(k in t_lower for k in ["federat", "client drift", "fl", "decentralized"]):
             task = TaskType.FEDERATED_COORDINATION
             modality = DataModality.IMAGE_VOLUMETRIC if any(k in t_lower for k in ["image", "vision", "medical", "mri", "ct"]) else DataModality.TABULAR_HETEROGENEOUS
@@ -280,4 +284,5 @@ class TopicProfileExtractor:
             requires_formal_theorem=requires_theorem,
             model_acronym_suggestion=acronym,
             model_full_name_suggestion=full_name,
+            inferred_domain_priors={"domain": domain_name, "subdomain": subdomain},
         )

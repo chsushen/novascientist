@@ -96,10 +96,14 @@ class ManuscriptPlanningAgent:
             target_page_min, target_page_max = 8, 12
             base_word_budget = 7500
 
-        has_theorem = theorem is not None and theorem.decision in [
-            TheoremDecisionType.THEOREM_REQUIRED,
-            TheoremDecisionType.PROPOSITION_LEMMA,
-        ]
+        has_theorem = (
+            theorem is not None
+            and theorem.decision in [
+                TheoremDecisionType.THEOREM_REQUIRED,
+                TheoremDecisionType.PROPOSITION_LEMMA,
+            ]
+            and getattr(theorem, "is_verified", False)
+        )
 
         sections: List[SectionPlanItem] = []
         fig_alloc: Dict[str, str] = {}

@@ -88,3 +88,181 @@ def test_anti_template_cross_topic_differentiation():
     nlp_titles = [f.title for f in figs_nlp]
     ts_titles = [f.title for f in figs_ts]
     assert nlp_titles != ts_titles
+
+
+def test_proposed_method_spec_task_grounded():
+    """Verify that proposed method specs are grounded in task characteristics."""
+    topic_nlp = "Parameter-Efficient Fine-Tuning with Low-Rank Tensor Adapters"
+    topic_ts = "Multivariate Spatiotemporal Forecasting for Epidemic Trajectories"
+
+    profile_nlp = TopicProfileExtractor.extract(topic_nlp, domain="nlp")
+    profile_ts = TopicProfileExtractor.extract(topic_ts, domain="time_series")
+
+    selector = DynamicBaselineSelector()
+    suite_nlp = selector.select_baselines(profile_nlp)
+    suite_ts = selector.select_baselines(profile_ts)
+
+    # Proposed method specs must exist and reflect task-specific components
+    assert suite_nlp.proposed_method_spec is not None
+    assert suite_ts.proposed_method_spec is not None
+    assert suite_nlp.proposed_method_spec.architecture_definition != suite_ts.proposed_method_spec.architecture_definition
+    assert suite_nlp.proposed_method_spec.loss_objective != suite_ts.proposed_method_spec.loss_objective
+    assert suite_nlp.proposed_method_spec.training_procedure != suite_ts.proposed_method_spec.training_procedure
+
+
+def test_literature_advisor_zero_doi_cycling_and_gap_extraction():
+    """Verify zero DOI cycling and evidence-grounded research gap synthesis."""
+    from backend.core.evidence_agent import EvidenceBundle, SourceRecord, ClaimRecord, EvidenceScope, VerificationStatus
+    from backend.core.topic_profile import TopicProfileExtractor
+
+    topic = "Multivariate Spatiotemporal Forecasting for Epidemic Trajectories"
+    profile = TopicProfileExtractor.extract(topic, domain="time_series")
+
+    # Create synthetic evidence with specific limitation claim
+    claim1 = ClaimRecord(
+        claim_id="clm_001",
+        source_id="src_001",
+        claim_text="Existing models suffer from compounding error accumulation over extended forecast horizons exceeding 12 steps.",
+        supporting_text="Existing models suffer from compounding error accumulation over extended forecast horizons exceeding 12 steps.",
+        supporting_location="abstract",
+        evidence_scope=EvidenceScope.ABSTRACT,
+        category="limitation",
+        verification_status=VerificationStatus.GROUNDED,
+    )
+    source1 = SourceRecord(
+        source_id="src_001",
+        title="Spatiotemporal Graph Neural Networks for Traffic Forecasting",
+        authors=["Yu et al."],
+        year=2018,
+        venue="IJCAI",
+        doi="10.5555/3304415.3304532",
+        url="https://doi.org/10.5555/3304415.3304532",
+        evidence_scope=EvidenceScope.ABSTRACT,
+        claims=[claim1],
+    )
+    evidence = EvidenceBundle(topic=topic, domain="time_series", sources=[source1], claims=[claim1])
+
+    advisor = LiteratureAdvisor()
+    report = advisor.synthesize(evidence, profile)
+
+    # 1. Research gaps must be extracted from the limitation claim with exact source_id and passage
+    assert len(report.candidate_gaps) > 0
+    gap = report.candidate_gaps[0]
+    assert "src_001" in gap.supporting_source_ids
+    assert "error accumulation" in gap.description.lower() or "horizon" in gap.description.lower()
+
+    # 2. Baseline selector with this report must NOT cycle src_001's DOI to unrelated baselines
+    selector = DynamicBaselineSelector()
+    suite = selector.select_baselines(profile, report)
+    for b in suite.baselines:
+        if "stgcn" in b.baseline_id.lower() or "graph" in b.name.lower():
+            # May be grounded
+            pass
+        else:
+            # Unrelated baselines must NOT have been assigned src_001's DOI via modulo cycling
+            assert getattr(b, "doi", None) != "10.5555/3304415.3304532" or b.is_corpus_grounded is True
+
+
+def test_mathematical_verification_engine_gate():
+    """Verify the independent mathematical verification engine and failure downgrade."""
+    from backend.core.math_agent import (
+        MathematicalVerificationEngine,
+        FormalTheorem,
+        MathematicalDecision,
+    )
+
+    engine = MathematicalVerificationEngine()
+
+    # Case A: Well-formed theorem
+    valid_theorem = FormalTheorem(
+        theorem_id="thm_001",
+        title="Error Bound Guarantee",
+        decision_type=MathematicalDecision.THEOREM_REQUIRED,
+        formal_objects=["\\mathcal{H}", "\\theta"],
+        assumptions=["Lipschitz continuity: \\|\\nabla f(x) - \\nabla f(y)\\| \\le L \\|x - y\\|."],
+        statement="Under the Lipschitz assumption, the error satisfies \\|e_t\\| \\le \\mathcal{O}(1/\\sqrt{T}).",
+        latex_statement=r"\begin{theorem}[\textbf{Error Bound}]" + "\n" + r"Under Lipschitz continuity, the error satisfies $\|e_t\| \le \mathcal{O}(1/\sqrt{T})$." + "\n" + r"\end{theorem}",
+        proof_steps=["By standard telescoping sums over $t=1,\\dots,T$, we obtain the bound."],
+        latex_proof=r"\begin{proof}" + "\n" + r"By standard telescoping sums, the result follows." + "\n" + r"\end{proof}",
+    )
+    is_valid, notes = engine.verify(valid_theorem)
+    assert is_valid is True
+    assert valid_theorem.is_verified is True
+    assert r"\begin{theorem}" in valid_theorem.to_latex()
+
+    # Case B: Malformed theorem with unbalanced braces
+    malformed_theorem = FormalTheorem(
+        theorem_id="thm_002",
+        title="Malformed Proof Statement",
+        decision_type=MathematicalDecision.THEOREM_REQUIRED,
+        assumptions=[],
+        statement=r"Convergence holds under \mathcal{O(1/T.",  # Unbalanced brace
+        latex_statement=r"\begin{theorem}{Unbalanced brace \textbf{test}\end{theorem}",
+    )
+    is_valid_malformed, notes_malformed = engine.verify(malformed_theorem)
+    assert is_valid_malformed is False
+    assert malformed_theorem.is_verified is False
+    # Unverified theorems must be downgraded to observation in LaTeX rendering
+    assert r"\noindent\textbf{Observation:}" in malformed_theorem.to_latex() or "% Unverified" in malformed_theorem.to_latex()
+
+
+def test_figure_provenance_and_cryptographic_data_hashing():
+    """Verify cryptographic SHA-256 data hashing and provenance across distinct tasks."""
+    import os
+    import shutil
+    from backend.core.figure_planner import FigurePlanningAgent
+    from backend.core.topic_profile import TopicProfileExtractor
+
+    topic_nlp = "Parameter-Efficient Low-Rank Adaptation for Large Models"
+    topic_ts = "Multivariate Spatiotemporal Forecasting for Epidemic Trajectories"
+
+    profile_nlp = TopicProfileExtractor.extract(topic_nlp, domain="nlp")
+    profile_ts = TopicProfileExtractor.extract(topic_ts, domain="time_series")
+
+    mock_metrics_nlp = {
+        "methods": {
+            "proposed_mb_qgt": {"mean_accuracy": 88.5, "mean_memory_mb": 72.0, "mean_latency_ms": 8.5},
+            "dense_baseline": {"mean_accuracy": 82.0, "mean_memory_mb": 340.0, "mean_latency_ms": 32.0},
+        }
+    }
+    mock_metrics_ts = {
+        "methods": {
+            "proposed_mb_qgt": {"mean_accuracy": 91.2, "mean_memory_mb": 45.0, "mean_latency_ms": 5.2},
+            "dense_baseline": {"mean_accuracy": 79.5, "mean_memory_mb": 210.0, "mean_latency_ms": 22.0},
+        }
+    }
+
+    fig_agent = FigurePlanningAgent()
+    out_dir_nlp = "./dist/test_figs_nlp_hash"
+    out_dir_ts = "./dist/test_figs_ts_hash"
+
+    figs_nlp = fig_agent.plan_figures(profile_nlp, mock_metrics_nlp, output_dir=out_dir_nlp)
+    figs_ts = fig_agent.plan_figures(profile_ts, mock_metrics_ts, output_dir=out_dir_ts)
+
+    res_nlp = fig_agent.generate_figures(figs_nlp, mock_metrics_nlp, profile_nlp, output_dir=out_dir_nlp)
+    res_ts = fig_agent.generate_figures(figs_ts, mock_metrics_ts, profile_ts, output_dir=out_dir_ts)
+
+    # Every planned figure must have a non-empty SHA-256 data hash
+    for f in figs_nlp:
+        assert len(f.data_hash) == 64
+        assert f.research_question_addressed is not None
+        assert f.output_filename in res_nlp
+
+    for f in figs_ts:
+        assert len(f.data_hash) == 64
+        assert f.research_question_addressed is not None
+        assert f.output_filename in res_ts
+
+    # Convergence / Pareto figures across distinct tasks must produce distinct data hashes
+    nlp_hashes = {f.figure_type.value: f.data_hash for f in figs_nlp}
+    ts_hashes = {f.figure_type.value: f.data_hash for f in figs_ts}
+
+    for ftype in nlp_hashes:
+        if ftype in ts_hashes:
+            assert nlp_hashes[ftype] != ts_hashes[ftype]
+
+    # Clean up test directories
+    shutil.rmtree(out_dir_nlp, ignore_errors=True)
+    shutil.rmtree(out_dir_ts, ignore_errors=True)
+
+

@@ -2,7 +2,7 @@
 
 Transforms raw retrieved literature sources into actionable, evidence-grounded
 research recommendations (canonical baselines, standard datasets, candidate research gaps,
-and methodological trade-offs) while preserving rigorous provenance and epistemic caution.
+and methodological trade-offs) without DOI cycling or template-driven gaps.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ class BaselineRecommendation:
     supporting_evidence: str
     selection_rationale: str
     category: str  # 'canonical_baseline', 'state_of_the_art', 'lightweight_ablation'
+    is_corpus_grounded: bool = True
 
 
 @dataclass
@@ -34,6 +35,8 @@ class ResearchGapCandidate:
     description: str
     epistemic_confidence: str  # 'candidate_gap', 'underexplored_in_retrieved_corpus', 'open_problem'
     supporting_citations: List[str] = field(default_factory=list)
+    supporting_source_ids: List[str] = field(default_factory=list)
+    supporting_passages: List[str] = field(default_factory=list)
     suggested_investigation: str = ""
 
 
@@ -94,62 +97,87 @@ class LiteratureAdvisor:
         evidence: EvidenceBundle,
         papers: List[PaperMetadata],
     ) -> LiteratureSynthesisReport:
-        """Synthesize literature into structured design guidelines with provenance."""
-        verified_dois = [p.doi for p in papers if p.doi]
-        source_titles = [p.title for p in papers]
+        """Synthesize literature into structured design guidelines with rigorous provenance."""
+        verified_papers = [p for p in papers if p.doi]
+        verified_dois = [p.doi for p in verified_papers if p.doi]
 
-        # Extract established concepts and common datasets from literature claims
+        # 1. Extract established concepts and common limitations from real claims
         established: List[str] = []
         limitations: List[str] = []
+        limitation_claims = []
+
         for s in evidence.sources:
             for c in s.claims:
                 if c.category in ("methodology", "background", "theory"):
                     established.append(f"{c.claim_text} ({s.title[:45]}...)")
-                elif c.category in ("limitation", "negative_result", "future_work"):
+                elif c.category in ("limitation", "negative_result", "future_work", "empirical"):
                     limitations.append(f"{c.claim_text} [{s.doi or 'Retrieved Source'}]")
+                    limitation_claims.append((s, c))
 
         if not established:
             established = [
-                f"Published literature in {profile.domain} establishes strong empirical foundations across standard benchmarks.",
-                f"Multi-seed evaluation protocols are widely recognized as essential to assess statistical significance in {profile.subdomain}.",
+                f"Published literature in {profile.domain} establishes empirical foundations across standard benchmarks.",
+                f"Multi-seed evaluation protocols are widely recognized as essential to assess statistical variance in {profile.subdomain}.",
             ]
 
-        if not limitations:
-            limitations = [
-                f"Prior work notes computational overhead and sample variance as recurring constraints in {profile.subdomain}.",
-                f"Generalization across heterogeneous data distributions remains challenging in current literature.",
-            ]
-
-        # Build candidate research gaps with cautious epistemic framing
-        gaps: List[ResearchGapCandidate] = [
-            ResearchGapCandidate(
+        # 2. Build candidate research gaps strictly from retrieved limitations and task scope
+        gaps: List[ResearchGapCandidate] = []
+        if limitation_claims:
+            for idx, (src, claim) in enumerate(limitation_claims[:3]):
+                gaps.append(ResearchGapCandidate(
+                    gap_id=f"gap_{idx+1:03d}",
+                    description=f"Literature limitation observed in {src.title[:40]}: '{claim.claim_text}' highlights an underexplored trade-off in {profile.subdomain}.",
+                    epistemic_confidence="underexplored_in_retrieved_corpus",
+                    supporting_citations=[src.doi] if src.doi else [src.title],
+                    supporting_source_ids=[src.source_id],
+                    supporting_passages=[claim.supporting_text or claim.claim_text],
+                    suggested_investigation=f"Evaluate adaptive {profile.model_acronym_suggestion or 'proposed'} architectural mechanisms addressing this boundary condition.",
+                ))
+        else:
+            gaps.append(ResearchGapCandidate(
                 gap_id="gap_001",
-                description=f"A candidate research gap appears underexplored in the retrieved literature regarding balancing {profile.primary_metric} with computational overhead in {profile.subdomain}.",
+                description=f"A candidate research gap exists in systematically quantifying {profile.primary_metric} retention across deterministic seeds under resource-constrained execution.",
                 epistemic_confidence="candidate_gap",
-                supporting_citations=verified_dois[:2] if verified_dois else ["Literature Survey Corpus"],
-                suggested_investigation=f"Evaluate adaptive formulations designed to maintain high {profile.primary_metric} under resource bounds.",
-            ),
-            ResearchGapCandidate(
-                gap_id="gap_002",
-                description=f"Empirical trade-offs across deterministic seeds for {profile.task_type.value.replace('_', ' ')} warrant systematic meta-analysis.",
-                epistemic_confidence="underexplored_in_retrieved_corpus",
-                supporting_citations=verified_dois[2:4] if len(verified_dois) > 2 else ["OpenAlex CrossRef Corpus"],
-                suggested_investigation="Quantify inter-seed variance and pooled effect size via DerSimonian-Laird random effects.",
-            ),
-        ]
+                supporting_citations=verified_dois[:2] if verified_dois else ["Retrieved Corpus"],
+                supporting_source_ids=[s.source_id for s in evidence.sources[:2]],
+                supporting_passages=[c.claim_text for c in evidence.claims[:2]] if evidence.claims else ["Corpus survey."],
+                suggested_investigation=f"Perform multi-seed comparative benchmarking against canonical {profile.subdomain} baselines.",
+            ))
 
-        # Build recommended baselines tailored to the topic
+        # 3. Grounded baseline selection without DOI cycling
         baselines: List[BaselineRecommendation] = []
         for idx, base_name in enumerate(profile.candidate_baselines):
             cat = "canonical_baseline" if idx == 0 else ("state_of_the_art" if idx == 1 else "lightweight_ablation")
-            doi_val = verified_dois[idx % len(verified_dois)] if verified_dois else None
+            
+            # Search if any retrieved paper matches this baseline keyword
+            matched_paper = None
+            base_tokens = set(re.findall(r"\w+", base_name.lower()))
+            for p in papers:
+                p_tokens = set(re.findall(r"\w+", p.title.lower()))
+                if len(base_tokens.intersection(p_tokens)) >= 2:
+                    matched_paper = p
+                    break
+
+            if matched_paper:
+                doi_val = matched_paper.doi
+                cite_key = matched_paper.bibkey
+                supp_ev = f"Retrieved literature citation: {matched_paper.title} ({matched_paper.year})."
+                grounded = True
+            else:
+                # Honestly declare unlinked baseline rather than fabricating/cycling a DOI
+                doi_val = None
+                cite_key = f"canonical_{idx+1:02d}"
+                supp_ev = f"Domain benchmark standard in {profile.subdomain}; specific primary source not in retrieved search window."
+                grounded = False
+
             baselines.append(BaselineRecommendation(
                 name=base_name,
-                citation_key=f"base_ref_{idx+1:02d}",
+                citation_key=cite_key,
                 doi=doi_val,
-                supporting_evidence=f"Widely cited comparative baseline in {profile.subdomain}.",
-                selection_rationale=f"Provides canonical benchmark grounding for {profile.task_type.value.replace('_', ' ')}.",
+                supporting_evidence=supp_ev,
+                selection_rationale=f"Selected as {cat.replace('_', ' ')} for {profile.task_type.value.replace('_', ' ')}.",
                 category=cat,
+                is_corpus_grounded=grounded,
             ))
 
         tradeoffs = [
