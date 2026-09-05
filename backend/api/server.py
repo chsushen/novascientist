@@ -90,7 +90,7 @@ def create_app(
         git_sha = ReproducibilityGenerator.get_git_sha()
         jobs = job_mgr.list_jobs()
         return {
-            "application": "NovaScientist v2.3",
+            "application": "NovaScientist v2.3.0",
             "git_sha": git_sha,
             "version": config.app_version,
             "active_jobs_count": len([j for j in jobs if j.state == JobState.RUNNING]),

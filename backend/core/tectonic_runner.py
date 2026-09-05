@@ -304,7 +304,7 @@ This research manuscript package is 100% self-contained and pre-configured for *
                 s1_box.text(0.0, 0.98, "I. INTRODUCTION & PROBLEM CONTEXT", fontsize=9.5, weight="bold")
                 s1_box.text(0.0, 0.92, intro_text[:1400] + ("..." if len(intro_text) > 1400 else ""), fontsize=7.5, color="#1E293B", wrap=True, va="top")
 
-                fig1.text(0.5, 0.03, f"Page 1 of {total_pages} — IEEE Transactions Publication Artifact (NovaScientist v2.3)", ha="center", fontsize=7.5, color="#64748B")
+                fig1.text(0.5, 0.03, f"Page 1 of {total_pages} — IEEE Transactions Publication Artifact (NovaScientist v2.3.0)", ha="center", fontsize=7.5, color="#64748B")
                 pdf.savefig(fig1, bbox_inches="tight")
                 plt.close(fig1)
 

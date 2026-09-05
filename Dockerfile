@@ -1,5 +1,5 @@
 # ==============================================================================
-# NovaScientist v2.3 — Production Multi-Stage Dockerfile
+# NovaScientist v2.3.0 — Production Multi-Stage Dockerfile
 # ==============================================================================
 
 FROM python:3.11-slim as base

@@ -125,3 +125,23 @@ def test_cli_help_and_subcommand_parsing():
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 0
+
+
+def test_version_consistency_and_release_config():
+    """Verify consistent v2.3.0 versioning across core configuration and server diagnostics."""
+    from backend.config import config
+    from backend.api.server import app
+    from fastapi.testclient import TestClient
+
+    assert config.app_version == "2.3.0"
+    
+    client = TestClient(app)
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["app_version"] == "2.3.0"
+
+    diag = client.get("/diagnostics")
+    assert diag.status_code == 200
+    assert diag.json()["version"] == "2.3.0"
+    assert "v2.3.0" in diag.json()["application"]
+

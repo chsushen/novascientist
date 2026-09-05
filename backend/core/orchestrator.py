@@ -142,7 +142,7 @@ class OrchestratorResult:
 
 
 class NovaScientistOrchestrator:
-    """Autonomous agentic research-to-publication engine for NovaScientist v2.1."""
+    """Autonomous agentic research-to-publication engine for NovaScientist v2.3.0."""
 
     def __init__(self, output_dir: str = "./dist", memory: Optional[ResearchMemory] = None) -> None:
         self.output_dir = Path(output_dir)

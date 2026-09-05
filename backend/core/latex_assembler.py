@@ -698,7 +698,7 @@ All empirical evaluations and multi-seed benchmarking routines are executed on a
 The computational complexity of the proposed framework scales with input cardinality and representation dimension $\mathcal{{O}}(N \cdot D)$, ensuring favorable asymptotic scaling relative to unconstrained architectures.
 
 \section{{Ethical Statement and AI-Assistance Acknowledgment}}
-In compliance with IEEE and ACM 2024+ authorship policies, the authors disclose that algorithmic tooling and automated compilation pipelines (NovaScientist v2) were utilized exclusively for experimental pipeline orchestration, LaTeX typesetting formatting, and numerical verification. All conceptual problem formulations, empirical baselines, and scientific interpretations were curated by the listed human author(s).
+In compliance with IEEE and ACM 2024+ authorship policies, the authors disclose that algorithmic tooling and automated compilation pipelines (NovaScientist v2.3.0) were utilized exclusively for experimental pipeline orchestration, LaTeX typesetting formatting, and numerical verification. All conceptual problem formulations, empirical baselines, and scientific interpretations were curated by the listed human author(s).
 
 \section{{Conclusion and Future Trajectories}}
 \label{{sec:conclusion}}

@@ -1,8 +1,8 @@
-"""NovaScientist v2.3: Autonomous Research Infrastructure & Scientific Intelligence.
+"""NovaScientist v2.3.0: Autonomous Research Infrastructure & Scientific Intelligence.
 
 Stage 1: Guided Chat & Research Scoping
 Stage 2: Human-in-the-Loop Theory & Plan Approval Gate
-Stage 3: Live Hardware PyTorch Execution & Training Visualizer
+Stage 3: Autonomous Experiment Execution & Telemetry Pipeline
 Stage 4: Publication Assembly, Vector Suite, & Overleaf Export
 """
 
@@ -20,9 +20,9 @@ import streamlit as st
 def get_git_revision() -> str:
     try:
         rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode("utf-8").strip()
-        return rev or "7c289d6"
+        return rev or "77beede"
     except Exception:
-        return "7c289d6"
+        return "77beede"
 
 from backend.core.conversational_agent import (
     ConversationalAgent,
@@ -49,7 +49,7 @@ from backend.core.venue_matcher import VenueMatcher
 
 # Streamlit Page Setup
 st.set_page_config(
-    page_title="NovaScientist v2.3: Autonomous Research Infrastructure",
+    page_title="NovaScientist v2.3.0: Autonomous Research Infrastructure",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -141,19 +141,19 @@ if "result" not in st.session_state:
     st.session_state.result = None
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        {"role": "assistant", "content": "Welcome to **NovaScientist v2.3**! Enter any research topic or problem hypothesis below to begin our interactive scoping pass."}
+        {"role": "assistant", "content": "Welcome to **NovaScientist v2.3.0**! Enter any research topic or problem hypothesis below to begin our interactive scoping pass."}
     ]
 
 # Sidebar
 with st.sidebar:
-    st.image("https://img.shields.io/badge/NovaScientist-v2.3_Evidence_First-8B5CF6?style=for-the-badge&logo=openai", use_container_width=True)
-    st.markdown(f"**Runtime Engine:** `v2.3 (Build {git_rev})`")
+    st.image("https://img.shields.io/badge/NovaScientist-v2.3.0_Evidence_First-8B5CF6?style=for-the-badge&logo=openai", use_container_width=True)
+    st.markdown(f"**Runtime Engine:** `v2.3.0 (Build {git_rev})`")
     st.markdown("### 🧭 Workspace Navigation")
     
     stage_names = {
         1: "1. Guided Scoping & Intent",
         2: "2. Theory & Plan Approval Gate",
-        3: "3. Hardware PyTorch Visualizer",
+        3: "3. Research Execution Pipeline",
         4: "4. Publication & Vector Suite",
     }
     for s_idx, s_name in stage_names.items():
@@ -173,7 +173,7 @@ with st.sidebar:
 
     st.markdown("---")
     with st.expander("🛠️ Technical Diagnostics", expanded=True):
-        st.markdown(f"**NovaScientist Version:** `v2.3`")
+        st.markdown(f"**NovaScientist Version:** `v2.3.0`")
         st.markdown(f"**Git SHA:** `{git_rev}`")
         st.markdown(f"**Research Engine:** `UniversalBenchmarkEngine` (Evidence-First)")
         st.markdown(f"**Contract Engine:** `Active (ScientificResearchContract)`")
@@ -182,7 +182,7 @@ with st.sidebar:
 
 
 # Top Header
-st.markdown("<div class='main-header'>🔬 NovaScientist v2.3</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-header'>🔬 NovaScientist v2.3.0</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-header'>Evidence-First Autonomous Scientific Research & IEEE Publication Engine</div>", unsafe_allow_html=True)
 
 
@@ -209,7 +209,7 @@ if st.session_state.current_stage == 1:
         exec_mode = st.selectbox(
             "Execution Mode:",
             options=[ExecutionMode.REAL_PYTORCH_TRAINING, ExecutionMode.FAST_MICROBENCHMARK],
-            format_func=lambda x: "Real PyTorch Multi-Seed Hardware Training" if x == ExecutionMode.REAL_PYTORCH_TRAINING else "Fast CPU Microbenchmarking",
+            format_func=lambda x: "Full Multi-Seed Empirical Execution" if x == ExecutionMode.REAL_PYTORCH_TRAINING else "Fast CPU Microbenchmarking",
             index=0,
         )
     with col_cfg3:
@@ -347,7 +347,7 @@ elif st.session_state.current_stage == 2:
 # STAGE 3: LIVE HARDWARE EXECUTION & TRAINING VISUALIZER
 # ========================================================
 elif st.session_state.current_stage == 3:
-    st.subheader("Stage 3: Live Hardware Execution & Training Visualizer")
+    st.subheader("Stage 3: Autonomous Experiment Execution & Telemetry Pipeline")
 
     plan: Optional[ExecutionPlan] = st.session_state.execution_plan
     if plan is None:
@@ -358,7 +358,7 @@ elif st.session_state.current_stage == 3:
     else:
         epochs_val = getattr(st.session_state, "epochs_count", 40)
         
-        st.write(f"Executing multi-seed training on **{dev_name}** across **k = {plan.context.num_seeds}** seeds...")
+        st.write(f"Executing multi-seed experiment pipeline on **{dev_name}** across **k = {plan.context.num_seeds}** seeds...")
 
         progress_bar = st.progress(0, text="Starting pipeline execution...")
         status_text = st.empty()
@@ -376,7 +376,7 @@ elif st.session_state.current_stage == 3:
             email=plan.context.email,
         )
 
-        with st.spinner("Training candidate neural architectures and assembling publication manuscript..."):
+        with st.spinner("Executing candidate neural architectures and assembling publication manuscript..."):
             active_contract = getattr(st.session_state, "contract", None)
             result: OrchestratorResult = asyncio.run(
                 orchestrator.execute(
@@ -393,7 +393,7 @@ elif st.session_state.current_stage == 3:
 
         st.session_state.result = result
         st.session_state.current_stage = 4
-        st.success("✓ Hardware training and publication assembly completed!")
+        st.success("✓ Autonomous research execution and publication assembly completed!")
         st.rerun()
 
 
@@ -550,8 +550,8 @@ elif st.session_state.current_stage == 4:
                 z_stat = meta.get("z_statistic", 0.0)
                 st.metric("Meta-Analysis Summary", f"+{eff_size*100:.2f}%", f"I² = {i_sq:.1f}% (Z = {z_stat:.2f})")
             else:
-                rep_status = "100% PASS" if stat_crit.get("passed", True) else "FLAGGED"
-                st.metric("Scientific Integrity", rep_status, "Contract Verified")
+                rep_status = "PASS" if stat_crit.get("passed", True) else "FLAGGED"
+                st.metric("Contract Validation", rep_status, "Contract Grounded")
 
         # Research Integrity Metrics Bar - sourced from validation report, evidence bundle & reviewer
         val_rep = getattr(result, "validation_report", {}) or {}

@@ -7,7 +7,7 @@
 ---
 
 ## 1. Overview
-This canonical demonstration encapsulates a complete, end-to-end autonomous research execution of NovaScientist v2.0. All empirical data, multi-seed training trajectories, statistical meta-analyses, evidence claims, peer review reports, and publication assets were generated and verified without synthetic stubs or artificial success multipliers.
+This canonical demonstration encapsulates a complete, end-to-end autonomous research execution of NovaScientist. All empirical data, multi-seed training trajectories, statistical meta-analyses, evidence claims, peer review reports, and publication assets were generated and verified without synthetic stubs or artificial success multipliers.
 
 ---
 

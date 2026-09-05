@@ -49,7 +49,7 @@ uvicorn backend.api.server:app --host 0.0.0.0 --port 8000 --workers 4
 
 ### Starting the Streamlit Frontend
 ```bash
-streamlit run streamlit_app.py --server.port 8501
+streamlit run app.py --server.port 8501
 ```
 
 ---

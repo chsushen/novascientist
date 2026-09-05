@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-NovaScientist v2.0 CLI: Interactive Autonomous Research & Publication Agent.
+NovaScientist v2.3.0 CLI: Interactive Autonomous Research & Publication Infrastructure.
 
-Supports interactive requirement-gathering chat, real PyTorch hardware training,
-5-figure vector plotting suite, and full 8-12 page IEEE Transactions journal synthesis.
+Supports interactive requirement-gathering chat, empirical multi-seed execution,
+domain-adaptive vector plotting, and full 8-12 page IEEE Transactions manuscript synthesis.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ async def execute_research_pipeline(
     output_dir: str = "./dist",
     output_pdf: Optional[str] = None,
 ) -> OrchestratorResult:
-    """Execute the full v2.0 multi-agent research-to-publication pipeline via orchestrator."""
+    """Execute the full v2.3.0 multi-agent research-to-publication pipeline via orchestrator."""
     author = AuthorProfile(name=author_name, affiliation=affiliation, email=email)
     orchestrator = NovaScientistOrchestrator(output_dir=output_dir)
 
@@ -236,7 +236,7 @@ def interactive_chat_mode() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="NovaScientist v2.0: Interactive Autonomous Research & Hardware Benchmarking Agent."
+        description="NovaScientist v2.3.0: Interactive Autonomous Research & Publication Infrastructure."
     )
     parser.add_argument("--interactive", "-i", action="store_true", help="Launch interactive conversational prompt session.")
     parser.add_argument("--benchmark", action="store_true", help="Execute reproducible agentic evaluation benchmark suite.")
