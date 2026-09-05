@@ -314,14 +314,20 @@ bounded under low-bit dynamic scaling factors.""",
         cite_secondary = cite_keys[1] if len(cite_keys) > 1 else cite_primary
         cite_tertiary = cite_keys[2] if len(cite_keys) > 2 else cite_secondary
 
-        proposed_model_name = self.proposed.get('name', 'Memory-Bounded Dynamic Neural Surrogate').split('(')[0].strip()
-        dense_model_name = self.dense.get('name', 'Standard Dense Baseline').split('(')[0].strip()
-        int8_model_name = self.int8.get('name', 'Static INT8 Quantized Model').split('(')[0].strip()
-        sparse_model_name = self.sparse.get('name', 'Dynamic Sparsified Surrogate').split('(')[0].strip()
-
         contract = self.contract
         stat_req = contract.statistical_requirement if contract else StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS
         math_dec = contract.mathematical_requirement if contract else MathematicalTreatmentDecision.FORMAL_THEOREM
+
+        if contract and contract.selected_baselines:
+            dense_model_name = contract.selected_baselines[0]
+            int8_model_name = contract.selected_baselines[1] if len(contract.selected_baselines) > 1 else "Canonical Benchmark Model"
+            sparse_model_name = contract.selected_baselines[2] if len(contract.selected_baselines) > 2 else "Ablation Baseline"
+            proposed_model_name = contract.selected_method
+        else:
+            proposed_model_name = self.proposed.get('name', 'Memory-Bounded Dynamic Neural Surrogate').split('(')[0].strip()
+            dense_model_name = self.dense.get('name', 'Standard Dense Baseline').split('(')[0].strip()
+            int8_model_name = self.int8.get('name', 'Static INT8 Quantized Model').split('(')[0].strip()
+            sparse_model_name = self.sparse.get('name', 'Dynamic Sparsified Surrogate').split('(')[0].strip()
 
         if stat_req == StatisticalAnalysisType.RANDOM_EFFECTS_META_ANALYSIS:
             abstract_stat = rf"We synthesize empirical fold distributions through a formal DerSimonian-Laird random-effects meta-analysis, yielding a pooled summary effect size of \textbf{{+{pooled_es:.2f}\%}} [95\% CI: {ci_lo:.2f}\%, {ci_hi:.2f}\%] with heterogeneity index $I^2 = {i_sq:.1f}\%$ and statistical significance $p < 10^{{-4}}$."
@@ -528,10 +534,10 @@ The execution pipeline enforces strict pre-split isolation and evaluates the pro
 \subsection{{Experimental Setup and Baselines}}
 All empirical evaluations and multi-seed benchmarking routines are executed on a dedicated physical \textbf{{{cpu_model}}} processor ({cpu_cores} physical cores, {arch} architecture, {total_ram:.1f}\,GB host memory) under strict working memory constraints. Benchmark evaluations are conducted on the canonical \textbf{{{dataset_name_latex}}} dataset~\cite{{{dataset_cite}}}, containing $N = {self.dataset.sample_count:,}$ samples ({dataset_dim_latex}) partitioned into {dataset_splits_latex}. Specifically, {dataset_desc_latex} We benchmark four primary candidate architectures:
 \begin{{enumerate}}
-    \item \textbf{{{dense_model_name}}}: Standard uncompressed FP32 baseline utilizing full-precision tensor operations.
-    \item \textbf{{{int8_model_name}}}: Static post-training integer quantized model with uniform clamp thresholds.
-    \item \textbf{{{sparse_model_name}}}: Dynamic sparsified architecture employing magnitude-based weight pruning.
-    \item \textbf{{{proposed_model_name}}}: Proposed memory-bounded architecture with dynamic tile quantization.
+    \item \textbf{{{dense_model_name}}}: Canonical foundational baseline evaluated under standard configurations.
+    \item \textbf{{{int8_model_name}}}: Representative candidate baseline architecture for comparative benchmarking.
+    \item \textbf{{{sparse_model_name}}}: Alternative structural baseline evaluating generalization capability.
+    \item \textbf{{{proposed_model_name}}}: Proposed framework engineered for robust representation learning on {domain_name_latex}.
 \end{{enumerate}}
 
 \begin{{table*}}[htbp]
